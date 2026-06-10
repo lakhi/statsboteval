@@ -32,8 +32,3 @@ move durable answers into the relevant doc) as they resolve.
       including transient Azure OpenAI processing for classification.
 - [ ] Course-records linkage for milestone 2: which records exist (enrollment/withdrawal,
       questionnaires), who provides them, on what key, in what format?
-
-## Team / publication
-
-- [ ] May this repo go public (thesis reproducibility) — co-authors OK with the abstract and
-      consent addendum being visible before MEi:CogSci 2026?

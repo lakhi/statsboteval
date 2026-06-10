@@ -60,3 +60,8 @@ circulation; auth designed to be added later.
 **D-14 · Docs in repo.** Abstract as Markdown + canonical PDF; consent addendum PDF + extracted
 constraints; source data dictionary; Bergmann framework reference; this log; open questions.
 The ZID presentation (3.9 MB ODP) is linked, not committed. No data files, ever.
+
+**D-15 · Repo is public on GitHub.** Published at https://github.com/lakhi/statsboteval for
+thesis reproducibility. The committed PDFs are public-facing documents already (the abstract
+is a conference submission; the consent addendum is shown to every student at registration).
+The no-data-in-git rule (D-14, `ethics/data-handling.md`) is what makes public visibility safe.
