@@ -1,0 +1,40 @@
+# --- DATA MUST NEVER ENTER THIS REPO (see docs/ethics/data-handling.md) ---
+# Real student data is excluded by type and by directory. Synthetic test
+# fixtures may be force-added consciously (git add -f) after review.
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.xlsx
+*.jsonl
+data/
+dumps/
+exports/
+corpus/
+
+# secrets / env
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# future Python tooling
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# future Angular tooling
+node_modules/
+dist/
+.angular/
