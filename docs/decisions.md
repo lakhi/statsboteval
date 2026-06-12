@@ -65,3 +65,46 @@ The ZID presentation (3.9 MB ODP) is linked, not committed. No data files, ever.
 thesis reproducibility. The committed PDFs are public-facing documents already (the abstract
 is a conference submission; the consent addendum is shown to every student at registration).
 The no-data-in-git rule (D-14, `ethics/data-handling.md`) is what makes public visibility safe.
+
+## 2026-06-12 — decision review session (full D-01…D-15 re-validation with Claude Code)
+
+All founding decisions were re-examined with rationale. Twelve stand unchanged; the entries
+below record the changes, plus two new facts that reshaped the plan: direct MySQL access to
+the production DB exists, and milestone 1 build order was chosen.
+
+**D-16 · Bergmann framework reference is local-only until their study is published.**
+(Amends D-14/D-15.) `docs/bergmann-framework.md` distills the team's work-in-progress study
+document and contains unpublished results (validation MCCs, rater scores, descriptives,
+theme counts) — publishing them in a public repo before the team's paper was an oversight.
+Removed from git history (`git filter-repo`, force-pushed 2026-06-12; repo had no forks),
+kept locally, excluded via `.gitignore`. Restore to the repo after their publication.
+
+**D-17 · Local corpus DB = DuckDB.** (Supersedes D-06.) The workload is single-writer,
+weekly-batch, scan-and-aggregate — embedded OLAP territory, not client–server OLTP. DuckDB
+makes the corpus one file on the FileVault-encrypted disk (the cleanest reading of the
+consent's "password-protected local storage medium"), removes the Docker-daemon dependency
+from every local run, and hands query results zero-copy to pandas for milestone 2. Plain
+numbered `.sql` migrations replace alembic. D-06's "pattern reuse" rationale actually
+belongs to the cloud deployment (FastAPI/Docker/Azure), which is unaffected — cloud-side
+StatsBotEval has no database at all (D-10).
+
+**D-18 · API-tier rationale corrected; aggregates blob is private.** (Amends D-11/D-10.)
+The strongest reason for the FastAPI tier is not skill match but that it is the future
+**auth boundary** (D-12 plans auth later; a static-SPA-reads-blob design would need the API
+retrofitted then anyway) and the stable contract while the blob format evolves. Accordingly
+the blob is kept private with the API reading via connection string — more restrictive than
+D-10's public-by-URL allowance; only the dashboard URL is public.
+
+**D-19 · Milestone 1 build order = walking skeleton.** Chosen over pipeline-first and
+dashboard-first: define the aggregates contract, push one synthetic metric end-to-end
+through pipeline → blob → API → SPA deployed on Azure early, then widen metric by metric.
+Retires deployment/integration risk first and produces a demo URL for team feedback from
+the start. Plan: `docs/plans/2026-06-12-milestone-1-phase-a.md`.
+
+**D-20 · Weekly extract = scripted direct-MySQL pull with in-flight pseudonymization.**
+(Refines D-03/D-05; resolves the export-capability open question.) A direct MySQL
+connection to the production DB exists, so the extract is scripted: incremental by
+`history.id` watermark, HMAC applied in-flight — raw identifiers flow from MySQL through
+memory into the pseudonym and are never persisted locally. The corpus is therefore fully
+reproducible from the source DB until the mid-2027 export deadline, which also lowers the
+stakes on pepper rotation (worst case: re-ingest).

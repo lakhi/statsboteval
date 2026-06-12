@@ -86,9 +86,10 @@ with these tools in German as well as English.
 
 ## Notes relative to the abstract (current design)
 
-- "Real time" has been reinterpreted as a **weekly batch refresh** (decision D-13 in
+- "Real time" has been reinterpreted as a **weekly batch refresh** (decision D-03 in
   `decisions.md`) — educators check the dashboard week over week.
 - The Bergmann et al. framework codes at the **message level**, not the conversation level as
-  the abstract's wording suggests; see `bergmann-framework.md`.
+  the abstract's wording suggests; see `bergmann-framework.md` (a local-only reference until
+  the team's study is published — decision D-16).
 - Related resources: OSF project folder https://osf.io/v8ydk/ (referenced by the informed
   consent and the Bergmann study).

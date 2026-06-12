@@ -33,10 +33,14 @@ disagree, the PDF wins.
 3. **Transient LLM processing is permitted, cloud storage is not.** Sending message text to
    Azure OpenAI for classification matches already-consented practice (StatsBot itself, and
    the Bergmann study's GPT-based coding); persisting message text cloud-side does not.
-4. **Pseudonymization mechanism:** pseudonym = HMAC(uid, secret pepper). Deterministic, so
-   pseudonyms are stable across weekly pipeline runs without a stored mapping table.
-   Re-identification requires the pepper. *Pepper custody: to be fixed with the coordinating
-   team (placeholder — see `../open-questions.md`).*
+4. **Pseudonymization mechanism:** pseudonym = HMAC(uid, secret pepper), with `uid`
+   normalized (trim + lowercase) before hashing. Deterministic, so pseudonyms are stable
+   across weekly pipeline runs without a stored mapping table. Re-identification requires
+   the pepper. Pseudonymization is applied **in-flight** during extraction (decision D-20):
+   direct identifiers flow from the source MySQL DB through pipeline memory into the HMAC
+   and are never persisted on the local medium — only pseudonymized rows are stored.
+   *Pepper custody: to be fixed with the coordinating team (placeholder — see
+   `../open-questions.md`).*
 5. **Erasure procedure** (requests via daniel.reiter@univie.ac.at, until end of July 2027):
    compute HMAC(uid) for the requesting student, delete all corpus rows with that pseudonym,
    re-run aggregation, republish. Document each request's completion date.
@@ -46,6 +50,19 @@ disagree, the PDF wins.
    - End of 2027 — anonymize the corpus, publish the anonymized dataset (OSF), permanently
      delete the pseudonymized corpus. The pipeline should eventually implement this
      anonymize-and-export step.
+
+## Accepted residual risk — repeated releases
+
+Published aggregate file versions are retained (decision D-10), so consecutive weekly
+versions can be **differenced**: a cell that grows from one week to the next reveals an
+increment that may cover fewer than N students, even though every published cell
+individually passes the privacy floor. This is the standard "repeated releases" limitation
+in statistical disclosure control. It is **accepted, not overlooked**: the published cells
+are non-identifying usage aggregates (topic counts, temporal patterns, language shares) —
+learning that a small number of unnamed students contributed to a cell's weekly increment
+identifies no one and exposes no sensitive attribute. Remedies (rounding, perturbation,
+cumulative-increment suppression) would cost accuracy disproportionate to this risk.
+Reassess if cell semantics ever become more sensitive than usage statistics.
 
 ## Repo policy
 

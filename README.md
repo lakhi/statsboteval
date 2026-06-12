@@ -10,8 +10,11 @@ March 2025, and surfaces aggregated, non-identifying insights to educators throu
 ## Layout
 
 - `docs/` — research context (abstract), ethics constraints, source data dictionary,
-  classification framework, decision log, open questions
+  decision log, open questions, implementation plans (`docs/plans/`)
 - `CLAUDE.md` — working instructions for AI-assisted development
+
+(The Bergmann et al. classification-framework reference is kept local-only until the
+underlying study is published — see decision D-16 in `docs/decisions.md`.)
 
 ## Data
 

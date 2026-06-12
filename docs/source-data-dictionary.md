@@ -14,7 +14,7 @@ Only these two tables are research-relevant; the database's other tables (`users
 | column | type | notes |
 |---|---|---|
 | `id` | bigint PK | referenced by `history.student_id` |
-| `uid` | string | u:account ID from Shibboleth — **direct identifier**; pseudonymization input |
+| `uid` | string | u:account ID from Shibboleth — **direct identifier**; pseudonymization input (normalize — trim + lowercase — before HMAC, or pseudonyms silently fork) |
 | `firstname` | string | from Shibboleth `givenName` — **direct identifier**; stripped in ETL |
 | `lastname` | string | from Shibboleth `sn` — **direct identifier**; stripped in ETL |
 | `matnr` | string | matriculation number — **direct identifier**. ⚠️ In the schema and named in the consent, but **never written by any code path in the repo snapshot** (neither register route nor middleware). Prod may differ — unresolved, see `open-questions.md`. Natural key for milestone-2 course-record linkage. |
@@ -35,7 +35,7 @@ Only these two tables are research-relevant; the database's other tables (`users
 | `prompt_tokens` | int | ⚠️ counts the **entire re-sent conversation context**, not just the new message — it grows over a session. Not a message-size metric. |
 | `completion_tokens` | int | tokens in the reply |
 | `total_tokens` | int | prompt + completion; what gets deducted from `token_left` |
-| `started` | bigint | **client-side `Date.now()` (epoch ms) generated when the student clicks "new chat"; doubles as the session/conversation ID** — all rows sharing a `started` value form one dialog. Client clock, may be skewed. |
+| `started` | bigint | **client-side `Date.now()` (epoch ms) generated when the student clicks "new chat"; doubles as the session/conversation ID** — all rows of one student sharing a `started` value form one dialog. Not globally unique: the session key is **(`student_id`, `started`)**. Client clock, may be skewed. |
 | `created_at` | timestamp | server-side receive time — **the reliable clock for temporal analysis** |
 
 ## Behavioral facts that shape analysis (verified in code)
@@ -50,9 +50,10 @@ Only these two tables are research-relevant; the database's other tables (`users
   (frontend `data.service.ts`) — it never appears in `history`.
 - The full prior conversation is re-sent to the model each turn, but only the newest exchange
   is persisted as a row.
-- StatsBotEval treats **one `started` session as one conversation** (decision D-08). Note the
-  Bergmann study instead reconstructed sequences via student + time; definitions must be
-  stated when comparing numbers.
+- StatsBotEval treats **one `started` session as one conversation** (decision D-08), keyed by
+  (`student_id`, `started`) — `started` alone is a client-generated timestamp and could in
+  principle collide across students. Note the Bergmann study instead reconstructed sequences
+  via student + time; definitions must be stated when comparing numbers.
 
 ## Scale reference
 

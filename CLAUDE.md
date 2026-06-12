@@ -13,8 +13,11 @@ insights to educators.
 Three milestones: (1) educator-facing dashboard, (2) exploratory ML analysis (GBDT + SHAP vs
 course performance), (3) master's thesis. See `docs/research-context.md`.
 
-**Current status: planning/documentation stage.** No application code exists yet. Phase A/B
-implementation requires the answers in `docs/open-questions.md` and an approved spec first.
+**Current status: planning stage, milestone 1 plan approved.** No application code exists
+yet. The M1 Phase A plan lives at `docs/plans/2026-06-12-milestone-1-phase-a.md` (walking
+skeleton, synthetic fixtures first). Nothing in `docs/open-questions.md` blocks Phase A
+development; the items there gate real-data go-live (Daniel), thesis interpretation
+(Wolfgang), and Phase B (Leonardo handover).
 
 ## Binding constraints — read before any data-touching work
 
@@ -31,23 +34,26 @@ From the informed-consent addendum (`docs/ethics/informed-consent-addendum.pdf`,
 4. Data lifecycle deadlines (deletion window until end of July 2027, anonymize-and-publish to
    OSF afterwards) are documented in `docs/ethics/data-handling.md`.
 
-## Planned architecture (agreed 2026-06-10, see docs/decisions.md)
+## Planned architecture (agreed 2026-06-10, amended 2026-06-12, see docs/decisions.md)
 
 ```
-LOCAL (password-protected machine)                 AZURE (public by URL)
-weekly Python batch pipeline:                      Blob: versioned aggregates file
-  extract → pseudonymize HMAC(uid, pepper)         FastAPI aggregates API
-  → Postgres-in-Docker corpus → classify           Angular SPA dashboard (English)
-  (Bergmann prompts, versioned labels)             — no chat text exists cloud-side
-  → aggregate + privacy floor → publish to Blob
+LOCAL (password-protected machine)                 AZURE (dashboard public by URL)
+weekly Python batch pipeline:                      Blob: versioned aggregates file (private)
+  extract (direct MySQL, in-flight                 FastAPI aggregates API (reads blob;
+  pseudonymize HMAC(uid, pepper))                    future auth boundary)
+  → DuckDB corpus (one file, encrypted             Angular SPA dashboard (English)
+  disk) → classify (Bergmann prompts,              — no chat text exists cloud-side
+  versioned labels) → aggregate +
+  privacy floor → publish to Blob
 ```
 
 - Deployment pattern follows `~/Developer/uni-studAsst-projects/ai_agents_ws/api-apps/health-research-agent-api`
   (FastAPI, Docker, `.env.local`/`.env.azure` switching, ruff/mypy/pytest).
 - Classification labels are versioned (`bergmann-v1` imported, `statsboteval-v1` from our
   pipeline); the dashboard reads one configured version.
-- A "conversation" = one `started` session (StatsBot's app-native grouping; see
-  `docs/source-data-dictionary.md` for `started` semantics and other source-schema gotchas).
+- A "conversation" = one `started` session, keyed by (`student_id`, `started`) (StatsBot's
+  app-native grouping; see `docs/source-data-dictionary.md` for `started` semantics and
+  other source-schema gotchas).
 
 ## Conventions
 
