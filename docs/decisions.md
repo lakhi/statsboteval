@@ -108,3 +108,14 @@ connection to the production DB exists, so the extract is scripted: incremental 
 memory into the pseudonym and are never persisted locally. The corpus is therefore fully
 reproducible from the source DB until the mid-2027 export deadline, which also lowers the
 stakes on pepper rotation (worst case: re-ingest).
+
+## 2026-06-19 — Bergmann materials review
+
+**D-21 · Bergmann source-of-truth hierarchy.** (Refines D-16.) The team's work-in-progress
+results manuscript is the canonical source for every Bergmann-derived fact in this repo; the
+OSF Stage-1 registered-report PDFs are an earlier, superseded artifact (they predate the final
+model, sample, and production-codebook decisions) and must not be relied on for those details.
+The reconciliation, the verbatim coding prompts, and the canonical-source pointer all live in
+the git-ignored local docs `bergmann-framework.md` and `bergmann-prompts.md` (kept local per
+D-16). Two open handover items remain (message join key; bachelor/master mapping source); the
+exact prompts and OSF review are now closed (`open-questions.md`).

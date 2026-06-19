@@ -36,17 +36,26 @@ Answerable directly over the MySQL connection; fold results into
 
 - [ ] **Model timeline** (Wolfgang/ZID): which Azure deployment/model served StatsBot from
       March 2025 onward, with change dates? (No per-row model column — must be
-      reconstructed externally.)
+      reconstructed externally.) *Per project owner (2026-06-19): StatsBot has run on GPT-4o
+      since early 2025 to date; a GPT-5 upgrade is planned but not yet executed. Still need the
+      exact Azure deployment ID(s) from ZID for the write-up.*
 - [ ] **System prompt** (Wolfgang/ZID): does the Azure deployment bake in a persona/system
       prompt, or did students talk to a vanilla model? (App code sends none.)
 
 ## Phase B gates — Leonardo / Bergmann study handover (deferred until after Phase A)
 
-- [ ] Exact GPT coding prompts (deductive + inductive) and any harness code.
+- [x] **Exact GPT coding prompts** (deductive + inductive) — obtained 2026-06-19 from the OSF
+      Stage-1 bundle; captured locally and summarized in `bergmann-framework.md`. (Harness =
+      OpenAI API + the team's R evaluation scripts.)
+- [x] **Access to the OSF folder** (https://osf.io/v8ydk/) materials — reviewed 2026-06-19.
+      Note: the OSF *manuscript PDFs* are an outdated Stage-1 artifact; the team's working doc
+      is the source of truth (see `bergmann-framework.md` → "Source of truth & provenance").
+- [x] **Inductive theme lists frozen or evolving?** — finalized in the team's working results
+      draft; treat as frozen pending publication.
 - [ ] The coded dataset, and **what identifies a message** in it (ideally `history.id`).
-- [ ] Source of the bachelor/master mapping used in the study.
-- [ ] Access to the OSF folder (https://osf.io/v8ydk/) materials.
-- [ ] Are the inductive theme lists frozen, or still evolving toward publication?
+- [ ] Source of the bachelor/master program-level mapping used in the study (the split is a
+      core result, but how students are mapped to bachelor/master/other is not yet documented
+      for us).
 
 ## Milestone 2 gates
 
