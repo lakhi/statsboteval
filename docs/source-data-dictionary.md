@@ -52,8 +52,10 @@ Only these two tables are research-relevant; the database's other tables (`users
   is persisted as a row.
 - StatsBotEval treats **one `started` session as one conversation** (decision D-08), keyed by
   (`student_id`, `started`) — `started` alone is a client-generated timestamp and could in
-  principle collide across students. Note the Bergmann study instead reconstructed sequences
-  via student + time; definitions must be stated when comparing numbers.
+  principle collide across students. The Bergmann Stage-2 manuscript confirms their extract
+  carried this same key ("chat ID", context variable 3) and that they reconstructed chats
+  with it — their conversation definition and ours coincide, so per-chat numbers (e.g.
+  messages/chat: master 2.5, bachelor 1.8) are directly comparable.
 
 ## Scale reference
 
