@@ -21,6 +21,10 @@ Answerable directly over the MySQL connection; fold results into
       stored.) `SELECT COUNT(*) FROM students WHERE matnr IS NOT NULL AND matnr <> ''` etc.
 - [ ] **Data volume now:** current counts of students / sessions (distinct
       (`student_id`,`started`)) / messages.
+- [ ] **Program-level source:** the Bergmann extract carried a per-student `Status`
+      column (`Bachelorstudent`/`Masterstudent`/`Other`) — check whether any prod table
+      holds it (neither documented research table does), else it came from outside the DB
+      (→ Daniel item below).
 
 ## Go-live gates — required before the first real-data publish (not before development)
 
@@ -37,25 +41,42 @@ Answerable directly over the MySQL connection; fold results into
 - [ ] **Model timeline** (Wolfgang/ZID): which Azure deployment/model served StatsBot from
       March 2025 onward, with change dates? (No per-row model column — must be
       reconstructed externally.) *Per project owner (2026-06-19): StatsBot has run on GPT-4o
-      since early 2025 to date; a GPT-5 upgrade is planned but not yet executed. Still need the
-      exact Azure deployment ID(s) from ZID for the write-up.*
+      since early 2025 to date; a GPT-5 upgrade is planned but not yet executed. The public
+      Stage-2 manuscript (2026-06-30) confirms GPT-4o for Mar–Jun 2025 in print. Still need
+      the exact Azure deployment ID(s) from ZID for the write-up.*
 - [ ] **System prompt** (Wolfgang/ZID): does the Azure deployment bake in a persona/system
       prompt, or did students talk to a vanilla model? (App code sends none.)
 
 ## Phase B gates — Leonardo / Bergmann study handover (deferred until after Phase A)
 
-- [x] **Exact GPT coding prompts** (deductive + inductive) — obtained 2026-06-19 from the OSF
-      Stage-1 bundle; captured locally and summarized in `bergmann-framework.md`. (Harness =
-      OpenAI API + the team's R evaluation scripts.)
-- [x] **Access to the OSF folder** (https://osf.io/v8ydk/) materials — reviewed 2026-06-19.
-      Note: the OSF *manuscript PDFs* are an outdated Stage-1 artifact; the team's working doc
-      is the source of truth (see `bergmann-framework.md` → "Source of truth & provenance").
-- [x] **Inductive theme lists frozen or evolving?** — finalized in the team's working results
-      draft; treat as frozen pending publication.
-- [ ] The coded dataset, and **what identifies a message** in it (ideally `history.id`).
-- [ ] Source of the bachelor/master program-level mapping used in the study (the split is a
-      core result, but how students are mapped to bachelor/master/other is not yet documented
-      for us).
+*2026-07-02: the Stage-2 final manuscript, full coded dataset, production prompts, and R
+scripts are now public on OSF (https://osf.io/v8ydk/), and the raw 1,400 messages on Zenodo
+(https://doi.org/10.5281/zenodo.20827020) — most handover items resolved themselves.*
+
+- [x] **Exact GPT coding prompts** (deductive + inductive) — deductive obtained 2026-06-19
+      from the OSF Stage-1 bundle; production *inductive* prompts (with final frozen theme
+      lists inline) public since 2026-06-20 in the Stage-2 folder. Captured locally in
+      `bergmann-prompts.md`.
+- [x] **Access to the OSF folder** (https://osf.io/v8ydk/) materials — reviewed 2026-06-19,
+      re-reviewed 2026-07-02 after the Stage-2 upload. The Stage-2 manuscript + data folder
+      are now the source of truth (see `bergmann-framework.md` → "Source of truth &
+      provenance"); the Stage-1 PDFs remain outdated.
+- [x] **Inductive theme lists frozen or evolving?** — frozen and public (inline in the
+      Stage-2 prompt `.odt`s and as `*_themes.csv`).
+- [x] **The coded dataset and what identifies a message** — public
+      (`full_dataset.csv`/`merged_data.csv`, Stage-2 folder); `id` = `history.id` (matches
+      the manuscript's "consecutive message ID" and the `history` column set). Verify on
+      import against `sent`/timestamps.
+- [ ] **Bachelor/master mapping — residual** (Daniel/coordinators): the study got a
+      per-student `Status` column with the coordinators' extract ("Other" = pre/postdocs).
+      How is it derived, and how does our weekly extract reproduce it? (Also a recon query
+      above.)
+- [ ] **Declarative Statement production prompt** (Leonardo): the public deductive prompt
+      file contains only 12 of 13 codebook blocks — Declarative Statement is missing
+      (interim: manuscript Table 1 definition).
+- [ ] **Production repetition protocol** (Leonardo): the Stage-2 manuscript documents
+      repetition/majority voting only for the pilot (3×); nothing stated for the production
+      GPT-5 runs — confirm single-run vs repeated before exact `bergmann-v1` replication.
 
 ## Milestone 2 gates
 

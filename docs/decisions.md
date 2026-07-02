@@ -119,3 +119,20 @@ The reconciliation, the verbatim coding prompts, and the canonical-source pointe
 the git-ignored local docs `bergmann-framework.md` and `bergmann-prompts.md` (kept local per
 D-16). Two open handover items remain (message join key; bachelor/master mapping source); the
 exact prompts and OSF review are now closed (`open-questions.md`).
+
+## 2026-07-02 — Bergmann Stage-2 release review
+
+**D-22 · Bergmann canon = the public Stage-2 OSF/Zenodo release.** (Supersedes D-21's
+working-doc canon.) On 2026-06-30 the team published the PCI RR **Stage 2 Full Manuscript
+(final)** and a complete "Stage 2 - R Code and Data" folder (coded dataset, final theme
+lists, production inductive prompts, analysis scripts) at https://osf.io/v8ydk/, plus the
+raw 1,400 chat messages on Zenodo (https://doi.org/10.5281/zenodo.20827020, open access).
+The working Google Doc — the draft of this manuscript — is retired as a source. All local
+Bergmann docs were re-reconciled against the release; corrections of record: 182 users (not
+192), study window 2025-03-15→2025-06-30, bachelor onboarding 2025-05-16, delivered labels
+are 300 human-consensus + 1,100 GPT-5 rows. The former handover items (coded dataset, join
+key = `history.id`, theme lists) resolved themselves via the public release; the remaining
+Bergmann asks are narrower (`open-questions.md`). **Flag for next decision review:** D-16
+keeps `bergmann-framework.md` local "until their study is published" — the results are now
+public on OSF/Zenodo but the paper awaits formal PCI RR recommendation; decide whether the
+doc returns to the public repo now or after recommendation.

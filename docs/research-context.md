@@ -93,3 +93,10 @@ with these tools in German as well as English.
   the team's study is published — decision D-16).
 - Related resources: OSF project folder https://osf.io/v8ydk/ (referenced by the informed
   consent and the Bergmann study).
+- The Bergmann et al. study is complete: the PCI RR **Stage 2 final manuscript, coded
+  dataset, prompts, and analysis code** were published on the OSF folder on 2026-06-30
+  (Stage-2 registered report: https://osf.io/v3zep/), and the raw 1,400 chat messages
+  open-access on Zenodo (Bergmann, Britz, Tran, & Roth, 2026,
+  https://doi.org/10.5281/zenodo.20827020). The abstract's 2025 citation refers to the
+  Stage-1 registered report; cite the Stage-2 paper/data in the thesis once formally
+  recommended.

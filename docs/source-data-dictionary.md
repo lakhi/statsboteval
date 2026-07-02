@@ -57,6 +57,9 @@ Only these two tables are research-relevant; the database's other tables (`users
 
 ## Scale reference
 
-Per the Bergmann study: 1,400 messages from 192 users between 2025-03-15 and summer 2025
-(bachelor: 584 messages / 63 students; master: 776 / 105). Current production volume is larger
-and unconfirmed.
+Per the Bergmann study (Stage-2 manuscript, published on OSF 2026-06-30): 1,400 messages
+from **182 users** between 2025-03-15 and 2025-06-30 — bachelor: 584 messages / 63 students
+(invited only from 2025-05-16); master: 776 / 105; "other" (faculty pre/postdocs): 40 / 14.
+Their extract also carried a per-student `Status` (program level) column that neither table
+above holds — its source is an open question. Current production volume is larger and
+unconfirmed.
