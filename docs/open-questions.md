@@ -77,6 +77,14 @@ scripts are now public on OSF (https://osf.io/v8ydk/), and the raw 1,400 message
 - [ ] **Production repetition protocol** (Leonardo): the Stage-2 manuscript documents
       repetition/majority voting only for the pilot (3×); nothing stated for the production
       GPT-5 runs — confirm single-run vs repeated before exact `bergmann-v1` replication.
+- [ ] **Classifier model on the consented platform** (self-serve/ZID): chat text may only
+      leave the machine via **Azure OpenAI (EU)** — not the OpenAI API the team used, and
+      other vendors (e.g. Anthropic) would need a consent-compatibility check first. Policy
+      (agreed 2026-07-02): quality-first — best model available on Azure OpenAI EU, tone
+      down only if cost bites. To confirm: is GPT-5 deployable in our subscription? If a
+      different model must be used, the `bergmann-v1` comparison loosens (model difference
+      conflated with pipeline difference) — acceptable, but note it in the validation
+      write-up.
 
 ## Milestone 2 gates
 
