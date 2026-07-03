@@ -136,3 +136,28 @@ Bergmann asks are narrower (`open-questions.md`). **Flag for next decision revie
 keeps `bergmann-framework.md` local "until their study is published" — the results are now
 public on OSF/Zenodo but the paper awaits formal PCI RR recommendation; decide whether the
 doc returns to the public repo now or after recommendation.
+
+## 2026-07-02/03 — decision review session (full D-01…D-22 re-validation with Claude Code)
+
+All decisions re-examined with rationale ahead of Phase A implementation. The architecture
+stands; the one change is the dashboard frontend (below). Micro-decisions confirmed along
+the way: published time bucket = ISO week (Mon–Sun), daily granularity stays internal;
+conversation-count views carry a footnote that the credit UI nudges chat fragmentation
+(D-08); corpus label tables will record per-row provenance (`human_consensus` vs `gpt5`)
+for the `bergmann-v1` import; classifier policy is quality-first on the consented Azure
+OpenAI EU platform (`open-questions.md`).
+
+**D-23 · Dashboard frontend = Next.js (static export), mirroring agent-ui.** (Amends D-11;
+touches D-13.) D-11's frontend rationale ("Angular daily") is stale — development is now
+agent-driven rather than hand-fluent, which changes the optimization target. What survives
+of D-11 is pattern reuse, and for the frontend that now points at
+`~/Developer/uni-studAsst-projects/ai_agents_ws/agent-ui` (Next.js 15 + React + Tailwind +
+Radix, a working deployed example) exactly as health-research-agent-api anchors the API
+tier. Drivers: agentic-coding fluency (React's training-data density, post-hooks idiom
+stability vs Angular's recent API churn, single-file component locality), the owned
+reference implementation, and the richer React charting ecosystem. Static export
+(`output: 'export'`) keeps the deployment shape a plain static bundle — no Node server.
+Backend (FastAPI), deploy pattern, and the D-18 auth boundary are unchanged; D-13
+(English-only) unchanged, future German via next-intl instead of Angular i18n. Accepted
+cost: framework split vs StatsBot's Angular — fine because the repos share data, not code
+(D-01).

@@ -1,6 +1,7 @@
 # Milestone 1 / Phase A — implementation plan (walking skeleton)
 
-**Status: approved 2026-06-12, not yet started.** Produced by the decision-review session
+**Status: approved 2026-06-12, amended 2026-07-03 (D-23 frontend swap; validation notes),
+not yet started.** Produced by the decision-review session
 that re-validated D-01…D-15 and recorded D-16…D-20 (`docs/decisions.md`). Part 0 (repo &
 docs amendments, Bergmann history rewrite) was executed in that session; Parts 1–4 below
 are the work remaining. Review key decisions once more before starting implementation.
@@ -32,7 +33,7 @@ pipeline/    Python (tooling matched to health-research-agent-api: ruff/mypy/pyt
   migrations/00X_*.sql        # plain numbered DuckDB migrations
   tests/                      # + synthetic fixture generator, clearly labeled synthetic
 api/         FastAPI (pattern: ~/Developer/uni-studAsst-projects/ai_agents_ws/api-apps/health-research-agent-api)
-dashboard/   Angular SPA (English, D-13)
+dashboard/   Next.js SPA, static export (English, D-13; frontend per D-23, agent-ui pattern)
 schema/      aggregates.schema.json — THE contract between pipeline and api/dashboard
 ```
 
@@ -41,7 +42,7 @@ publish. Top level: `schema_version`, `generated_at`, `data_through`, `label_ver
 `privacy_floor_n`, then one section per dashboard view. Cells carry student counts
 internally pre-suppression; the published file contains only surviving cells. Source of
 truth: pydantic models in `pipeline`, JSON Schema exported as the repo artifact; the API
-validates on read; Angular interfaces are written against it.
+validates on read; dashboard TypeScript types are generated from the exported schema.
 
 **Synthetic fixture generator:** fake `students`/`history` rows with realistic shapes
 (sessions via shared (`student_id`, `started`), DE/EN text snippets, token counts). Drives
@@ -56,8 +57,8 @@ One metric (weekly message count + weekly active students, floored) through ever
    private; API reads via connection string (D-18).
 2. **API:** `GET /api/v1/aggregates` (serves latest, validates against schema, caches) +
    `GET /healthz`. `.env.local`/`.env.azure` switching per the reference pattern.
-3. **Dashboard:** single Angular page rendering the metric (chart lib chosen at
-   implementation — ngx-charts or ECharts; keep it swappable).
+3. **Dashboard:** single Next.js page (static export, agent-ui pattern) rendering the
+   metric (chart lib chosen at implementation — Recharts or ECharts; keep it swappable).
 4. **Deploy** both to Azure per the health-research-agent-api pattern → demo URL exists
    from the first week, showing synthetic data clearly labeled as such.
 
@@ -67,8 +68,9 @@ Each metric lands as: schema section + aggregation SQL + tests + dashboard view.
 
 - **Temporal usage:** messages/sessions/active students per ISO week; hour-of-day ×
   day-of-week heatmap (server `created_at`, not client `started`).
-- **Usage context:** registrations, active vs one-time vs returning users (Bergmann
-  comparator), totals.
+- **Usage context:** registrations, totals, and user classes per the Bergmann study's
+  definitions (one-time / monthly / sporadic; see `bergmann-framework.md`) for direct
+  comparability.
 - **Sessions:** messages-per-session and duration distributions (binned, floored).
 - **Tokens:** `completion_tokens` distributions; `prompt_tokens` only as session-context
   growth (see its caveat in `docs/source-data-dictionary.md`) or omitted.
@@ -77,9 +79,12 @@ Each metric lands as: schema section + aggregation SQL + tests + dashboard view.
   label-versioning design early; Phase B LLM labels can supersede.
 
 **Validation:** once real data is in, reproduce the Bergmann reference descriptives
-(one-time-user %, language shares, token medians) on their date range — divergences
-documented (sessionization definitions differ, D-08). Reference values are in the
-local-only `docs/bergmann-framework.md` (D-16).
+(one-time-user %, language shares, token medians) on their exact window (2025-03-15 →
+2025-06-30; the bachelor cohort exists only from 2025-05-16) — a **one-time ETL
+correctness check** against the only human-verified period, not an ongoing feature.
+Conversation definitions align (their "chat ID" = our D-08 `started` key). Reference
+values: local `docs/bergmann-framework.md` (D-16); since 2026-06-30 also public in the
+OSF Stage-2 release (D-22).
 
 ## Part 4 — Real-data go-live (gated, after the skeleton works)
 

@@ -34,14 +34,14 @@ From the informed-consent addendum (`docs/ethics/informed-consent-addendum.pdf`,
 4. Data lifecycle deadlines (deletion window until end of July 2027, anonymize-and-publish to
    OSF afterwards) are documented in `docs/ethics/data-handling.md`.
 
-## Planned architecture (agreed 2026-06-10, amended 2026-06-12, see docs/decisions.md)
+## Planned architecture (agreed 2026-06-10, amended 2026-06-12 and 2026-07-03, see docs/decisions.md)
 
 ```
 LOCAL (password-protected machine)                 AZURE (dashboard public by URL)
 weekly Python batch pipeline:                      Blob: versioned aggregates file (private)
   extract (direct MySQL, in-flight                 FastAPI aggregates API (reads blob;
   pseudonymize HMAC(uid, pepper))                    future auth boundary)
-  → DuckDB corpus (one file, encrypted             Angular SPA dashboard (English)
+  → DuckDB corpus (one file, encrypted             Next.js dashboard, static (English)
   disk) → classify (Bergmann prompts,              — no chat text exists cloud-side
   versioned labels) → aggregate +
   privacy floor → publish to Blob
