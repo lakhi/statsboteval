@@ -147,6 +147,11 @@ conversation-count views carry a footnote that the credit UI nudges chat fragmen
 for the `bergmann-v1` import; classifier policy is quality-first on the consented Azure
 OpenAI EU platform (`open-questions.md`).
 
+**D-16 flag resolved: `bergmann-framework.md` stays local.** Reviewed against the public
+Stage-2 release: restoring the doc to the public repo gains nothing concrete (no Phase A
+dependency), so it remains local-only until the team's paper is formally
+recommended/published — D-16's original wording already covers this; no amendment needed.
+
 **D-23 · Dashboard frontend = Next.js (static export), mirroring agent-ui.** (Amends D-11;
 touches D-13.) D-11's frontend rationale ("Angular daily") is stale — development is now
 agent-driven rather than hand-fluent, which changes the optimization target. What survives

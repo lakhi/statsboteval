@@ -43,6 +43,11 @@ publish. Top level: `schema_version`, `generated_at`, `data_through`, `label_ver
 internally pre-suppression; the published file contains only surviving cells. Source of
 truth: pydantic models in `pipeline`, JSON Schema exported as the repo artifact; the API
 validates on read; dashboard TypeScript types are generated from the exported schema.
+Inputs agreed at the 2026-07-02/03 decision review, to be honored by the contract
+brainstorm: explicit suppressed-cell representation (suppressed ≠ zero ≠ absent);
+ISO-week (Mon–Sun) buckets as the finest *published* granularity; `label_version` on
+every payload; per-metric footnote/caveat metadata (e.g. the credit-UI chat-fragmentation
+nudge on conversation counts); schema evolution must not break older readers.
 
 **Synthetic fixture generator:** fake `students`/`history` rows with realistic shapes
 (sessions via shared (`student_id`, `started`), DE/EN text snippets, token counts). Drives
