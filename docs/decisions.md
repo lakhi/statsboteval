@@ -232,3 +232,21 @@ Phase B re-scoped in the same session: the Leonardo handover is no longer a gate
 building the classification pipeline is on us (see the reframed section in
 `open-questions.md`); Part 2 implementation is followed by Phase B planning, not blocked
 on external input.
+
+**D-28 · Reference patterns audited, not cloned (amends D-26's machinery; D-23/D-27
+stand).** Owner directive: health-research-agent-api and agent-ui anchor *what works*,
+not *what we copy*. API hosting: Azure **Container Apps survives the audit** (scale-to-
+zero fits a weekly-updated, low-traffic dashboard; compute sits inside the free grant;
+cold starts are seconds) against App Service B1 (always warm but ~€13/mo) and F1 (free
+but Python apps unload on idle and cold-start slowly — bad first impression on an
+educator's demo link). The reference *machinery* is dropped: no Bicep (three resources;
+az-CLI scripts are the reproducible record), no hand-managed ACR pushes or local Docker
+builds (`az containerapp up --source` builds the image in the cloud), no GitHub Actions
+(already deferred). Storage auth: **managed identity + RBAC** cloud-side (no secret in
+the deployed app); connection strings exist only for local Azurite and ad-hoc in the
+operator's publish script via `az`. Running cost ≈ ACR Basic ~€5/mo + storage cents.
+Dashboard: scaffold on **latest stable create-next-app defaults** (App Router, React 19,
+Tailwind v4, TS) rather than agent-ui's module list; no Radix/shadcn preinstalled —
+primitives added on demand. The exact chart catalog is deliberately deferred until the
+E2E slice is live (owner call, `open-questions.md`); thin-slice visuals are provisional
+plumbing that must only prove the ok/zero/suppressed rendering distinction.

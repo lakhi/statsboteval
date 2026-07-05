@@ -6,27 +6,31 @@ synthetic fixtures → DuckDB corpus → aggregation + privacy floor → publish
 Blob (§9 protocol) → FastAPI → Next.js dashboard, **deployed to Azure** with a public demo
 URL showing clearly-labeled synthetic data.
 
-**Architecture (decisions D-17, D-18, D-23, D-26, D-27):**
+**Architecture (decisions D-17, D-18, D-23, D-26, D-27, D-28):**
 
 ```
 pipeline/  (extends the existing package)          api/            dashboard/
-  corpus.py      DuckDB open + migrations            FastAPI:        Next.js 15, TS,
-  fixtures.py    synthetic students/history          /healthz        Tailwind, Recharts,
-  aggregate.py   weekly counts + floor →             /api/v1/        output:'export';
-                 Aggregates doc (contract.py)          aggregates    types generated from
-  publish.py     guard + blob upload (§9)            + serves the    schema/aggregates
-  cli.py         run-synthetic entry                 dashboard         .schema.json
-                                                     bundle (D-26)
-infra/     Bicep + az-CLI scripts (D-26): RG statsboteval-rg (Sweden Central),
-           ACR, Storage (private container `aggregates`), Container Apps env + one app
+  corpus.py      DuckDB open + migrations            FastAPI:        Next.js (latest
+  fixtures.py    synthetic students/history          /healthz        stable defaults),
+  aggregate.py   weekly counts + floor →             /api/v1/        TS, Tailwind v4,
+                 Aggregates doc (contract.py)          aggregates    Recharts;
+  publish.py     guard + blob upload (§9)            + serves the    output:'export';
+  cli.py         run-synthetic entry                 dashboard       types generated from
+                                                     bundle (D-26)   the schema artifact
+infra/     az-CLI scripts only — no Bicep at this resource count (D-28):
+           RG statsboteval-rg (Sweden Central), Storage (private container `aggregates`),
+           Container App via `az containerapp up --source .` (cloud image build — no
+           local Docker daemon, no hand-managed ACR), managed identity + RBAC for blob
 ```
 
 **Tech stack:** existing `pipeline/` package + `duckdb`, `azure-storage-blob`,
 `hypothesis` (dev); `api/` = FastAPI + uvicorn + `jsonschema` + `pydantic-settings` +
-`azure-storage-blob` (own package, own venv, same ruff/mypy/pytest config as pipeline);
-`dashboard/` = Next.js 15 + TypeScript + Tailwind + Recharts + `json-schema-to-typescript`
-(pnpm, mirroring agent-ui); Azurite (npm) for local blob emulation — no Docker daemon
-needed locally except for the image-build task.
+`azure-storage-blob` + `azure-identity` (own package, own venv, same ruff/mypy/pytest
+config as pipeline); `dashboard/` = latest stable `create-next-app` defaults (App Router,
+React 19, TypeScript, Tailwind v4, ESLint) + Recharts + `json-schema-to-typescript`,
+pnpm — **no Radix/shadcn preinstalled**; UI primitives are added on demand when a concrete
+need appears (D-28). Azurite (npm) for local blob emulation. No local Docker anywhere:
+the deploy image is cloud-built.
 
 ## Global constraints
 
@@ -38,18 +42,21 @@ needed locally except for the image-build task.
   may build an `OkCell`/`SuppressedCell` from corpus numbers — this plus the property test
   is the thin slice's floor guarantee; the independent evidence-recomputing publish guard
   arrives with Part 3 (noted in Out of scope).
-- The blob is **private** (D-18); connection strings live in `.env` files (git-ignored)
-  and Container App secrets, never in code or Bicep param files committed with values.
+- The blob is **private** (D-18). Cloud-side the API reads it via **managed identity +
+  RBAC** (no secret exists in the app); a connection string appears only locally for
+  Azurite and in the operator's publish script (fetched ad hoc via `az`, never stored).
 - Contract invariants bind: complete ISO weeks only (invariant 3, bucketing in
   `Europe/Vienna`); dense weekly series; suppressed ≠ zero ≠ absent — the dashboard
-  renders each distinctly (D-27 wrapper).
-- Amounts of new config: `first_week` and `data_through_week` are **derived from the
-  corpus + clock**, never hardcoded. Synthetic `created_at` is UTC (prod timezone is a
-  recon question in `open-questions.md`).
+  renders each distinctly.
+- No hardcoded calendar facts: `first_week` and `data_through_week` are **derived from
+  the corpus + clock**. Synthetic `created_at` is UTC (prod MySQL timezone is a recon
+  question in `open-questions.md`).
+- **Thin-slice visuals are provisional plumbing** (D-28): they must prove the three cell
+  states end-to-end, nothing more. The chart catalog is an owner call after the demo URL
+  exists (`open-questions.md`); load the `frontend-design` + `dataviz` skills when that
+  design session happens, not for Task 7.
 - Work from each component's own directory (`pipeline/`, `api/`, `dashboard/`); commit
   after every task, plain imperative messages.
-- When building dashboard UI, load the `frontend-design` and `dataviz` skills first
-  (session-level instruction, not a code artifact).
 
 ---
 
@@ -178,17 +185,16 @@ modify `pipeline/pyproject.toml` (add `azure-storage-blob>=12.19`).
 **Produces:**
 - `GET /healthz` → `{"status": "ok"}`.
 - `GET /api/v1/aggregates` → the `v1/latest.json` document **verbatim** (contract §1):
-  read via connection string, validated with `jsonschema` against
-  `schema/aggregates.schema.json` on every refresh (tripwire), cached in-memory with TTL
-  (`CACHE_TTL_SECONDS`, default 300). Blob missing → 503; validation failure → 500 with a
-  logged reason (never serve an invalid document).
-- Settings via `pydantic-settings` from `.env` (`AZURE_STORAGE_CONNECTION_STRING`,
-  `AGGREGATES_CONTAINER=aggregates`, `CACHE_TTL_SECONDS`, `DASHBOARD_DIST` — Task 8);
-  `.env.example` documents local (Azurite `UseDevelopmentStorage=true`) and Azure modes
-  (repo `.gitignore` already blocks real `.env*`).
+  validated with `jsonschema` against `schema/aggregates.schema.json` on every refresh
+  (tripwire), cached in-memory with TTL (`CACHE_TTL_SECONDS`, default 300). Blob missing
+  → 503; validation failure → 500 with a logged reason (never serve an invalid document).
+- **Blob credentials, two modes** (D-28): if `AZURE_STORAGE_CONNECTION_STRING` is set
+  (local/Azurite) use it; else `STORAGE_ACCOUNT_URL` + `DefaultAzureCredential`
+  (managed identity in the cloud, `az login` locally). No secret in the deployed app.
+- Settings via `pydantic-settings` from `.env` (`AGGREGATES_CONTAINER=aggregates`,
+  `CACHE_TTL_SECONDS`, `SCHEMA_PATH` override, `DASHBOARD_DIST` — Task 8);
+  `.env.example` documents both modes (repo `.gitignore` already blocks real `.env*`).
 - Same pyproject conventions as `pipeline/` (ruff 120, mypy, pytest; own `uv venv`).
-  Schema path resolves `../schema/…` in dev, `/app/schema/…` in the image (env-overridable
-  `SCHEMA_PATH`).
 - [ ] Failing tests (httpx TestClient, blob source faked via dependency override): healthz;
       happy path serves the fixture verbatim; cache honored within TTL (fake source call
       count); invalid doc → 500; missing blob → 503.
@@ -197,31 +203,32 @@ modify `pipeline/pyproject.toml` (add `azure-storage-blob>=12.19`).
 
 ### Task 6: Dashboard scaffold + generated types
 
-**Files:** `dashboard/` via `pnpm create next-app` (TS, Tailwind, app router, src dir);
-`next.config.ts` with `output: 'export'`; `package.json` script
-`gen:types` (json-schema-to-typescript: `../schema/aggregates.schema.json` →
-`src/lib/aggregates.gen.ts`, committed); `src/lib/api.ts` (fetch wrapper;
-`NEXT_PUBLIC_API_BASE`, default `""` = same origin per D-26).
+**Files:** `dashboard/` via `pnpm create next-app@latest` accepting current defaults
+(App Router, TS, Tailwind v4, ESLint, src dir); `next.config.ts` with `output: 'export'`;
+`package.json` script `gen:types` (json-schema-to-typescript:
+`../schema/aggregates.schema.json` → `src/lib/aggregates.gen.ts`, committed);
+`src/lib/api.ts` (fetch wrapper; `NEXT_PUBLIC_API_BASE`, default `""` = same origin per
+D-26). No component library (D-28).
 
 - [ ] Scaffold; set static export; verify `pnpm build` emits `out/index.html`.
 - [ ] Generate types; spot-check `Aggregates`/`CountCell` shapes match the contract
       (discriminated `status`, `from` property on coverage).
 - [ ] Commit: `Scaffold Next.js dashboard (static export) with schema-generated types`
 
-### Task 7: Dashboard thin-slice page
+### Task 7: Dashboard thin-slice page (provisional visuals)
 
 **Files:** `dashboard/src/app/page.tsx`,
-`dashboard/src/components/{SyntheticBanner,WeeklyTrendChart,SuppressedLegend}.tsx` (names
-indicative). **Load `frontend-design` + `dataviz` skills before writing UI code.**
+`dashboard/src/components/{SyntheticBanner,WeeklyTrend}.tsx` (names indicative).
 
-**Behavior (contract-driven, D-27):**
+**Behavior (contract-driven; visuals provisional per D-28 — the chart catalog is decided
+after the demo URL exists):**
 - Client-side fetch of `/api/v1/aggregates`; loading/error states.
 - Prominent banner whenever `data_provenance !== "production"`.
-- Three weekly trend charts (messages, sessions, active students) via one Recharts
-  wrapper: **ok(0) renders as a true 0 point; suppressed renders as a line gap with a
-  distinct marker and a "suppressed (< N students)" tooltip using `privacy_floor_n` from
-  metadata** — never as 0, never interpolated over silently. Footnote text (sessions →
-  `chat_fragmentation`) rendered from the registry beneath the chart.
+- The three weekly series rendered through **one** Recharts wrapper: **ok(0) renders as a
+  true 0 point; suppressed renders as a line gap with a distinct marker and a
+  "suppressed (< N students)" tooltip using `privacy_floor_n` from metadata** — never as
+  0, never silently interpolated. Footnote text (sessions → `chat_fragmentation`)
+  rendered from the registry beneath the chart.
 - Header shows `data_through_date` and window coverage (display math only, invariant 4).
 - [ ] Build against the local stack (Azurite + CLI publish + uvicorn,
       `NEXT_PUBLIC_API_BASE=http://localhost:8000 pnpm dev`); verify all three cell states
@@ -229,18 +236,18 @@ indicative). **Load `frontend-design` + `dataviz` skills before writing UI code.
 - [ ] `pnpm build` still exports clean.
 - [ ] Commit: `Add thin-slice dashboard page (weekly trends, suppression-aware rendering)`
 
-### Task 8: Single image — API serves the bundle (D-26)
+### Task 8: API serves the bundle; containerfile for cloud build (D-26/D-28)
 
-**Files:** `Dockerfile` (repo root, multi-stage: node/pnpm builds `dashboard/out` →
-python:3.12-slim installs `api/`, copies `schema/` and the bundle), `.dockerignore`;
-modify `api/app/main.py` (mount `StaticFiles(html=True)` at `/` **after** API routes,
-only when `DASHBOARD_DIST` exists — dev API runs without it).
+**Files:** modify `api/app/main.py` (mount `StaticFiles(html=True)` at `/` **after** API
+routes, only when `DASHBOARD_DIST` exists — dev API runs without it); `Dockerfile` (repo
+root, multi-stage: node/pnpm builds `dashboard/out` → python:3.12-slim installs `api/`,
+copies `schema/` and the bundle) + `.dockerignore` — **built in the cloud by
+`az containerapp up --source .` (Task 11); no local Docker required.** If a local daemon
+happens to be available, a `docker run` smoke test is optional, not gating.
 
 - [ ] API test: with a dist dir configured, `/` serves index.html and `/api/v1/*` +
       `/healthz` still win.
-- [ ] `docker build` + `docker run` with Azurite connection string
-      (`host.docker.internal`): healthz, aggregates, and the dashboard page all answer.
-- [ ] Commit: `Serve dashboard bundle from the API container (single image, D-26)`
+- [ ] Commit: `Serve dashboard bundle from the API; add containerfile for cloud builds`
 
 ### Task 9: Local E2E script
 
@@ -252,30 +259,35 @@ only when `DASHBOARD_DIST` exists — dev API runs without it).
       failure. Print the manual step (`pnpm dev` against it) for eyeballing the page.
 - [ ] Run it; commit: `Add local end-to-end script (Azurite → pipeline → API)`
 
-### Task 10: Azure infrastructure (Bicep + scripts, D-26)
+### Task 10: Azure provisioning scripts (az CLI, no Bicep — D-28)
 
-**Files:** `infra/main.bicep` (+ `main.bicepparam`), `infra/scripts/{01_create_rg.sh,
-02_deploy_infra.sh,03_release.sh,04_publish_synthetic.sh}`, `infra/README.md`.
+**Files:** `infra/scripts/{01_infra.sh,02_deploy_app.sh,03_publish_synthetic.sh}`,
+`infra/README.md`.
 
-**Resources** (RG `statsboteval-rg`, Sweden Central; names parameterized, globally-unique
-ones suffixed): Storage account (Standard_LRS, public access disabled, container
-`aggregates`), ACR (Basic), Container Apps environment, Container App (0.25 vCPU/0.5 Gi,
-external ingress → 8000, min replicas 0, connection string as secret →
-`AZURE_STORAGE_CONNECTION_STRING`). Scripts follow the reference `deployment-plan.md`
-flow: create RG → deploy Bicep → `az acr login` + build `--platform linux/amd64` + push +
-`az containerapp update` → publish synthetic doc using
-`az storage account show-connection-string`.
-
-- [ ] `az bicep build` lints clean; `az deployment group what-if` reviewed before create.
-- [ ] Commit: `Add Azure infra (Bicep) and deploy scripts`
+- `01_infra.sh`: `az group create` (`statsboteval-rg`, `swedencentral`); storage account
+  (Standard_LRS, public blob access disabled) + container `aggregates`; RBAC: operator
+  account gets **Storage Blob Data Contributor** (for publishes via `az`-fetched
+  connection string or credential).
+- `02_deploy_app.sh`: `az containerapp up --source . --name statsboteval …` (creates the
+  environment + registry + app from the Dockerfile, cloud build); then
+  `az containerapp identity assign` (system-assigned) + **Storage Blob Data Reader** on
+  the storage account; set env vars (`STORAGE_ACCOUNT_URL`, `AGGREGATES_CONTAINER`,
+  `DASHBOARD_DIST`). Re-running the script = redeploy.
+- `03_publish_synthetic.sh`: runs the pipeline CLI `--upload` with a connection string
+  fetched via `az storage account show-connection-string` (never written to disk).
+- All scripts idempotent-ish, parameterized at the top, documented in `infra/README.md`
+  (names, teardown = `az group delete`, expected running cost ≈ ACR Basic ~€5/mo +
+  storage cents; compute within the Container Apps free grant).
+- [ ] Shellcheck-clean scripts; README reviewed.
+- [ ] Commit: `Add az-CLI provisioning and release scripts`
 
 ### Task 11: Deploy, verify, record
 
-- [ ] Run scripts 01→04. Verify from outside: `curl https://<fqdn>/healthz`;
+- [ ] Run scripts 01→03. Verify from outside: `curl https://<fqdn>/healthz`;
       `curl https://<fqdn>/api/v1/aggregates | jq .data_provenance` → `"synthetic"`;
       dashboard renders in a browser with the synthetic banner and all three cell states.
-- [ ] Record the demo URL + operational notes (release = `03_release.sh`; republish =
-      `04_publish_synthetic.sh`) in `infra/README.md`; link from the root README.
+- [ ] Record the demo URL + operational notes (redeploy = `02_deploy_app.sh`; republish =
+      `03_publish_synthetic.sh`) in `infra/README.md`; link from the root README.
 - [ ] Update the Phase A plan doc: mark Part 2 done with the demo URL.
 - [ ] Commit: `Deploy thin slice to Azure; record demo URL`
 
@@ -285,15 +297,16 @@ flow: create RG → deploy Bicep → `az acr login` + build `--platform linux/am
 
 Unit: corpus migrations, fixture determinism + shapes, hand-computed aggregation, floor
 property test (hypothesis), guard accept/reject, API contract behaviors. Integration:
-Azurite publish round-trip; Docker image smoke. E2E: `scripts/e2e_local.sh` locally, then
+Azurite publish round-trip; static-mount test. E2E: `scripts/e2e_local.sh` locally, then
 Task 11's external checks against the live URL. Throughout: `ruff` + `mypy` green in both
 Python packages; `pnpm build` exports clean.
 
 ## Out of scope (→ later plans)
 
 Part 3 metric widening (histograms, user classes, language, registrations view; heatmap
-**pending the educator-value scoping question** in `open-questions.md`); the
+**and the chart catalog pending the scoping questions** in `open-questions.md`); the
 evidence-recomputing publish guard (independent distinct-student recount per cell —
 arrives with Part 3's aggregation layer); real extract/pseudonymization and go-live gates
-(Part 4); auth (D-12); GitHub Actions CI (deferred per D-26); custom domain; Phase B
+(Part 4); auth (D-12); GitHub Actions CI (deferred per D-26); Bicep/IaC templates (not
+warranted at three resources — the scripts are the record, D-28); custom domain; Phase B
 classification (planning starts after Part 2 per the 2026-07-05 re-scope).

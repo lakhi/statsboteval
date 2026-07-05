@@ -54,6 +54,10 @@ per the consent addendum, not the gate decision-maker.*
       metric most affected by suppression even at N=3, and D-27 removed the chart-library
       dependency on it. If dropped, `temporal_usage.per_window` ships empty in v1 —
       additive to introduce later (contract §10).
+- [ ] **Chart catalog** (owner, post-E2E): which exact charts/graphs the educator
+      dashboard uses — decided once the aggregate plumbing is proven end-to-end on the
+      demo URL (D-28). Thin-slice visuals are provisional; only the ok/zero/suppressed
+      rendering distinction is contract-bound. Subsumes the heatmap item above.
 
 ## Thesis-interpretation items — needed for the write-up and Phase B context, not the build
 
