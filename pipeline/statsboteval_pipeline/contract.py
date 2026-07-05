@@ -199,3 +199,103 @@ class TrailingWindow(BaseModel):
 
 Window = Annotated[Union[AllTimeWindow, SemesterWindow, TrailingWindow], Field(discriminator="kind")]
 window_adapter: TypeAdapter[AllTimeWindow | SemesterWindow | TrailingWindow] = TypeAdapter(Window)
+
+
+# --- sections (contract §7): one model tree per dashboard view ---
+
+
+class TemporalUsageWeekly(BaseModel):
+    messages: WeeklySeries
+    sessions: WeeklySeries
+    active_students: WeeklySeries
+
+
+class TemporalUsageWindow(BaseModel):
+    activity_heatmap: HeatmapGrid
+
+
+class TemporalUsage(BaseModel):
+    weekly: TemporalUsageWeekly
+    per_window: dict[str, TemporalUsageWindow]
+
+
+class UsageContextTotals(BaseModel):
+    active_students: CountCell
+    messages: CountCell
+    sessions: CountCell
+    new_registrations: CountCell
+
+
+class UserClasses(BaseModel):
+    one_time: CountCell
+    monthly: CountCell
+    sporadic: CountCell
+    footnote_ids: list[FootnoteId] | None = None
+
+
+class UsageContextWindow(BaseModel):
+    totals: UsageContextTotals
+    user_classes: UserClasses
+
+
+class UsageContextWeekly(BaseModel):
+    registrations: WeeklySeries
+
+
+class UsageContext(BaseModel):
+    weekly: UsageContextWeekly
+    per_window: dict[str, UsageContextWindow]
+
+
+class SessionsWindow(BaseModel):
+    messages_per_session: Histogram
+    session_duration_minutes: Histogram
+
+
+class SessionsSection(BaseModel):
+    per_window: dict[str, SessionsWindow]
+
+
+class TokensWindow(BaseModel):
+    completion_tokens_per_message: Histogram
+
+
+class TokensSection(BaseModel):
+    per_window: dict[str, TokensWindow]
+
+
+class MessagesByLanguage(BaseModel):
+    de: WeeklySeries
+    en: WeeklySeries
+    other: WeeklySeries
+    undetermined: WeeklySeries
+    footnote_ids: list[FootnoteId] | None = None
+
+
+class LanguageWeekly(BaseModel):
+    messages_by_language: MessagesByLanguage
+
+
+class LanguageTotals(BaseModel):
+    de: CountCell
+    en: CountCell
+    other: CountCell
+    undetermined: CountCell
+
+
+class LanguageWindow(BaseModel):
+    totals: LanguageTotals
+
+
+class LanguageSection(BaseModel):
+    weekly: LanguageWeekly
+    per_window: dict[str, LanguageWindow]
+
+
+class Sections(BaseModel):
+    # Every section optional: readers tolerate absence (invariant 5); Phase B adds "topics".
+    temporal_usage: TemporalUsage | None = None
+    usage_context: UsageContext | None = None
+    sessions: SessionsSection | None = None
+    tokens: TokensSection | None = None
+    language: LanguageSection | None = None
