@@ -139,3 +139,21 @@ class Histogram(BaseModel):
                 if prev.hi is None or b.lo <= prev.hi:
                     raise ValueError(f"bin {i}: bins must be ascending and non-overlapping")
         return self
+
+
+class HeatmapCell(BaseModel):
+    dow: int = Field(ge=1, le=7)  # ISO: Monday = 1
+    hour: int = Field(ge=0, le=23)  # local time per metadata.timezone
+    cell: CountCell
+
+
+class HeatmapGrid(BaseModel):
+    cells: list[HeatmapCell]
+    footnote_ids: list[FootnoteId] | None = None
+
+    @model_validator(mode="after")
+    def _dense_168(self) -> "HeatmapGrid":
+        seen = {(c.dow, c.hour) for c in self.cells}
+        if len(self.cells) != 168 or len(seen) != 168:
+            raise ValueError("heatmap must contain exactly the 168 unique (dow, hour) cells")
+        return self
