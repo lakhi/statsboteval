@@ -8,6 +8,7 @@ from typing import Any, Protocol
 import jsonschema
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .blob_source import BlobAggregatesSource
 from .config import Settings
@@ -48,5 +49,10 @@ def create_app(settings: Settings | None = None, source: AggregatesSource | None
             raise HTTPException(status_code=500, detail="aggregates document failed validation") from exc
         cache["doc"], cache["at"] = doc, now
         return JSONResponse(doc)
+
+    # D-26: the API serves the dashboard's static export. Mounted after the routes
+    # above, so /healthz and /api/v1/* always win; without a dist dir it's API-only.
+    if settings.dashboard_dist and settings.dashboard_dist.is_dir():
+        app.mount("/", StaticFiles(directory=settings.dashboard_dist, html=True), name="dashboard")
 
     return app
