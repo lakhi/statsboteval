@@ -1,0 +1,215 @@
+{
+  "data_provenance": "synthetic",
+  "data_through_date": "2026-06-28",
+  "data_through_week": "2026-W26",
+  "first_week": "2026-W19",
+  "footnotes": {
+    "chat_fragmentation": {
+      "text": "The credit-limit UI nudges students toward starting new chats; conversation counts may overstate distinct dialogues."
+    }
+  },
+  "generated_at": "2026-07-05T20:54:46.982301Z",
+  "label_versions": {},
+  "pipeline_version": "0.1.0",
+  "privacy_floor_n": 3,
+  "schema_version": "1.0.0",
+  "sections": {
+    "temporal_usage": {
+      "per_window": {},
+      "weekly": {
+        "active_students": {
+          "series": [
+            {
+              "cell": {
+                "status": "ok",
+                "value": 9
+              },
+              "week": "2026-W19"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 12
+              },
+              "week": "2026-W20"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 6
+              },
+              "week": "2026-W21"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 7
+              },
+              "week": "2026-W22"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 7
+              },
+              "week": "2026-W23"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 0
+              },
+              "week": "2026-W24"
+            },
+            {
+              "cell": {
+                "status": "suppressed"
+              },
+              "week": "2026-W25"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 13
+              },
+              "week": "2026-W26"
+            }
+          ]
+        },
+        "messages": {
+          "series": [
+            {
+              "cell": {
+                "status": "ok",
+                "value": 119
+              },
+              "week": "2026-W19"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 162
+              },
+              "week": "2026-W20"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 63
+              },
+              "week": "2026-W21"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 77
+              },
+              "week": "2026-W22"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 45
+              },
+              "week": "2026-W23"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 0
+              },
+              "week": "2026-W24"
+            },
+            {
+              "cell": {
+                "status": "suppressed"
+              },
+              "week": "2026-W25"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 137
+              },
+              "week": "2026-W26"
+            }
+          ]
+        },
+        "sessions": {
+          "footnote_ids": [
+            "chat_fragmentation"
+          ],
+          "series": [
+            {
+              "cell": {
+                "status": "ok",
+                "value": 22
+              },
+              "week": "2026-W19"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 27
+              },
+              "week": "2026-W20"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 13
+              },
+              "week": "2026-W21"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 14
+              },
+              "week": "2026-W22"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 10
+              },
+              "week": "2026-W23"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 0
+              },
+              "week": "2026-W24"
+            },
+            {
+              "cell": {
+                "status": "suppressed"
+              },
+              "week": "2026-W25"
+            },
+            {
+              "cell": {
+                "status": "ok",
+                "value": 26
+              },
+              "week": "2026-W26"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "timezone": "Europe/Vienna",
+  "windows": [
+    {
+      "coverage": {
+        "from": "2026-W19",
+        "through": "2026-W26"
+      },
+      "id": "all_time",
+      "kind": "all_time",
+      "label": "All time"
+    }
+  ]
+}
