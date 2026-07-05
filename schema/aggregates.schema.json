@@ -1,0 +1,1181 @@
+{
+  "$defs": {
+    "AllTimeWindow": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/Coverage"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "all_time",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "label",
+        "coverage"
+      ],
+      "title": "AllTimeWindow",
+      "type": "object"
+    },
+    "Coverage": {
+      "properties": {
+        "from": {
+          "pattern": "^\\d{4}-W\\d{2}$",
+          "title": "From",
+          "type": "string"
+        },
+        "through": {
+          "pattern": "^\\d{4}-W\\d{2}$",
+          "title": "Through",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "through"
+      ],
+      "title": "Coverage",
+      "type": "object"
+    },
+    "Footnote": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Footnote",
+      "type": "object"
+    },
+    "HeatmapCell": {
+      "properties": {
+        "cell": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Cell"
+        },
+        "dow": {
+          "maximum": 7,
+          "minimum": 1,
+          "title": "Dow",
+          "type": "integer"
+        },
+        "hour": {
+          "maximum": 23,
+          "minimum": 0,
+          "title": "Hour",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dow",
+        "hour",
+        "cell"
+      ],
+      "title": "HeatmapCell",
+      "type": "object"
+    },
+    "HeatmapGrid": {
+      "properties": {
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/HeatmapCell"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        }
+      },
+      "required": [
+        "cells"
+      ],
+      "title": "HeatmapGrid",
+      "type": "object"
+    },
+    "Histogram": {
+      "properties": {
+        "bins": {
+          "items": {
+            "$ref": "#/$defs/HistogramBin"
+          },
+          "title": "Bins",
+          "type": "array"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "n_total": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "N Total"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkSummaryStats",
+                  "suppressed": "#/$defs/SuppressedSummaryStats"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkSummaryStats"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedSummaryStats"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "bins",
+        "n_total"
+      ],
+      "title": "Histogram",
+      "type": "object"
+    },
+    "HistogramBin": {
+      "properties": {
+        "cell": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Cell"
+        },
+        "hi": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Hi"
+        },
+        "lo": {
+          "title": "Lo",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lo",
+        "hi",
+        "cell"
+      ],
+      "title": "HistogramBin",
+      "type": "object"
+    },
+    "LanguageSection": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/LanguageWindow"
+          },
+          "title": "Per Window",
+          "type": "object"
+        },
+        "weekly": {
+          "$ref": "#/$defs/LanguageWeekly"
+        }
+      },
+      "required": [
+        "weekly",
+        "per_window"
+      ],
+      "title": "LanguageSection",
+      "type": "object"
+    },
+    "LanguageTotals": {
+      "properties": {
+        "de": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "De"
+        },
+        "en": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "En"
+        },
+        "other": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Other"
+        },
+        "undetermined": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Undetermined"
+        }
+      },
+      "required": [
+        "de",
+        "en",
+        "other",
+        "undetermined"
+      ],
+      "title": "LanguageTotals",
+      "type": "object"
+    },
+    "LanguageWeekly": {
+      "properties": {
+        "messages_by_language": {
+          "$ref": "#/$defs/MessagesByLanguage"
+        }
+      },
+      "required": [
+        "messages_by_language"
+      ],
+      "title": "LanguageWeekly",
+      "type": "object"
+    },
+    "LanguageWindow": {
+      "properties": {
+        "totals": {
+          "$ref": "#/$defs/LanguageTotals"
+        }
+      },
+      "required": [
+        "totals"
+      ],
+      "title": "LanguageWindow",
+      "type": "object"
+    },
+    "MessagesByLanguage": {
+      "properties": {
+        "de": {
+          "$ref": "#/$defs/WeeklySeries"
+        },
+        "en": {
+          "$ref": "#/$defs/WeeklySeries"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "other": {
+          "$ref": "#/$defs/WeeklySeries"
+        },
+        "undetermined": {
+          "$ref": "#/$defs/WeeklySeries"
+        }
+      },
+      "required": [
+        "de",
+        "en",
+        "other",
+        "undetermined"
+      ],
+      "title": "MessagesByLanguage",
+      "type": "object"
+    },
+    "OkCell": {
+      "properties": {
+        "status": {
+          "const": "ok",
+          "title": "Status",
+          "type": "string"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "value"
+      ],
+      "title": "OkCell",
+      "type": "object"
+    },
+    "OkSummaryStats": {
+      "properties": {
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mean"
+        },
+        "median": {
+          "title": "Median",
+          "type": "number"
+        },
+        "n_students": {
+          "minimum": 1,
+          "title": "N Students",
+          "type": "integer"
+        },
+        "p25": {
+          "title": "P25",
+          "type": "number"
+        },
+        "p75": {
+          "title": "P75",
+          "type": "number"
+        },
+        "sd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sd"
+        },
+        "status": {
+          "const": "ok",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "n_students",
+        "median",
+        "p25",
+        "p75"
+      ],
+      "title": "OkSummaryStats",
+      "type": "object"
+    },
+    "Sections": {
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LanguageSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sessions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SessionsSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "temporal_usage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemporalUsage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tokens": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TokensSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "usage_context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UsageContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "Sections",
+      "type": "object"
+    },
+    "SemesterWindow": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/Coverage"
+        },
+        "end_date": {
+          "format": "date",
+          "title": "End Date",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "semester",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "start_date": {
+          "format": "date",
+          "title": "Start Date",
+          "type": "string"
+        },
+        "weeks": {
+          "items": {
+            "pattern": "^\\d{4}-W\\d{2}$",
+            "type": "string"
+          },
+          "title": "Weeks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "label",
+        "start_date",
+        "end_date",
+        "weeks",
+        "coverage"
+      ],
+      "title": "SemesterWindow",
+      "type": "object"
+    },
+    "SessionsSection": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SessionsWindow"
+          },
+          "title": "Per Window",
+          "type": "object"
+        }
+      },
+      "required": [
+        "per_window"
+      ],
+      "title": "SessionsSection",
+      "type": "object"
+    },
+    "SessionsWindow": {
+      "properties": {
+        "messages_per_session": {
+          "$ref": "#/$defs/Histogram"
+        },
+        "session_duration_minutes": {
+          "$ref": "#/$defs/Histogram"
+        }
+      },
+      "required": [
+        "messages_per_session",
+        "session_duration_minutes"
+      ],
+      "title": "SessionsWindow",
+      "type": "object"
+    },
+    "SuppressedCell": {
+      "properties": {
+        "status": {
+          "const": "suppressed",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "SuppressedCell",
+      "type": "object"
+    },
+    "SuppressedSummaryStats": {
+      "properties": {
+        "status": {
+          "const": "suppressed",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "SuppressedSummaryStats",
+      "type": "object"
+    },
+    "TemporalUsage": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TemporalUsageWindow"
+          },
+          "title": "Per Window",
+          "type": "object"
+        },
+        "weekly": {
+          "$ref": "#/$defs/TemporalUsageWeekly"
+        }
+      },
+      "required": [
+        "weekly",
+        "per_window"
+      ],
+      "title": "TemporalUsage",
+      "type": "object"
+    },
+    "TemporalUsageWeekly": {
+      "properties": {
+        "active_students": {
+          "$ref": "#/$defs/WeeklySeries"
+        },
+        "messages": {
+          "$ref": "#/$defs/WeeklySeries"
+        },
+        "sessions": {
+          "$ref": "#/$defs/WeeklySeries"
+        }
+      },
+      "required": [
+        "messages",
+        "sessions",
+        "active_students"
+      ],
+      "title": "TemporalUsageWeekly",
+      "type": "object"
+    },
+    "TemporalUsageWindow": {
+      "properties": {
+        "activity_heatmap": {
+          "$ref": "#/$defs/HeatmapGrid"
+        }
+      },
+      "required": [
+        "activity_heatmap"
+      ],
+      "title": "TemporalUsageWindow",
+      "type": "object"
+    },
+    "TokensSection": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TokensWindow"
+          },
+          "title": "Per Window",
+          "type": "object"
+        }
+      },
+      "required": [
+        "per_window"
+      ],
+      "title": "TokensSection",
+      "type": "object"
+    },
+    "TokensWindow": {
+      "properties": {
+        "completion_tokens_per_message": {
+          "$ref": "#/$defs/Histogram"
+        }
+      },
+      "required": [
+        "completion_tokens_per_message"
+      ],
+      "title": "TokensWindow",
+      "type": "object"
+    },
+    "TrailingWindow": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/Coverage"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "trailing",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "weeks": {
+          "items": {
+            "pattern": "^\\d{4}-W\\d{2}$",
+            "type": "string"
+          },
+          "title": "Weeks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "label",
+        "weeks",
+        "coverage"
+      ],
+      "title": "TrailingWindow",
+      "type": "object"
+    },
+    "UsageContext": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/UsageContextWindow"
+          },
+          "title": "Per Window",
+          "type": "object"
+        },
+        "weekly": {
+          "$ref": "#/$defs/UsageContextWeekly"
+        }
+      },
+      "required": [
+        "weekly",
+        "per_window"
+      ],
+      "title": "UsageContext",
+      "type": "object"
+    },
+    "UsageContextTotals": {
+      "properties": {
+        "active_students": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Active Students"
+        },
+        "messages": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Messages"
+        },
+        "new_registrations": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "New Registrations"
+        },
+        "sessions": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Sessions"
+        }
+      },
+      "required": [
+        "active_students",
+        "messages",
+        "sessions",
+        "new_registrations"
+      ],
+      "title": "UsageContextTotals",
+      "type": "object"
+    },
+    "UsageContextWeekly": {
+      "properties": {
+        "registrations": {
+          "$ref": "#/$defs/WeeklySeries"
+        }
+      },
+      "required": [
+        "registrations"
+      ],
+      "title": "UsageContextWeekly",
+      "type": "object"
+    },
+    "UsageContextWindow": {
+      "properties": {
+        "totals": {
+          "$ref": "#/$defs/UsageContextTotals"
+        },
+        "user_classes": {
+          "$ref": "#/$defs/UserClasses"
+        }
+      },
+      "required": [
+        "totals",
+        "user_classes"
+      ],
+      "title": "UsageContextWindow",
+      "type": "object"
+    },
+    "UserClasses": {
+      "properties": {
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "monthly": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Monthly"
+        },
+        "one_time": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "One Time"
+        },
+        "sporadic": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Sporadic"
+        }
+      },
+      "required": [
+        "one_time",
+        "monthly",
+        "sporadic"
+      ],
+      "title": "UserClasses",
+      "type": "object"
+    },
+    "WeeklyEntry": {
+      "properties": {
+        "cell": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Cell"
+        },
+        "week": {
+          "pattern": "^\\d{4}-W\\d{2}$",
+          "title": "Week",
+          "type": "string"
+        }
+      },
+      "required": [
+        "week",
+        "cell"
+      ],
+      "title": "WeeklyEntry",
+      "type": "object"
+    },
+    "WeeklySeries": {
+      "properties": {
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/WeeklyEntry"
+          },
+          "title": "Series",
+          "type": "array"
+        }
+      },
+      "required": [
+        "series"
+      ],
+      "title": "WeeklySeries",
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/lakhi/statsboteval/main/schema/aggregates.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Root of the aggregates file. Shape law lives here; semantics in docs/aggregates-contract.md.",
+  "properties": {
+    "data_provenance": {
+      "enum": [
+        "synthetic",
+        "production"
+      ],
+      "title": "Data Provenance",
+      "type": "string"
+    },
+    "data_through_date": {
+      "format": "date",
+      "title": "Data Through Date",
+      "type": "string"
+    },
+    "data_through_week": {
+      "pattern": "^\\d{4}-W\\d{2}$",
+      "title": "Data Through Week",
+      "type": "string"
+    },
+    "first_week": {
+      "pattern": "^\\d{4}-W\\d{2}$",
+      "title": "First Week",
+      "type": "string"
+    },
+    "footnotes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Footnote"
+      },
+      "title": "Footnotes",
+      "type": "object"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "label_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Label Versions",
+      "type": "object"
+    },
+    "pipeline_version": {
+      "title": "Pipeline Version",
+      "type": "string"
+    },
+    "privacy_floor_n": {
+      "minimum": 1,
+      "title": "Privacy Floor N",
+      "type": "integer"
+    },
+    "schema_version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sections": {
+      "$ref": "#/$defs/Sections"
+    },
+    "timezone": {
+      "title": "Timezone",
+      "type": "string"
+    },
+    "windows": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "all_time": "#/$defs/AllTimeWindow",
+            "semester": "#/$defs/SemesterWindow",
+            "trailing": "#/$defs/TrailingWindow"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/AllTimeWindow"
+          },
+          {
+            "$ref": "#/$defs/SemesterWindow"
+          },
+          {
+            "$ref": "#/$defs/TrailingWindow"
+          }
+        ]
+      },
+      "title": "Windows",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "generated_at",
+    "data_through_week",
+    "data_through_date",
+    "first_week",
+    "privacy_floor_n",
+    "label_versions",
+    "timezone",
+    "data_provenance",
+    "pipeline_version",
+    "windows",
+    "footnotes",
+    "sections"
+  ],
+  "title": "Aggregates",
+  "type": "object"
+}
