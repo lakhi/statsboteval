@@ -129,9 +129,10 @@ modify `pipeline/pyproject.toml` (dev: add `hypothesis`).
   - Rows out of SQL (tiny volumes), ISO-week bucketing in Python via the tested contract
     helpers after UTC→`Europe/Vienna` conversion (`zoneinfo`) — calendar knowledge stays
     in Python, matching the contract's semester principle.
-  - `data_through_week` = last ISO week fully elapsed before `now` (Vienna) that is ≤ the
-    latest data week; `first_week` = week of earliest message. Weeks with no rows → 0 from
-    0 students → published `ok(0)`.
+  - `data_through_week` = last ISO week fully elapsed before `now` (extract time,
+    Vienna); `first_week` = week of earliest message. Weeks with no rows — including
+    trailing quiet weeks up to `data_through_week` — were measured and publish as
+    `ok(0)`; clipping them off would misencode a measured zero as "absent" (invariant 2).
   - Document: metadata per contract §4 (`label_versions={}` — no labels in the slice);
     `windows=[all_time]` with coverage `[first_week, data_through_week]`;
     `footnotes={chat_fragmentation}` (referenced by the sessions series);
