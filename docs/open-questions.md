@@ -25,6 +25,11 @@ Answerable directly over the MySQL connection; fold results into
       column (`Bachelorstudent`/`Masterstudent`/`Other`) — check whether any prod table
       holds it (neither documented research table does), else it came from outside the DB
       (→ Daniel item below).
+- [ ] **`created_at` timezone:** are `history.created_at` values stored as UTC or server
+      local time (Europe/Vienna)? Determines the conversion step before ISO-week and
+      hour-of-day bucketing (`metadata.timezone`); the synthetic pipeline assumes UTC
+      storage until confirmed. `SELECT NOW(), @@session.time_zone, @@global.time_zone`
+      plus a spot-check of a known-time message.
 
 ## Go-live gates — required before the first real-data publish (not before development)
 
@@ -42,6 +47,14 @@ per the consent addendum, not the gate decision-maker.*
       cloud-aggregates split, including transient Azure OpenAI processing for Phase B
       classification.
 
+## Phase A build scoping — resolve before the affected Part 3 work, not before Part 2
+
+- [ ] **Hour×weekday heatmap value** (owner, with educator feedback once the demo URL
+      exists): does the 7×24 activity grid add enough educator value to build? It is the
+      metric most affected by suppression even at N=3, and D-27 removed the chart-library
+      dependency on it. If dropped, `temporal_usage.per_window` ships empty in v1 —
+      additive to introduce later (contract §10).
+
 ## Thesis-interpretation items — needed for the write-up and Phase B context, not the build
 
 - [ ] **Model timeline** (Wolfgang/ZID): which Azure deployment/model served StatsBot from
@@ -53,11 +66,16 @@ per the consent addendum, not the gate decision-maker.*
 - [ ] **System prompt** (Wolfgang/ZID): does the Azure deployment bake in a persona/system
       prompt, or did students talk to a vanilla model? (App code sends none.)
 
-## Phase B gates — Leonardo / Bergmann study handover (deferred until after Phase A)
+## Phase B inputs — Bergmann replication details (no longer a gate)
 
 *2026-07-02: the Stage-2 final manuscript, full coded dataset, production prompts, and R
 scripts are now public on OSF (https://osf.io/v8ydk/), and the raw 1,400 messages on Zenodo
 (https://doi.org/10.5281/zenodo.20827020) — most handover items resolved themselves.*
+
+*2026-07-05: re-scoped from "gates" to "inputs" — there is no handover bottleneck;
+building the classification pipeline is on us. Phase B planning starts after Part 2
+implementation, using interim definitions from the public Stage-2 materials where the
+items below are still open; each open item is chased in parallel, not waited on.*
 
 - [x] **Exact GPT coding prompts** (deductive + inductive) — deductive obtained 2026-06-19
       from the OSF Stage-1 bundle; production *inductive* prompts (with final frozen theme

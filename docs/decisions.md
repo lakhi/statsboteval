@@ -204,3 +204,31 @@ one-active-version-per-domain made structural); metadata additions `timezone` an
 full-copy `latest.json` under a major-version prefix (`v1/`); additive-only evolution
 within a major. Phase B extends the same file (new `topics` section +
 `label_versions.classification`).
+
+## 2026-07-05 — Part 2 thin-slice planning session (with Claude Code)
+
+**D-26 · Deployment shape: one Container App; the API serves the dashboard.** The Next.js
+static-export bundle (D-23) is baked into the FastAPI Docker image and served by the same
+process (`/api/v1/*` + static files). Grounds: same origin (no CORS), a single deploy
+path, and the API remains the sole future auth boundary (D-18) covering data and UI
+together when D-12 revisits auth. Accepted cost: dashboard-only changes rebuild the image
+(script-driven, minutes). Azure setup: new dedicated resource group in **Sweden Central**
+(EU residency; matches the operator's existing infra region), ACR + Container Apps
+environment + one storage account (private `aggregates` container) provisioned via Bicep
+and az-CLI scripts following health-research-agent-api's deployment-plan pattern. CI/CD
+(GitHub Actions) deliberately deferred until the deployment shape is stable.
+
+**D-27 · Chart library = Recharts behind a thin wrapper.** Chosen over ECharts at the
+implementation point the Phase A plan reserved. Grounds: everything certain in the Phase A
+metric set is trend lines + histogram bars at trivial data sizes; the contract's
+suppressed-cell rendering (distinct marker, "< N students", never drawn as 0) is a custom
+React component, which declarative Recharts makes natural; a native heatmap type is no
+longer a requirement because the hour×weekday heatmap's educator value is an open scoping
+question (`open-questions.md`) and, if built, a 7×24 CSS-grid component beats a chart-lib
+heatmap for bespoke suppressed-cell styling anyway. The thin wrapper keeps the library
+swappable.
+
+Phase B re-scoped in the same session: the Leonardo handover is no longer a gate —
+building the classification pipeline is on us (see the reframed section in
+`open-questions.md`); Part 2 implementation is followed by Phase B planning, not blocked
+on external input.
