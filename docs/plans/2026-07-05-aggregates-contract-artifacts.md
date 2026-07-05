@@ -1,7 +1,5 @@
 # Aggregates-Contract Artifacts Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Implement deliverable 2 of the D-19 contract gate: pydantic v2 models in `pipeline/` as the single source of truth for the aggregates-file shapes, exported as `schema/aggregates.schema.json`, with drift-check and round-trip validation tests.
 
 **Architecture:** One module (`pipeline/statsboteval_pipeline/contract.py`) defines every shape in `docs/aggregates-contract.md` §3–§7 as pydantic models with discriminated unions for the tri-state cells; a small export script writes the JSON Schema artifact; pytest enforces (a) model semantics, (b) committed-schema-matches-models (drift guard), (c) round-trip equality on a full synthetic example. **No aggregation, publish, API, or dashboard code** — those are later plans.
