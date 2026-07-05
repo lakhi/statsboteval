@@ -7,6 +7,8 @@ docs/bergmann-prompts.md
 # Real student data is excluded by type and by directory. Synthetic test
 # fixtures may be force-added consciously (git add -f) after review.
 *.sql
+# …but versioned DDL migrations are code, not data (mysqldump output is what *.sql guards)
+!pipeline/migrations/*.sql
 *.sqlite
 *.sqlite3
 *.db
