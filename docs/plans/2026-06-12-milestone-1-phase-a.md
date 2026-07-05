@@ -20,8 +20,8 @@ gated go-live (Part 4); everything before that runs on clearly-labeled synthetic
 forward as soon as extraction works — consent permits local analysis, and Part 3's Bergmann
 reproduction requires it. The Part 4 gates bind the first **cloud publish**, not local
 development (`open-questions.md`); the deployed dashboard shows synthetic aggregates only
-until pepper custody, floor confirmation, and Daniel's architecture nod close, then
-switches to real ones. Synthetic fixtures remain the permanent basis for tests/CI, and the
+until pepper custody, floor confirmation, and the architecture sign-off close (owner
+decisions — see `open-questions.md`), then switches to real ones. Synthetic fixtures remain the permanent basis for tests/CI, and the
 aggregates file self-labels via `data_provenance` (see the contract design doc).
 
 Key facts the plan relies on:
@@ -102,11 +102,11 @@ OSF Stage-2 release (D-22).
 
 ## Part 4 — Real-data go-live (gated, after the skeleton works)
 
-- **Gates** (see `docs/open-questions.md`): recon queries run (matnr/lv, volumes → update
-  the data dictionary); pepper generated + custody settled with Daniel; floor N confirmed
-  (working value 3, D-24);
-  Daniel's nod on the architecture. Until all pass, the deployed dashboard shows synthetic
-  data, clearly labeled.
+- **Gates** (see `docs/open-questions.md`; owner decisions, ownership clarified
+  2026-07-05): recon queries run (matnr/lv, volumes → update the data dictionary); pepper
+  generated + custody decided; floor N confirmed against the ethics protocol (working
+  value 3, D-24); architecture sign-off recorded. Until all pass, the deployed dashboard
+  shows synthetic data, clearly labeled.
 - **Extract:** read-only MySQL user if obtainable; incremental by `history.id` watermark;
   in-flight HMAC with normalized `uid`; only pseudonymized rows written to DuckDB on the
   encrypted volume; backups = file copy on the same medium.

@@ -28,13 +28,19 @@ Answerable directly over the MySQL connection; fold results into
 
 ## Go-live gates — required before the first real-data publish (not before development)
 
-- [ ] **Pepper custody** (Daniel/coordinating team): who holds the HMAC pepper, where is it
-      kept, and where is its backup? (Low-stakes until first real ingest; corpus is
+*Ownership clarified 2026-07-05: all three are project-owner decisions (Akshay), checked
+against the governing documents and recorded with a date; Daniel is the erasure contact
+per the consent addendum, not the gate decision-maker.*
+
+- [ ] **Pepper custody** (owner): we generate the pepper locally (D-05/D-20); decide where
+      it is kept and where its backup lives. (Low-stakes until first real ingest; corpus is
       reproducible from source until mid-2027, so rotation = re-ingest.)
-- [ ] **Privacy floor N** (Daniel): does the ethics protocol imply a minimum cell size?
-      (Working value: 3 since 2026-07-05, D-24; was 5.)
-- [ ] **Architecture confirmation** (Daniel): local-corpus + cloud-aggregates split,
-      including transient Azure OpenAI processing for Phase B classification.
+- [ ] **Privacy floor N** (owner): check the ethics protocol / consent addendum for an
+      implied minimum cell size and record the decision. (Working value: 3 since
+      2026-07-05, D-24; was 5.)
+- [ ] **Architecture sign-off** (owner): record the go-live decision for the local-corpus +
+      cloud-aggregates split, including transient Azure OpenAI processing for Phase B
+      classification.
 
 ## Thesis-interpretation items — needed for the write-up and Phase B context, not the build
 

@@ -185,7 +185,10 @@ pulled forward — the go-live gates bind the first cloud publish, not local dev
 The public demo switches from synthetic to real aggregates as soon as the three gates
 (pepper custody, floor confirmation, architecture nod) close; synthetic fixtures remain
 the permanent basis for tests/CI, and every published file self-labels via a
-`data_provenance` metadata field.
+`data_provenance` metadata field. Gate ownership clarified in the same session: all three
+go-live gates (pepper custody, floor N, architecture sign-off) are project-owner decisions
+checked against the governing documents and recorded with a date; Daniel is the erasure
+contact per the consent addendum, not the gate decision-maker.
 
 **D-25 · Aggregates contract v1 locked.** (Closes the D-19 contract gate; honors the
 2026-07-02/03 pinned inputs.) Full spec: `docs/aggregates-contract.md`. Key choices:
