@@ -8,7 +8,10 @@ models in `pipeline/` are the single source of truth for shapes**, exported as
 `schema/aggregates.schema.json` (committed artifact, drift-checked in CI), from which the
 dashboard's TypeScript types are generated. If prose and models ever disagree on a *shape*,
 the models win and this doc gets fixed; for *semantics* (what a value means, when it may be
-published) this doc is the law.
+published) this doc is the law. Implemented: models in
+`pipeline/statsboteval_pipeline/contract.py`; artifact regenerated via
+`python -m statsboteval_pipeline.export_schema`; drift-checked by
+`pipeline/tests/test_schema_export.py`.
 
 ## 1 · Scope and consumers
 
