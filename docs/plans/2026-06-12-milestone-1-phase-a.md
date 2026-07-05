@@ -1,7 +1,9 @@
 # Milestone 1 / Phase A — implementation plan (walking skeleton)
 
-**Status: approved 2026-06-12, amended 2026-07-03 (D-23 frontend swap; validation notes),
-not yet started.** Produced by the decision-review session
+**Status: approved 2026-06-12, amended 2026-07-03 (D-23 frontend swap; validation notes)
+and 2026-07-05 (privacy floor N=3, D-24; real-data sequencing note below; aggregates
+contract locked, D-25 — see `docs/aggregates-contract.md`), not yet started.**
+Produced by the decision-review session
 that re-validated D-01…D-15 and recorded D-16…D-20 (`docs/decisions.md`). Part 0 (repo &
 docs amendments, Bergmann history rewrite) was executed in that session; Parts 1–4 below
 are the work remaining. Review key decisions once more before starting implementation.
@@ -14,14 +16,21 @@ on the Leonardo handover) adds the classification pipeline. Build order is the *
 skeleton** (D-19): define the aggregates contract, push one synthetic metric end-to-end to
 a deployed Azure dashboard early, then widen metric by metric. Real data enters only at the
 gated go-live (Part 4); everything before that runs on clearly-labeled synthetic fixtures.
+*Sequencing amendment (2026-07-05):* local development and validation pull real data
+forward as soon as extraction works — consent permits local analysis, and Part 3's Bergmann
+reproduction requires it. The Part 4 gates bind the first **cloud publish**, not local
+development (`open-questions.md`); the deployed dashboard shows synthetic aggregates only
+until pepper custody, floor confirmation, and Daniel's architecture nod close, then
+switches to real ones. Synthetic fixtures remain the permanent basis for tests/CI, and the
+aggregates file self-labels via `data_provenance` (see the contract design doc).
 
 Key facts the plan relies on:
 - Direct MySQL access to the production StatsBot DB exists → scripted extract with
   **in-flight pseudonymization** (D-20); identifiers never persisted locally.
 - Local corpus = **DuckDB**, one file on the FileVault-encrypted disk (D-17).
 - Aggregates blob is **private**; the FastAPI tier is the auth boundary (D-18).
-- Binding ethics constraints in `docs/ethics/data-handling.md` (privacy floor N=5 working
-  value; no chat text cloud-side, ever).
+- Binding ethics constraints in `docs/ethics/data-handling.md` (privacy floor N=3 working
+  value, D-24; no chat text cloud-side, ever).
 
 ## Part 1 — Contract & scaffold
 
@@ -94,7 +103,8 @@ OSF Stage-2 release (D-22).
 ## Part 4 — Real-data go-live (gated, after the skeleton works)
 
 - **Gates** (see `docs/open-questions.md`): recon queries run (matnr/lv, volumes → update
-  the data dictionary); pepper generated + custody settled with Daniel; N=5 confirmed;
+  the data dictionary); pepper generated + custody settled with Daniel; floor N confirmed
+  (working value 3, D-24);
   Daniel's nod on the architecture. Until all pass, the deployed dashboard shows synthetic
   data, clearly labeled.
 - **Extract:** read-only MySQL user if obtainable; incremental by `history.id` watermark;

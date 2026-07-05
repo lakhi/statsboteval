@@ -27,7 +27,7 @@ From the informed-consent addendum (`docs/ethics/informed-consent-addendum.pdf`,
 1. **No student data ever enters this repo or any cloud database.** Pseudonymized chat
    histories live on a password-protected LOCAL storage medium only (until end of 2027).
 2. The cloud (Azure) side receives **only aggregated, non-identifying outputs** that have
-   passed the privacy floor (aggregate cells covering fewer than N≈5 students are suppressed
+   passed the privacy floor (aggregate cells covering fewer than N≈3 students are suppressed
    at aggregation time, locally).
 3. Sending chat text to Azure OpenAI for classification is consistent with consented practice
    (EU data centers); storing it in the cloud is not.

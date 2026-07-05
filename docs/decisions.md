@@ -166,3 +166,38 @@ Backend (FastAPI), deploy pattern, and the D-18 auth boundary are unchanged; D-1
 (English-only) unchanged, future German via next-intl instead of Angular i18n. Accepted
 cost: framework split vs StatsBot's Angular — fine because the repos share data, not code
 (D-01).
+
+## 2026-07-05 — aggregates-contract design session (D-19 gate, with Claude Code)
+
+**D-24 · Working privacy floor lowered to N = 3.** (Amends D-09's working value; the rule
+and its local application point are unchanged.) Project-owner call during the
+aggregates-contract brainstorm: at the current cohort scale (~182 users in the Bergmann
+window), N = 5 suppresses a large share of fine-grained cells — the hour×weekday heatmap
+especially. k = 3 is the recognized lower bound in statistical-disclosure-control practice
+(k = 5 the conservative default). The published file declares `privacy_floor_n` in its
+metadata, so no reader hardcodes the value: if the ethics confirmation (go-live gate,
+`open-questions.md`, unchanged) later forces 5, that is a pipeline config change plus
+republish, not a schema change. Slightly widens the accepted repeated-releases residual
+risk (`ethics/data-handling.md`), same reasoning applies.
+
+Sequencing note (recorded in the Phase A plan): local real-data ingest and validation are
+pulled forward — the go-live gates bind the first cloud publish, not local development.
+The public demo switches from synthetic to real aggregates as soon as the three gates
+(pepper custody, floor confirmation, architecture nod) close; synthetic fixtures remain
+the permanent basis for tests/CI, and every published file self-labels via a
+`data_provenance` metadata field.
+
+**D-25 · Aggregates contract v1 locked.** (Closes the D-19 contract gate; honors the
+2026-07-02/03 pinned inputs.) Full spec: `docs/aggregates-contract.md`. Key choices:
+explicit tagged cells (`ok`/`suppressed` discriminated union; suppressed cells carry no
+value field — sub-floor numbers structurally cannot leak); the floor always tests distinct
+contributing students, never value magnitude; complete ISO weeks only; the client never
+re-aggregates — every displayed (metric × window) is its own pre-aggregated floored cell,
+so the viewable windows are part of the contract (one registry: semesters by the
+Thursday-membership rule, `all_time`, `trailing_4`); footnotes as a referenced registry;
+`label_versions` as a domain→version map (pluralizes the pinned `label_version`; D-07's
+one-active-version-per-domain made structural); metadata additions `timezone` and
+`data_provenance`; blob protocol = immutable versioned blobs + atomically overwritten
+full-copy `latest.json` under a major-version prefix (`v1/`); additive-only evolution
+within a major. Phase B extends the same file (new `topics` section +
+`label_versions.classification`).

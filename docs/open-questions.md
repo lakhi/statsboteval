@@ -32,7 +32,7 @@ Answerable directly over the MySQL connection; fold results into
       kept, and where is its backup? (Low-stakes until first real ingest; corpus is
       reproducible from source until mid-2027, so rotation = re-ingest.)
 - [ ] **Privacy floor N** (Daniel): does the ethics protocol imply a minimum cell size?
-      (Working value: 5.)
+      (Working value: 3 since 2026-07-05, D-24; was 5.)
 - [ ] **Architecture confirmation** (Daniel): local-corpus + cloud-aggregates split,
       including transient Azure OpenAI processing for Phase B classification.
 

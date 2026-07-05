@@ -28,8 +28,9 @@ disagree, the PDF wins.
    medium. It must never be stored in a cloud database, object store, or this git repository.
 2. **The cloud side (Azure dashboard) receives only aggregated, non-identifying outputs.**
    Aggregation happens locally, and the privacy floor is applied there: any aggregate cell
-   covering fewer than **N students is suppressed before publication** (working value N = 5;
-   confirmation against the ethics protocol pending — see `../open-questions.md`).
+   covering fewer than **N students is suppressed before publication** (working value N = 3,
+   lowered from 5 on 2026-07-05 — decision D-24; confirmation against the ethics protocol
+   pending — see `../open-questions.md`).
 3. **Transient LLM processing is permitted, cloud storage is not.** Sending message text to
    Azure OpenAI for classification matches already-consented practice (StatsBot itself, and
    the Bergmann study's GPT-based coding); persisting message text cloud-side does not.
