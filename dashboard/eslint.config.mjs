@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated from schema/aggregates.schema.json (pnpm gen:types) — not hand-written.
+    "src/lib/aggregates.gen.ts",
   ]),
 ]);
 
