@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, model_serializer, model_validator
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -87,3 +87,55 @@ class WeeklyEntry(BaseModel):
 class WeeklySeries(BaseModel):
     series: list[WeeklyEntry]
     footnote_ids: list[FootnoteId] | None = None
+
+
+class HistogramBin(BaseModel):
+    lo: int
+    hi: int | None  # None = open top bin ("8+")
+    cell: CountCell
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: Any) -> dict[str, Any]:
+        # dump_doc uses exclude_none, which would drop hi=None — but null IS the
+        # open-bin marker (contract §5), so reinstate it unconditionally.
+        data = handler(self)
+        data["hi"] = self.hi
+        return data
+
+
+class OkSummaryStats(BaseModel):
+    status: Literal["ok"]
+    n_students: int = Field(ge=1)
+    median: float
+    p25: float
+    p75: float
+    mean: float | None = None  # filled where the Bergmann reference reports them
+    sd: float | None = None
+
+
+class SuppressedSummaryStats(BaseModel):
+    status: Literal["suppressed"]
+
+
+SummaryStats = Annotated[Union[OkSummaryStats, SuppressedSummaryStats], Field(discriminator="status")]
+
+
+class Histogram(BaseModel):
+    unit: str
+    bins: list[HistogramBin]
+    n_total: CountCell  # published explicitly: suppressed bins make it un-derivable
+    summary: SummaryStats | None = None
+    footnote_ids: list[FootnoteId] | None = None
+
+    @model_validator(mode="after")
+    def _bins_ascending_disjoint(self) -> "Histogram":
+        for i, b in enumerate(self.bins):
+            if b.hi is None and i != len(self.bins) - 1:
+                raise ValueError("only the last bin may be open-ended (hi=null)")
+            if b.hi is not None and b.hi < b.lo:
+                raise ValueError(f"bin {i}: hi < lo")
+            if i > 0:
+                prev = self.bins[i - 1]
+                if prev.hi is None or b.lo <= prev.hi:
+                    raise ValueError(f"bin {i}: bins must be ascending and non-overlapping")
+        return self
