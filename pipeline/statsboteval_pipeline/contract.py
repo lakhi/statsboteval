@@ -7,10 +7,11 @@ statsboteval_pipeline.export_schema.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import date, timedelta
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -299,3 +300,79 @@ class Sections(BaseModel):
     sessions: SessionsSection | None = None
     tokens: TokensSection | None = None
     language: LanguageSection | None = None
+
+
+class Footnote(BaseModel):
+    text: str
+
+
+def _iter_footnote_ids(node: Any) -> Iterator[str]:
+    """Walk a dumped document and yield every footnote id referenced anywhere."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "footnote_ids" and isinstance(value, list):
+                yield from value
+            else:
+                yield from _iter_footnote_ids(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _iter_footnote_ids(item)
+
+
+class Aggregates(BaseModel):
+    """Root of the aggregates file. Shape law lives here; semantics in docs/aggregates-contract.md."""
+
+    schema_version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
+    generated_at: AwareDatetime
+    data_through_week: WeekId
+    data_through_date: date
+    first_week: WeekId
+    privacy_floor_n: int = Field(ge=1)
+    label_versions: dict[str, str]
+    timezone: str
+    data_provenance: Literal["synthetic", "production"]
+    pipeline_version: str
+    windows: list[Window]
+    footnotes: dict[FootnoteId, Footnote]
+    sections: Sections
+
+    def _weekly_series(self) -> Iterator[tuple[str, WeeklySeries]]:
+        s = self.sections
+        if s.temporal_usage is not None:
+            yield "temporal_usage.weekly.messages", s.temporal_usage.weekly.messages
+            yield "temporal_usage.weekly.sessions", s.temporal_usage.weekly.sessions
+            yield "temporal_usage.weekly.active_students", s.temporal_usage.weekly.active_students
+        if s.usage_context is not None:
+            yield "usage_context.weekly.registrations", s.usage_context.weekly.registrations
+        if s.language is not None:
+            mbl = s.language.weekly.messages_by_language
+            for lang in ("de", "en", "other", "undetermined"):
+                yield f"language.weekly.messages_by_language.{lang}", getattr(mbl, lang)
+
+    def _per_window_maps(self) -> Iterator[tuple[str, dict[str, Any]]]:
+        s = self.sections
+        for name in ("temporal_usage", "usage_context", "sessions", "tokens", "language"):
+            section = getattr(s, name)
+            if section is not None:
+                yield name, section.per_window
+
+    @model_validator(mode="after")
+    def _cross_document_consistency(self) -> "Aggregates":
+        if week_sunday(self.data_through_week) != self.data_through_date:
+            raise ValueError("data_through_date must be the Sunday of data_through_week")
+        window_ids = {w.id for w in self.windows}
+        if len(window_ids) != len(self.windows):
+            raise ValueError("window ids must be unique")
+        for name, per_window in self._per_window_maps():
+            unknown = set(per_window) - window_ids
+            if unknown:
+                raise ValueError(f"sections.{name}.per_window references unknown windows: {sorted(unknown)}")
+        referenced = set(_iter_footnote_ids(dump_doc(self.sections)))
+        unknown_footnotes = referenced - set(self.footnotes)
+        if unknown_footnotes:
+            raise ValueError(f"unknown footnote ids referenced: {sorted(unknown_footnotes)}")
+        expected = weeks_range(self.first_week, self.data_through_week)
+        for path, weekly in self._weekly_series():
+            if [entry.week for entry in weekly.series] != expected:
+                raise ValueError(f"sections.{path} must be dense over [{self.first_week}, {self.data_through_week}]")
+        return self
