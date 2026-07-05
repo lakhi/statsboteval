@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, Field, TypeAdapter, model_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -157,3 +157,45 @@ class HeatmapGrid(BaseModel):
         if len(self.cells) != 168 or len(seen) != 168:
             raise ValueError("heatmap must contain exactly the 168 unique (dow, hour) cells")
         return self
+
+
+class Coverage(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: WeekId = Field(alias="from")  # "from" is a Python keyword
+    through: WeekId
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "Coverage":
+        if week_monday(self.from_) > week_monday(self.through):
+            raise ValueError("coverage.from must not be after coverage.through")
+        return self
+
+
+class AllTimeWindow(BaseModel):
+    kind: Literal["all_time"]
+    id: str
+    label: str
+    coverage: Coverage
+
+
+class SemesterWindow(BaseModel):
+    kind: Literal["semester"]
+    id: str
+    label: str
+    start_date: date
+    end_date: date
+    weeks: list[WeekId]  # full membership (Thursday rule); coverage = clipped to data range
+    coverage: Coverage
+
+
+class TrailingWindow(BaseModel):
+    kind: Literal["trailing"]
+    id: str
+    label: str
+    weeks: list[WeekId]
+    coverage: Coverage
+
+
+Window = Annotated[Union[AllTimeWindow, SemesterWindow, TrailingWindow], Field(discriminator="kind")]
+window_adapter: TypeAdapter[AllTimeWindow | SemesterWindow | TrailingWindow] = TypeAdapter(Window)
