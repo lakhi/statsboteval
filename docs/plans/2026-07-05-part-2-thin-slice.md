@@ -90,11 +90,11 @@ CREATE TABLE messages (
 );
 ```
 
-- [ ] Failing tests: fresh corpus has both tables + `_migrations` row for 001; reopening
+- [x] Failing tests: fresh corpus has both tables + `_migrations` row for 001; reopening
       applies nothing twice; a second migration file 002 (created in tmp by the test)
       applies in order.
-- [ ] Implement; run `pytest tests/test_corpus.py`, then full suite.
-- [ ] Commit: `Add DuckDB corpus with plain numbered migrations`
+- [x] Implement; run `pytest tests/test_corpus.py`, then full suite.
+- [x] Commit: `Add DuckDB corpus with plain numbered migrations`
 
 ### Task 2: Synthetic fixture generator
 
@@ -109,10 +109,10 @@ complete ISO weeks. **Shape requirements (tested):** ≥1 week with zero message
 `"SYNTHETIC"`; plausible token counts. Registration dates spread so registrations-per-week
 will also exercise the floor in Part 3.
 
-- [ ] Failing tests: determinism (same seed → identical row sets); the shape requirements
+- [x] Failing tests: determinism (same seed → identical row sets); the shape requirements
       above asserted by querying the seeded corpus.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add deterministic synthetic corpus fixture generator`
+- [x] Implement; full suite green.
+- [x] Commit: `Add deterministic synthetic corpus fixture generator`
 
 ### Task 3: Aggregation + privacy floor → Aggregates document
 
@@ -139,16 +139,16 @@ modify `pipeline/pyproject.toml` (dev: add `hypothesis`).
     `sections.temporal_usage` = weekly `messages`/`sessions`/`active_students`,
     `per_window={}` (heatmap is a Part 3 scoping question). All construction through
     `contract.py` models — the root validator is the first guard.
-- [ ] Failing tests — hand-computed corpus (inserted directly, not via fixtures.py):
+- [x] Failing tests — hand-computed corpus (inserted directly, not via fixtures.py):
       e.g. W1: 3 students / 5 msgs / 4 sessions → all ok; W2: 2 students / 100 msgs →
       all three cells suppressed; W3: empty → ok(0); assert exact dumped cells, density,
       metadata fields, and that `dump_doc(build_aggregates(...))` validates against
       `schema/aggregates.schema.json`.
-- [ ] Property test (hypothesis): for all `(value ≥ 0, n_students ≥ 0, floor_n ≥ 1)`:
+- [x] Property test (hypothesis): for all `(value ≥ 0, n_students ≥ 0, floor_n ≥ 1)`:
       suppressed ⟺ `1 <= n_students < floor_n`; an ok cell never exists for a sub-floor
       positive student count (contract §11 property).
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add weekly aggregation with privacy floor building the contract document`
+- [x] Implement; full suite green.
+- [x] Commit: `Add weekly aggregation with privacy floor building the contract document`
 
 ### Task 4: Publish guard, blob upload, CLI
 
@@ -169,13 +169,13 @@ modify `pipeline/pyproject.toml` (add `azure-storage-blob>=12.19`).
 - CLI (`argparse`, no new dep): `python -m statsboteval_pipeline.cli run-synthetic
   --corpus PATH --weeks 8 --seed 42 [--out FILE] [--upload]` → seed → build → guard →
   write file and/or upload using `$AZURE_STORAGE_CONNECTION_STRING`.
-- [ ] Failing tests: guard passes the Task 3 document and rejects a hand-broken dict
+- [x] Failing tests: guard passes the Task 3 document and rejects a hand-broken dict
       (suppressed cell with a value injected post-dump); publish against **Azurite**
       (`pytest` fixture launches `npx azurite --inMemoryPersistence` on a free port,
       `skipif` azurite unavailable): both blobs exist, byte-identical, immutable name
       collision raises; CLI `--out` writes a file whose content passes `jsonschema`.
-- [ ] Implement; full suite green (`ruff` + `mypy` too — keep them green from here on).
-- [ ] Commit: `Add publish guard, §9 blob publish, and run-synthetic CLI`
+- [x] Implement; full suite green (`ruff` + `mypy` too — keep them green from here on).
+- [x] Commit: `Add publish guard, §9 blob publish, and run-synthetic CLI`
 
 ### Task 5: FastAPI service
 
@@ -196,11 +196,11 @@ modify `pipeline/pyproject.toml` (add `azure-storage-blob>=12.19`).
   `CACHE_TTL_SECONDS`, `SCHEMA_PATH` override, `DASHBOARD_DIST` — Task 8);
   `.env.example` documents both modes (repo `.gitignore` already blocks real `.env*`).
 - Same pyproject conventions as `pipeline/` (ruff 120, mypy, pytest; own `uv venv`).
-- [ ] Failing tests (httpx TestClient, blob source faked via dependency override): healthz;
+- [x] Failing tests (httpx TestClient, blob source faked via dependency override): healthz;
       happy path serves the fixture verbatim; cache honored within TTL (fake source call
       count); invalid doc → 500; missing blob → 503.
-- [ ] Implement; `api/` suite + ruff + mypy green.
-- [ ] Commit: `Add FastAPI aggregates service (blob read, schema tripwire, TTL cache)`
+- [x] Implement; `api/` suite + ruff + mypy green.
+- [x] Commit: `Add FastAPI aggregates service (blob read, schema tripwire, TTL cache)`
 
 ### Task 6: Dashboard scaffold + generated types
 
@@ -211,10 +211,10 @@ modify `pipeline/pyproject.toml` (add `azure-storage-blob>=12.19`).
 `src/lib/api.ts` (fetch wrapper; `NEXT_PUBLIC_API_BASE`, default `""` = same origin per
 D-26). No component library (D-28).
 
-- [ ] Scaffold; set static export; verify `pnpm build` emits `out/index.html`.
-- [ ] Generate types; spot-check `Aggregates`/`CountCell` shapes match the contract
+- [x] Scaffold; set static export; verify `pnpm build` emits `out/index.html`.
+- [x] Generate types; spot-check `Aggregates`/`CountCell` shapes match the contract
       (discriminated `status`, `from` property on coverage).
-- [ ] Commit: `Scaffold Next.js dashboard (static export) with schema-generated types`
+- [x] Commit: `Scaffold Next.js dashboard (static export) with schema-generated types`
 
 ### Task 7: Dashboard thin-slice page (provisional visuals)
 
@@ -231,11 +231,11 @@ after the demo URL exists):**
   0, never silently interpolated. Footnote text (sessions → `chat_fragmentation`)
   rendered from the registry beneath the chart.
 - Header shows `data_through_date` and window coverage (display math only, invariant 4).
-- [ ] Build against the local stack (Azurite + CLI publish + uvicorn,
+- [x] Build against the local stack (Azurite + CLI publish + uvicorn,
       `NEXT_PUBLIC_API_BASE=http://localhost:8000 pnpm dev`); verify all three cell states
       visibly distinct (the Task 2 fixture guarantees all three occur).
-- [ ] `pnpm build` still exports clean.
-- [ ] Commit: `Add thin-slice dashboard page (weekly trends, suppression-aware rendering)`
+- [x] `pnpm build` still exports clean.
+- [x] Commit: `Add thin-slice dashboard page (weekly trends, suppression-aware rendering)`
 
 ### Task 8: API serves the bundle; containerfile for cloud build (D-26/D-28)
 
@@ -246,19 +246,19 @@ copies `schema/` and the bundle) + `.dockerignore` — **built in the cloud by
 `az containerapp up --source .` (Task 11); no local Docker required.** If a local daemon
 happens to be available, a `docker run` smoke test is optional, not gating.
 
-- [ ] API test: with a dist dir configured, `/` serves index.html and `/api/v1/*` +
+- [x] API test: with a dist dir configured, `/` serves index.html and `/api/v1/*` +
       `/healthz` still win.
-- [ ] Commit: `Serve dashboard bundle from the API; add containerfile for cloud builds`
+- [x] Commit: `Serve dashboard bundle from the API; add containerfile for cloud builds`
 
 ### Task 9: Local E2E script
 
 **Files:** `scripts/e2e_local.sh` (repo root `scripts/`).
 
-- [ ] Script: start Azurite (in-memory) → `run-synthetic --upload` → start uvicorn →
+- [x] Script: start Azurite (in-memory) → `run-synthetic --upload` → start uvicorn →
       poll `/healthz` → assert `/api/v1/aggregates` returns `data_provenance ==
       "synthetic"` and a dense `temporal_usage` → clean shutdown, non-zero exit on any
       failure. Print the manual step (`pnpm dev` against it) for eyeballing the page.
-- [ ] Run it; commit: `Add local end-to-end script (Azurite → pipeline → API)`
+- [x] Run it; commit: `Add local end-to-end script (Azurite → pipeline → API)`
 
 ### Task 10: Azure provisioning scripts (az CLI, no Bicep — D-28)
 
@@ -279,18 +279,24 @@ happens to be available, a `docker run` smoke test is optional, not gating.
 - All scripts idempotent-ish, parameterized at the top, documented in `infra/README.md`
   (names, teardown = `az group delete`, expected running cost ≈ ACR Basic ~€5/mo +
   storage cents; compute within the Container Apps free grant).
-- [ ] Shellcheck-clean scripts; README reviewed.
-- [ ] Commit: `Add az-CLI provisioning and release scripts`
+- [x] Shellcheck-clean scripts; README reviewed.
+- [x] Commit: `Add az-CLI provisioning and release scripts`
 
 ### Task 11: Deploy, verify, record
 
-- [ ] Run scripts 01→03. Verify from outside: `curl https://<fqdn>/healthz`;
+- [x] Run scripts 01→03. Verify from outside: `curl https://<fqdn>/healthz`;
       `curl https://<fqdn>/api/v1/aggregates | jq .data_provenance` → `"synthetic"`;
       dashboard renders in a browser with the synthetic banner and all three cell states.
-- [ ] Record the demo URL + operational notes (redeploy = `02_deploy_app.sh`; republish =
+- [x] Record the demo URL + operational notes (redeploy = `02_deploy_app.sh`; republish =
       `03_publish_synthetic.sh`) in `infra/README.md`; link from the root README.
-- [ ] Update the Phase A plan doc: mark Part 2 done with the demo URL.
-- [ ] Commit: `Deploy thin slice to Azure; record demo URL`
+- [x] Update the Phase A plan doc: mark Part 2 done with the demo URL.
+- [x] Commit: `Deploy thin slice to Azure; record demo URL`
+
+> **Deviation (D-29):** hosting is App Service Linux F1 (zip deploy), not Container Apps —
+> the `Microsoft.App` provider is unregistered in the MOPS subscription and registering it
+> is admin-only. Demo URL: <https://statsboteval.azurewebsites.net>. Migration back to the
+> planned Container Apps shape (script preserved at commit `2fd5f1e`) happens once the
+> admin registers the provider.
 
 ---
 

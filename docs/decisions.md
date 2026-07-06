@@ -250,3 +250,22 @@ Tailwind v4, TS) rather than agent-ui's module list; no Radix/shadcn preinstalle
 primitives added on demand. The exact chart catalog is deliberately deferred until the
 E2E slice is live (owner call, `open-questions.md`); thin-slice visuals are provisional
 plumbing that must only prove the ok/zero/suppressed rendering distinction.
+
+**D-29 · Interim thin-slice hosting = App Service Linux F1 (zip deploy); Container Apps
+deferred until the provider is registered.** D-26/D-28's Container Apps deploy turned out
+to require a one-time, subscription-scope provider registration (`Microsoft.App/register/
+action`) that the operator's RG-scoped Contributor role on MOPS cannot perform — confirmed
+via both CLI and portal (the portal renders the create wizard but ARM denies at submit).
+Registration was requested from the subscription admin (2026-07-06, expected ~a day).
+Rather than wait or pay for B1 (~€13/mo), the thin slice ships on the free tier: the same
+tree the Dockerfile builds (`app/` + `schema/` + `static/` + generated `requirements.txt`)
+is zip-deployed with Oryx building server-side; the blob connection string lives in an app
+setting (encrypted at rest — managed-identity RBAC also needs rights the operator lacks).
+This *reverses D-28's on-merits rejection of F1 under changed constraints*, accepting its
+weaknesses knowingly: idle unload with slow cold starts, and a daily CPU quota that a
+single crash-looping deploy can exhaust (both were hit on first deploy; root cause was
+wwwroot-absolute paths — Oryx runs the app from a random `/tmp` extraction, so
+`SCHEMA_PATH`/`DASHBOARD_DIST` are relative). Acceptable while the URL's audience is the
+operator; migrate to Container Apps (script preserved at commit `2fd5f1e`, ~15 min) once
+registration lands and before the link is shared with the team. Demo URL:
+<https://statsboteval.azurewebsites.net>.

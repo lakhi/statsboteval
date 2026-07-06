@@ -4,8 +4,12 @@ set -euo pipefail
 # shellcheck source=./config.sh
 source "$(dirname "$0")/config.sh"
 
-az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
-echo "resource group $RESOURCE_GROUP ready"
+if [ "$(az group exists --name "$RESOURCE_GROUP")" = "true" ]; then
+  echo "resource group $RESOURCE_GROUP exists"
+else
+  az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
+  echo "resource group $RESOURCE_GROUP created"
+fi
 
 az storage account create \
   --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" \
@@ -22,5 +26,5 @@ OPERATOR_ID="$(az ad signed-in-user show --query id --output tsv)"
 STORAGE_SCOPE="$(az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query id --output tsv)"
 az role assignment create \
   --assignee "$OPERATOR_ID" --role "Storage Blob Data Contributor" --scope "$STORAGE_SCOPE" --output none \
-  || echo "(role assignment may already exist — fine)"
-echo "operator RBAC ready"
+  || echo "(role assignment unavailable — publishes use the account key via show-connection-string, which Contributor permits)"
+echo "operator access ready"

@@ -64,6 +64,11 @@ all tests and the skeleton deploy.
 
 ## Part 2 — Thin slice, end-to-end, deployed
 
+> **Status: done (2026-07-06).** Live at <https://statsboteval.azurewebsites.net>
+> (synthetic data, clearly bannered). Interim hosting is App Service F1, not Container
+> Apps — see D-29; details and ops notes in `infra/README.md`. Implementation plan:
+> `docs/plans/2026-07-05-part-2-thin-slice.md`.
+
 One metric (weekly message count + weekly active students, floored) through every layer:
 
 1. **Mini-pipeline:** synthetic rows → DuckDB file → aggregate + privacy floor →
