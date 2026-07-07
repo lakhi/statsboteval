@@ -33,6 +33,10 @@ From the informed-consent addendum (`docs/ethics/informed-consent-addendum.pdf`,
    (EU data centers); storing it in the cloud is not.
 4. Data lifecycle deadlines (deletion window until end of July 2027, anonymize-and-publish to
    OSF afterwards) are documented in `docs/ethics/data-handling.md`.
+5. **The production StatsBot MySQL DB is live and strictly read-only for this project** —
+   we analyze the data, never modify it. Every connection sets
+   `SET SESSION TRANSACTION READ ONLY` at connect time and issues only `SELECT`/`SHOW`;
+   no INSERT/UPDATE/DELETE/DDL under any circumstances.
 
 ## Planned architecture (agreed 2026-06-10, amended 2026-06-12 and 2026-07-03, see docs/decisions.md)
 

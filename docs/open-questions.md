@@ -13,24 +13,30 @@ they resolve.
 
 ## Self-serve — recon queries against the production DB
 
-Answerable directly over the MySQL connection; fold results into
-`source-data-dictionary.md`. *Scheduled as Task 1 of the re-scoped Phase B plan (D-33);
-connection params received 2026-07-07, DB reachable over Uni Wien VPN.*
+*Run 2026-07-07 as Task 1 of the re-scoped Phase B plan (D-33), over Uni Wien VPN with a
+read-only session (the DB is live — we never write). All four resolved; durable details
+in `source-data-dictionary.md`.*
 
-- [ ] **Prod-vs-repo drift:** does production data actually populate `matnr` and/or `lv`?
-      (Repo snapshot never writes them, but the consent names matriculation number as
-      stored.) `SELECT COUNT(*) FROM students WHERE matnr IS NOT NULL AND matnr <> ''` etc.
-- [ ] **Data volume now:** current counts of students / sessions (distinct
-      (`student_id`,`started`)) / messages.
-- [ ] **Program-level source:** the Bergmann extract carried a per-student `Status`
-      column (`Bachelorstudent`/`Masterstudent`/`Other`) — check whether any prod table
-      holds it (neither documented research table does), else it came from outside the DB
-      (→ Daniel item below).
-- [ ] **`created_at` timezone:** are `history.created_at` values stored as UTC or server
-      local time (Europe/Vienna)? Determines the conversion step before ISO-week and
-      hour-of-day bucketing (`metadata.timezone`); the synthetic pipeline assumes UTC
-      storage until confirmed. `SELECT NOW(), @@session.time_zone, @@global.time_zone`
-      plus a spot-check of a known-time message.
+- [x] **Prod-vs-repo drift** — resolved 2026-07-07: `matnr` and `lv` **do not exist as
+      columns in production** `students` (drift is the reverse of feared); prod adds a
+      `registered` flag and an `import` roster table (Moodle "MethodsHub" export, 4,482
+      rows) that *does* hold `Matrikelnummer`+`uid` — the stored matriculation number the
+      consent names. Per-course `lv` segmentation is off the table.
+- [x] **Data volume now** — resolved 2026-07-07: 550 students (443 with messages), 4,412
+      messages, 1,871 sessions, 2024-07 → live. Classification cost at this scale:
+      single-digit euros per full gpt-5-mini run (~3–4 M input tokens across all five
+      passes), ≈ €10 even with a full gpt-5.1 escalation — Batch SKU stays unnecessary.
+- [x] **Program-level source** — resolved 2026-07-07: **not in the production DB.** The
+      only candidate (`import.Gruppen`) is "MethodsHub" for effectively every row. The
+      Bergmann `Status` column came from outside the DB → remains with the Daniel item
+      (Phase B inputs, below). Roster non-membership weakly proxies the "Other"
+      (pre/postdoc) group only.
+- [x] **`created_at` timezone** — resolved 2026-07-07: Laravel writes UTC strings into a
+      Europe/Vienna-interpreting session (empirically confirmed via `started` diffs:
+      monthly medians −3,530 s CET / −7,150 s CEST). **Extraction rule:** read with the
+      server-default session timezone and treat values as UTC; never read with
+      `time_zone='+00:00'`. The corpus "UTC assumed" convention holds; no Phase A
+      aggregation change needed.
 
 ## Go-live gates — closed 2026-07-07 (D-34)
 
@@ -102,8 +108,10 @@ items below are still open; each open item is chased in parallel, not waited on.
       import against `sent`/timestamps.
 - [ ] **Bachelor/master mapping — residual** (Daniel/coordinators): the study got a
       per-student `Status` column with the coordinators' extract ("Other" = pre/postdocs).
-      How is it derived, and how does our weekly extract reproduce it? (Also a recon query
-      above.)
+      How is it derived, and how does our weekly extract reproduce it? *2026-07-07 recon:
+      confirmed absent from the production DB (incl. the `import` roster — one Moodle
+      course for everyone), so it can only come from the coordinators. Until answered,
+      program-level segmentation stays out of our aggregates (contract §13 unaffected).*
 - [ ] **Declarative Statement production prompt** (Leonardo): the public deductive prompt
       file contains only 12 of 13 codebook blocks — Declarative Statement is missing
       (interim: manuscript Table 1 definition).
@@ -124,4 +132,7 @@ items below are still open; each open item is chased in parallel, not waited on.
 
 - [ ] **Course-records linkage** (Daniel/ethics): which records exist
       (enrollment/withdrawal, questionnaires), who provides them, on what key, in what
-      format?
+      format? *2026-07-07 recon: a linkage key exists in principle — the prod `import`
+      roster maps `uid` ↔ `Matrikelnummer` (the stored matriculation number the consent
+      names). Consent-compatibility check required before any use; StatsBotEval does not
+      extract that table.*

@@ -136,22 +136,25 @@ USER/PASSWORD`, `PSEUDONYM_PEPPER`, `AZURE_OPENAI_ENDPOINT`,
 no production code.
 
 Run the four self-serve recon queries from `docs/open-questions.md` over the production
-connection (read-only session):
+connection (read-only session — **the DB is live; we never write**, owner directive
+2026-07-07, now CLAUDE.md binding constraint 5):
 
-- [ ] `matnr`/`lv` population: are they written in prod despite never being written by
-      repo code paths?
-- [ ] Current volumes: students / sessions (distinct (`student_id`,`started`)) / messages
-      — and from message count, **recompute the classification cost estimate** (≈5
-      gpt-5-mini passes: deductive, method, software, generation, emergent assignment;
-      D-30 assumed "tens of euros" at Bergmann's 1,400).
-- [ ] Program-level `Status` source: any prod table holding it, or external (Daniel item)?
-- [ ] `created_at` timezone: `SELECT NOW(), @@session.time_zone, @@global.time_zone` +
-      spot-check a known-time message. **If storage is Europe/Vienna local rather than
-      UTC, file the conversion fix against the existing Phase A aggregation assumptions**
-      (corpus comment says "UTC assumed") before Task 20 publishes real numbers.
-- [ ] Fold everything into `source-data-dictionary.md`; check the recon items off in
-      `open-questions.md`.
-- [ ] Commit: `Record production-DB recon results in the data dictionary`
+- [x] `matnr`/`lv` population — **columns don't exist in prod**; `import` roster table
+      (Moodle export) holds `Matrikelnummer`↔`uid` instead; prod adds a `registered` flag.
+- [x] Current volumes: 550 students / 443 messaging / 4,412 messages / 1,871 sessions
+      (2024-07 → live). **Cost estimate: single-digit euros per full gpt-5-mini run**
+      (~3–4 M input tokens over all five passes), ≈ €10 with full gpt-5.1 escalation —
+      D-30's "tens of euros" was conservative; Batch SKU stays out of scope.
+- [x] Program-level `Status` source: **not in the DB** (roster `Gruppen` ≡ "MethodsHub");
+      stays with the Daniel item; roster non-membership weakly proxies "Other" only.
+- [x] `created_at` timezone: Laravel writes UTC strings into a Europe/Vienna session —
+      **read with the server-default session tz and treat as UTC** (empirics + rule in
+      `source-data-dictionary.md`); corpus "UTC assumed" holds, no Phase A fix needed.
+- [x] Folded into `source-data-dictionary.md` (incl. new `import` table + timezone
+      sections); recon items checked off in `open-questions.md`.
+- [x] Commit: `Record production-DB recon results in the data dictionary`
+
+**Done 2026-07-07.**
 
 ### Task 2: Extract stage (MySQL → pseudonymized corpus, pepper interlock)
 
@@ -160,11 +163,15 @@ connection (read-only session):
 `.env.example`; `pipeline/pyproject.toml` (+`pymysql`).
 
 **Produces:** `extract_new_rows(con, source, settings) -> int` — pull `students` +
-`history` rows above the stored `history.id` watermark over a SELECT-only session;
-compute `pseudonym = HMAC_SHA256(normalize(uid), pepper)` in flight (trim + lowercase per
-the data dictionary — pseudonyms silently fork otherwise); write **only** pseudonymized
-columns into the migration-001 corpus tables (no `uid`, no names, no `matnr`). Direct
-identifiers never touch disk. **Pepper interlock:** at first ingest the corpus stores
+`history` rows above the stored `history.id` watermark over a session opened with
+`init_command="SET SESSION TRANSACTION READ ONLY"` (the live-DB read-only rule, CLAUDE.md
+constraint 5 — server-enforced, not just discipline) and the **server-default session
+timezone** (never `time_zone='+00:00'` — see the data dictionary's timezone rule;
+`created_at` then reads as true UTC); compute `pseudonym = HMAC_SHA256(normalize(uid),
+pepper)` in flight (trim + lowercase per the data dictionary — pseudonyms silently fork
+otherwise); write **only** pseudonymized columns into the migration-001 corpus tables (no
+`uid`, no names; the `import` roster table is never selected). Direct identifiers never
+touch disk. **Pepper interlock:** at first ingest the corpus stores
 `sha256(pepper)`; every later run verifies it and refuses to proceed on mismatch (a
 wrong/rotated pepper fails loudly instead of silently splitting every student in two).
 Watermark makes reruns incremental and idempotent.
