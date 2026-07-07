@@ -327,3 +327,38 @@ separate grant. Migration execution was **blocked this session by an Azure CLI i
 mismatch** (`az account show` = operator `lakhia92@`, but ARM calls presented a stale token
 for `akshay.lakhi@` with no role on the RG); it proceeds once the operator re-authenticates.
 Demo URL will change from `*.azurewebsites.net` to `*.<region>.azurecontainerapps.io`.
+
+## 2026-07-07 — Dashboard redesign session (with Claude Code)
+
+**D-32 · Dashboard redesigned: educator-question tab IA, registry-driven window filter,
+"academic instrument" design tokens.** (Commit `017c137`; supersedes the thin-slice
+single-page layout, D-28's provisional chart included.)
+- **Tab per educator question**, ordered by owner priority: **Topics** (Phase B teaser
+  panel until `sections.topics` ships) · **Adoption** (`usage_context`) · **Engagement**
+  (`sessions` + `tokens` merged — both are depth proxies answering one question; a
+  deliberate deviation from the contract's one-section-per-view sketch) · **Timing**
+  (`temporal_usage`) · **Language** (`language`). Panels open with the question set as a
+  display headline; sections absent from a publish render an explicit "not in this data
+  release yet" state (invariant 5), so views light up as the pipeline widens with no
+  dashboard change. Tab + window selection sync to URL query params (shareable views).
+- **The date filter is a window picker, not a date-range control.** Options are the
+  published windows registry verbatim (semesters newest-first, trailing, all-time);
+  default = the semester with the latest `coverage.through`, falling back to `all_time`;
+  "(in progress)" derives from coverage vs. membership, no client date math. Free ranges
+  are excluded by contract invariant 4: `per_window` metrics are key lookups, weekly
+  series are sliced client-side to window coverage (display selection, never
+  re-aggregation). Placed above the tab row, right-aligned — visibly scoping every tab.
+- **Design tokens** (light-only v1): STIX Two Text for display headlines only (numbers
+  and chart text stay in IBM Plex Sans; Plex Mono for identifiers); Vienna blue
+  `#0063a6` as UI accent and data slot 1, `#1baf7a`/`#eda100` as the further language
+  series (categorical palette validated for CVD/contrast; the sub-3:1 slots are relieved
+  by legend + the always-visible language totals table). A unified **suppression
+  grammar**: gray baseline marks (trends, histograms), 45° gray stipple (heatmap), "—"
+  (tiles) — suppressed ≠ zero ≠ absent everywhere. Registry footnotes render as
+  APA-style †/‡ table notes on each card; every chart carries a collapsible data-table
+  twin (accessibility + citability).
+- **Dev fixture**: `dashboard/dev-fixtures/` holds a seeded generator emitting a
+  schema-validated synthetic document (all Phase A sections, four windows, all three
+  cell states); `NEXT_PUBLIC_DATA_SOURCE=fixture pnpm dev` serves it with no API running
+  (the branch is tree-shaken out of production builds). Suppression in the fixture is
+  driven by distinct-student counts, mirroring the pipeline's floor semantics.
