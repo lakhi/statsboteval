@@ -176,14 +176,22 @@ touch disk. **Pepper interlock:** at first ingest the corpus stores
 wrong/rotated pepper fails loudly instead of silently splitting every student in two).
 Watermark makes reruns incremental and idempotent.
 
-- [ ] Failing tests (stubbed connection object; no network): HMAC determinism + uid
+- [x] Failing tests (stubbed connection object; no network): HMAC determinism + uid
       normalization (mixed case/whitespace collapse to one pseudonym); only schema-001
       columns are written; watermark resume skips already-ingested ids; fingerprint
-      mismatch raises before any write; empty delta is a no-op.
-- [ ] One `skipif(STATSBOT_DB_HOST unset)` live smoke: connect, `SELECT 1`, count rows.
-- [ ] Implement; generate the real pepper (D-34: `secrets.token_hex(32)` → `pipeline/.env`
-      + password-manager backup — operator step, recorded when done); full suite green.
-- [ ] Commit: `Add MySQL extract with in-flight pseudonymization and pepper interlock`
+      mismatch raises before any write; empty delta is a no-op; NULL registration time
+      skipped; NULL message timestamp fails loudly.
+- [x] One `skipif(STATSBOT_DB_* unset)` live smoke: connect read-only, count rows.
+- [x] Implement; generate the real pepper (D-34: `secrets.token_hex(32)` → `pipeline/.env`;
+      password-manager backup = owner step); full suite green (75 passed).
+- [x] Commit: `Add MySQL extract with in-flight pseudonymization and pepper interlock`
+
+**Done 2026-07-07.** Deviations: the pepper interlock needed corpus storage, so
+`002_extract_meta.sql` (key/value `meta` table) ships here — labels/theme_sets
+migrations renumber to 003/004; the `extract` CLI subcommand is pulled forward from
+Task 16 so Task 3 can run. First real extract executed the same day: 550 students /
+4,412 messages / 1,871 sessions into `pipeline/data/corpus.duckdb` (git-ignored),
+matching recon exactly; rerun ingests 0; corpus `created_at` verified as true UTC.
 
 ### Task 3 (operator, real data local-only): ETL correctness check — Bergmann descriptives
 
@@ -203,9 +211,9 @@ from Phase A Part 3). Program-level splits only if Task 1 found a `Status` sourc
       (git-ignored) report; investigate any gross mismatch before proceeding.
 - [ ] Commit: `Add Bergmann descriptives check for extract validation`
 
-### Task 4: Versioned labels table (corpus migration 002)
+### Task 4: Versioned labels table (corpus migration 003)
 
-**Files:** `pipeline/migrations/002_labels.sql`,
+**Files:** `pipeline/migrations/003_labels.sql`,
 `pipeline/statsboteval_pipeline/labels.py`, `pipeline/tests/test_labels.py`.
 
 **Produces:** a tidy labels table and typed read/write helpers.
@@ -226,7 +234,7 @@ CREATE TABLE labels (
 - `write_labels(con, rows)` — bulk upsert; `read_labels(con, label_version)` → typed rows;
   `label_versions_present(con)` → set. Deductive rows store explicit 0/1 (MCC needs true
   negatives); theme rows store only assignments (value=1).
-- [ ] Failing tests: migration 002 applies on an existing 001 corpus; write/read
+- [ ] Failing tests: migration 003 applies on an existing 001+002 corpus; write/read
       round-trip; `bergmann-v1` and `statsboteval-v1` rows coexist without collision;
       provenance preserved; re-writing the same key is idempotent (upsert, not duplicate).
 - [ ] Implement; full suite green.
@@ -375,14 +383,14 @@ conflation caveat (model **and** consolidated-prompt differences from their pipe
 
 ### Task 12: Emergent-theme generation (two-stage, reviewed, versioned) — NEW (D-33)
 
-**Files:** `pipeline/migrations/003_theme_sets.sql`,
+**Files:** `pipeline/migrations/004_theme_sets.sql`,
 `pipeline/statsboteval_pipeline/classify/generate.py`,
 `pipeline/statsboteval_pipeline/classify/synthesize.py`,
 `pipeline/tests/classify/test_generate.py`, `test_synthesize.py`.
 
 **Produces** our reproduction of Bergmann's two-stage inductive method, corpus-wide:
 
-- **Migration 003:** `theme_candidates` (run-scoped candidate codes per message:
+- **Migration 004:** `theme_candidates` (run-scoped candidate codes per message:
   `history_id, run_id, code`) and `theme_sets` (`set_version, code, description,
   created_at, reviewed_at NULLABLE`) — a theme set is usable only once `reviewed_at` is
   stamped.

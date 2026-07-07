@@ -25,7 +25,24 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--floor-n", type=int, default=3)
     run.add_argument("--out", type=Path, help="write the guarded document to this file")
     run.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
+    ext = sub.add_parser("extract", help="ingest new production rows into the local corpus (read-only source)")
+    ext.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file (created if missing)")
+    ext.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
     args = parser.parse_args(argv)
+
+    if args.command == "extract":
+        from .config import ExtractSettings
+        from .extract import connect_source, extract_new_rows
+
+        settings = ExtractSettings(_env_file=args.env_file)
+        con = open_corpus(args.corpus)
+        source = connect_source(settings)
+        try:
+            n = extract_new_rows(con, source, pepper=settings.pseudonym_pepper)
+        finally:
+            source.close()
+        print(f"ingested {n} new messages into {args.corpus}")
+        return 0
 
     if args.corpus.exists():
         parser.error(f"{args.corpus} already exists; run-synthetic expects a fresh corpus file")

@@ -3,10 +3,17 @@ name = "statsboteval-pipeline"
 version = "0.1.0"
 requires-python = ">=3.11"
 authors = [{ name = "Akshay Lakhi", email = "akshay.lakhi@univie.ac.at" }]
-dependencies = ["pydantic>=2.7", "duckdb>=1.0", "jsonschema>=4.21", "azure-storage-blob>=12.19"]
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "duckdb>=1.0",
+    "jsonschema>=4.21",
+    "azure-storage-blob>=12.19",
+    "pymysql>=1.1",
+]
 
 [project.optional-dependencies]
-dev = ["mypy", "ruff", "pytest", "hypothesis", "types-jsonschema"]
+dev = ["mypy", "ruff", "pytest", "hypothesis", "types-jsonschema", "types-PyMySQL"]
 
 [build-system]
 requires = ["setuptools"]
