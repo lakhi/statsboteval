@@ -1,26 +1,71 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens — "academic instrument" (light-only for v1).
+ * Chrome/ink values follow the validated dataviz reference chrome; the data
+ * accent is Vienna blue #0063a6 (validated as categorical slot 1 on this
+ * surface). Series slots for the language chart: de=#0063a6, en=#1baf7a,
+ * other=#eda100 (sub-3:1 contrast on aqua/yellow is relieved by the legend +
+ * per-window totals table), undetermined=muted gray (semantic "no signal",
+ * not a categorical slot).
+ */
+@theme {
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-display: var(--font-display), "STIX Two Text", Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-paper: #f9f9f7; /* page plane */
+  --color-card: #fcfcfb; /* chart surface */
+  --color-ink: #1c1b1a; /* primary text */
+  --color-ink-2: #52514e; /* secondary text */
+  --color-ink-3: #898781; /* muted text, axis labels */
+  --color-hairline: #e1e0d9; /* gridlines */
+  --color-baseline: #c3c2b7; /* axis rules */
+  --color-edge: rgba(11, 11, 11, 0.1); /* hairline card border */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-accent: #0063a6; /* Vienna blue — UI accent + data slot 1 */
+  --color-accent-deep: #084a77;
+  --color-series-en: #1baf7a;
+  --color-series-other: #eda100;
+  --color-suppressed: #9a988f; /* suppressed marks — always gray, never a hue */
+
+  --color-notice-bg: #fdf6e3; /* synthetic-data banner */
+  --color-notice-edge: #e5c465;
+  --color-notice-ink: #6b4e0e;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* Quality floor: an unmistakable keyboard focus ring, everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+/* Suppressed heatmap cells: 45° stipple, gray tone-on-tone (texture is the
+ * privacy-state channel, so it must survive grayscale print and CVD). */
+.suppressed-stipple {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--color-suppressed) 55%, transparent) 3px 4.5px
+  );
+  background-color: color-mix(in srgb, var(--color-suppressed) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
