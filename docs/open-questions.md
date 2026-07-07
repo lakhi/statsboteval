@@ -105,14 +105,15 @@ items below are still open; each open item is chased in parallel, not waited on.
 - [ ] **Production repetition protocol** (Leonardo): the Stage-2 manuscript documents
       repetition/majority voting only for the pilot (3×); nothing stated for the production
       GPT-5 runs — confirm single-run vs repeated before exact `bergmann-v1` replication.
-- [ ] **Classifier model on the consented platform** (self-serve/ZID): chat text may only
-      leave the machine via **Azure OpenAI (EU)** — not the OpenAI API the team used, and
-      other vendors (e.g. Anthropic) would need a consent-compatibility check first. Policy
-      (agreed 2026-07-02): quality-first — best model available on Azure OpenAI EU, tone
-      down only if cost bites. To confirm: is GPT-5 deployable in our subscription? If a
-      different model must be used, the `bergmann-v1` comparison loosens (model difference
-      conflated with pipeline difference) — acceptable, but note it in the validation
-      write-up.
+- [x] **Classifier model on the consented platform** (self-serve/ZID) — resolved 2026-07-06
+      (D-30). Chat text leaves the machine only via **Azure OpenAI EU, Data Zone Standard**
+      (Sweden Central) for GDPR residency. Pinned **gpt-5-mini** (2025-08-07), escalating to
+      **gpt-5.1** only if a category underperforms in validation. Several newer models
+      (gpt-5.2/5.3, gpt-5.4-mini, the `-chat` variants) are **not** offered in Data Zone
+      Standard there, which constrained the choice. Exact Bergmann replication is not a goal
+      (owner), so the model/prompt differences are recorded as a validation caveat rather
+      than avoided. Owner to confirm gpt-5-mini Data Zone Standard deployability in the
+      portal before the first run.
 
 ## Milestone 2 gates
 

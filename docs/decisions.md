@@ -269,3 +269,61 @@ wwwroot-absolute paths — Oryx runs the app from a random `/tmp` extraction, so
 operator; migrate to Container Apps (script preserved at commit `2fd5f1e`, ~15 min) once
 registration lands and before the link is shared with the team. Demo URL:
 <https://statsboteval.azurewebsites.net>.
+
+## 2026-07-06 — Phase B planning session (with Claude Code)
+
+**D-30 · Phase B classification pipeline inputs fixed.** Plan:
+`docs/plans/2026-07-06-phase-b-classification-pipeline.md`. Owner decisions taken this
+session:
+- **Scope:** the 13 Bergmann deductive binary categories **plus** methods (21) and software
+  (9) theme *assignment* against the frozen public lists. The complex inductive sets
+  (non-statistical interaction, capability request, declarative statement) are deferred.
+- **Classifier model:** pin **gpt-5-mini** (2025-08-07) on Azure OpenAI **Data Zone
+  Standard**, Sweden Central (GDPR EU residency; owner verifies deployability in the
+  portal). Escalate a category — or the whole run — to **gpt-5.1** only if validation
+  exposes a weak category. Ranking rationale: this is short-text binary/theme
+  classification where mini-tier reasoning models already saturate quality, and absolute
+  cost is tens of euros at our corpus size, so value dominates; `gpt-chat-latest`
+  (unversioned) and `model-router` (nondeterministic) are disqualified for reproducibility;
+  gpt-5.2/5.3/5.4-mini and the `-chat` variants are **not** offered in Data Zone Standard in
+  Sweden Central (verified via `az cognitiveservices model list`) so they fail the residency
+  requirement. Replicating Bergmann's exact classifier is explicitly **not** a goal (owner).
+- **Prompt design:** **consolidated multi-label** prompt (all 13 categories in one call per
+  batch), departing from Bergmann's one-category-per-prompt. ~13× fewer calls; the
+  category→call grouping is config so a fragile category can be split out later without a
+  rewrite. Recorded as a validation caveat (a per-category MCC gap now conflates model
+  **and** prompt-structure differences from their pipeline).
+- **Validation:** run `statsboteval-v1` on the **public** 1,400-message dataset (Zenodo raw
+  + OSF `full_dataset.csv`) and compute per-category MCC against `bergmann-v1`, using the
+  300 human-consensus rows as ground truth. This needs **no production corpus and no
+  go-live gate** — pure public data. Themes are produced but not MCC-scored (Bergmann
+  validated themes by expert similarity, not MCC).
+- **Contract:** `topics` enters the existing aggregates file **additively** — a new
+  categorical-distribution shape (multi-label counts, not the numeric `Histogram`) plus a
+  `label_versions.classification` key → **minor bump to schema 1.1.0** under the unchanged
+  `v1/` blob prefix (honors contract §8/§10). 1.0.0 documents stay valid; 1.0.0 readers
+  ignore `topics`.
+- **Sequencing:** Phase B is built **before** Phase A Parts 3–4 (thesis core, fully
+  unblocked, de-risks the classifier). Code + validation are developed on synthetic
+  fixtures + public data (no gate); running classification over the real corpus and
+  publishing real topics is gated with Part 4.
+- **Bergmann materials stay local (reaffirms D-16):** prompt texts, frozen theme lists, the
+  validation dataset, and the validation report are git-ignored until the team's paper is
+  formally recommended/published.
+
+**D-31 · Migrate the thin slice from App Service F1 to Container Apps (supersedes D-29's
+interim).** The subscription admin registered `Microsoft.App` in MOPS (confirmed
+2026-07-06: `az provider show -n Microsoft.App` → `Registered`), removing D-29's blocker.
+Owner directive: migrate to Container Apps and delete the F1 app/plan, restoring the
+D-26/D-28 target shape (scale-to-zero within the free grant, seconds-not-unload cold starts,
+no crash-loop CPU quota) before the demo link is shared with the team. **Two constraints the
+preserved `2fd5f1e` script does not yet reflect, found during migration prep:** (1) resources
+live in the shared **`Lehrprojekt`** RG (operator has no RG-create rights — HEAD `config.sh`),
+not the `statsboteval-rg` the old script names; (2) D-29 also recorded that the operator
+lacks `Microsoft.Authorization/roleAssignments/write`, so the managed-identity + RBAC blob
+read in the old script may still fail — if so, Container Apps keeps the **connection-string
+secret** app-setting approach (Container App secret) rather than managed identity, pending a
+separate grant. Migration execution was **blocked this session by an Azure CLI identity
+mismatch** (`az account show` = operator `lakhia92@`, but ARM calls presented a stale token
+for `akshay.lakhi@` with no role on the RG); it proceeds once the operator re-authenticates.
+Demo URL will change from `*.azurewebsites.net` to `*.<region>.azurecontainerapps.io`.
