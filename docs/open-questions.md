@@ -14,7 +14,8 @@ they resolve.
 ## Self-serve — recon queries against the production DB
 
 Answerable directly over the MySQL connection; fold results into
-`source-data-dictionary.md`.
+`source-data-dictionary.md`. *Scheduled as Task 1 of the re-scoped Phase B plan (D-33);
+connection params received 2026-07-07, DB reachable over Uni Wien VPN.*
 
 - [ ] **Prod-vs-repo drift:** does production data actually populate `matnr` and/or `lv`?
       (Repo snapshot never writes them, but the consent names matriculation number as
@@ -31,21 +32,25 @@ Answerable directly over the MySQL connection; fold results into
       storage until confirmed. `SELECT NOW(), @@session.time_zone, @@global.time_zone`
       plus a spot-check of a known-time message.
 
-## Go-live gates — required before the first real-data publish (not before development)
+## Go-live gates — closed 2026-07-07 (D-34)
 
-*Ownership clarified 2026-07-05: all three are project-owner decisions (Akshay), checked
+*Ownership clarified 2026-07-05: all three were project-owner decisions (Akshay), checked
 against the governing documents and recorded with a date; Daniel is the erasure contact
-per the consent addendum, not the gate decision-maker.*
+per the consent addendum, not the gate decision-maker. All three closed 2026-07-07 — see
+**D-34** for the full rationale. The first real publish still has operational
+preconditions in the Phase B plan (recon, descriptives check, erasure runbook).*
 
-- [ ] **Pepper custody** (owner): we generate the pepper locally (D-05/D-20); decide where
-      it is kept and where its backup lives. (Low-stakes until first real ingest; corpus is
-      reproducible from source until mid-2027, so rotation = re-ingest.)
-- [ ] **Privacy floor N** (owner): check the ethics protocol / consent addendum for an
-      implied minimum cell size and record the decision. (Working value: 3 since
-      2026-07-05, D-24; was 5.)
-- [ ] **Architecture sign-off** (owner): record the go-live decision for the local-corpus +
-      cloud-aggregates split, including transient Azure OpenAI processing for Phase B
-      classification.
+- [x] **Pepper custody** (owner) — resolved 2026-07-07 (D-34): 256-bit pepper in the
+      git-ignored `pipeline/.env` on the encrypted volume; backup copy in the owner's
+      password manager; SHA-256 fingerprint interlock in the corpus so a wrong pepper
+      fails loudly; rotation = re-ingest.
+- [x] **Privacy floor N** (owner) — resolved 2026-07-07 (D-34): **N = 3** confirmed (no
+      explicit minimum in the governing documents; k=3 excludes singling-out and
+      two-student mutual inference; N=5 costs substantial surface at semester-week
+      granularity for no articulable requirement).
+- [x] **Architecture sign-off** (owner) — resolved 2026-07-07 (D-34): local corpus +
+      transient Azure OpenAI EU classification + floored-aggregates-only publish approved
+      as consent-consistent.
 
 ## Phase A build scoping — resolve before the affected Part 3 work, not before Part 2
 

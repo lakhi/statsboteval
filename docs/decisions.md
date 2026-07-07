@@ -362,3 +362,70 @@ single-page layout, D-28's provisional chart included.)
   cell states); `NEXT_PUBLIC_DATA_SOURCE=fixture pnpm dev` serves it with no API running
   (the branch is tree-shaken out of production builds). Suppression in the fixture is
   driven by distinct-student counts, mirroring the pipeline's floor semantics.
+
+## 2026-07-07 — Phase B re-scope to real data (with Claude Code)
+
+**D-33 · Phase B runs on real data end-to-end; emergent-theme generation enters scope
+(amends D-30; plan re-scoped in place).** Owner decisions taken this session:
+- **Inductive scope widened.** D-30 had deferred all inductive work beyond frozen-list
+  assignment; the redesigned Topics tab (D-32) promises "emergent themes — the struggles
+  and question patterns no codebook anticipated", and the owner directed that Phase B
+  deliver that, not a frozen-list stand-in. Phase B therefore adds our own **two-stage
+  inductive pass over our corpus** (mirroring Bergmann's generate→synthesize method):
+  generate candidate codes per message batch → synthesize into a theme list → **operator
+  review** → freeze as versioned theme set **`statsboteval-themes-v1`** → assign the
+  corpus against it (multi-label). Corpus-wide, not conditioned on Bergmann's eight
+  category sets — for the dashboard the direct question is "what do students ask about",
+  and the deductive 13 are kept for structure/comparability anyway. Frozen method (21)
+  and software (9) assignment is **retained** (cheap, Bergmann-comparable).
+- **Data-derivation rule for generated themes:** the synthesized theme list is *derived
+  from real chat text*. It stays git-ignored local like the Bergmann materials; theme
+  labels enter a published aggregate **only after operator review** confirms they are
+  short, generic, and non-identifying (generation prompts instruct this; the review is a
+  named runbook step, not a code path).
+- **Extract pulled forward from Phase A Part 4.** Recon queries (Task 1), the direct-MySQL
+  extract with in-flight HMAC pseudonymization (Task 2), and the Bergmann-descriptives ETL
+  correctness check (Task 3) open the re-scoped plan. Production DB confirmed reachable
+  from the owner's machine over Uni Wien VPN; connection params received 2026-07-07
+  (git-ignored `pipeline/.env`; password never enters chat or repo).
+- **Erasure runbook joins Phase B** as a precondition of the first real publish (once real
+  aggregates are public, an erasure request must be executable end-to-end). The
+  `run-weekly` cadence wrapper stays with Phase A Parts 3–4 (operational convenience, not
+  a publish precondition).
+- **Dashboard task retargeted at the D-32 tab IA:** the Topics work replaces the
+  `TopicsTab` teaser via a new categorical-distribution cell primitive obeying the
+  established cell-state and footnote grammar; `dev-fixtures` gains a synthetic `topics`
+  section so FE work needs no pipeline run.
+- **Azure OpenAI provisioning is an in-plan task** (Sweden Central, Data Zone Standard,
+  gpt-5-mini deployment in MOPS), closing D-30's "confirm deployability" item.
+- **Phase B now ends with the first real-data publish** — Phase A sections included, the
+  synthetic banner retired — under the gates closed by D-34.
+
+**D-34 · Go-live gates closed (pepper custody · privacy floor N=3 · architecture
+sign-off).** All three were owner decisions (ownership clarified 2026-07-05); recorded
+here as taken 2026-07-07:
+- **Pepper custody:** generate once, 256-bit (`python -c "import secrets;
+  print(secrets.token_hex(32))"`). Primary copy: `PSEUDONYM_PEPPER` in the git-ignored
+  `pipeline/.env` on the encrypted local volume. Backup: one copy in the owner's password
+  manager — same custody class as the corpus medium's password. Interlock: the corpus
+  stores a SHA-256 fingerprint of the pepper at first ingest and every extract run checks
+  it, so a wrong/rotated pepper fails loudly instead of silently forking pseudonyms.
+  Rotation = regenerate + full re-ingest (source DB remains available until mid-2027,
+  D-20); the pepper is destroyed with the corpus per the data-lifecycle deadlines
+  (`docs/ethics/data-handling.md`). Losing the pepper would break erasure (pseudonyms
+  become unrecomputable) — hence the mandatory backup copy.
+- **Privacy floor N = 3 confirmed** (promotes D-24's working value to the decision). The
+  consent addendum and ethics protocol state no explicit minimum cell size; k = 3 is the
+  smallest floor at which no published cell can single out an individual and the
+  two-student mutual-inference case (each knows the other's contribution) is excluded.
+  N = 5 would suppress substantially more at semester-week granularity (bachelor cohort:
+  63 students, sparse early weeks) for no articulable requirement. Residual differencing
+  risk across windows is structurally limited by the fixed windows registry (contract
+  invariant 4 — no free date ranges); accepted and noted.
+- **Architecture sign-off recorded:** the owner approves the consented architecture for
+  real data — local pseudonymized DuckDB corpus on an encrypted volume; transient
+  classification of chat text via Azure OpenAI EU Data Zone Standard (consented practice,
+  never persisted cloud-side); only privacy-floored aggregates published to Azure Blob
+  behind the publish guard. Gates close at the decision level; the first real publish
+  additionally requires the plan's operational preconditions (recon done, descriptives
+  check passed, erasure runbook in place).
