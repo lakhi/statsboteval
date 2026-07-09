@@ -429,3 +429,22 @@ here as taken 2026-07-07:
   behind the publish guard. Gates close at the decision level; the first real publish
   additionally requires the plan's operational preconditions (recon done, descriptives
   check passed, erasure runbook in place).
+
+## 2026-07-09 — program-level label recon (with Claude Code)
+
+**Finding (no decision) · Bergmann `Status` (bachelor/master) is recoverable for the study
+window via a verified `history.id` join; origin + full-cohort coverage remain open.**
+Prompted by needing per-student program level for StatsBotEval. Confirmed the label is *not*
+in the production DB, *not* in the MethodsHub Moodle participant view, and *not* inferable
+from `Matrikelnummer` (leading digits = enrollment year). Then established that the public
+OSF Stage-2 `full_dataset.csv` carries per-message `Status` (`Bachelorstudent`/
+`Masterstudent`/`Other`) keyed on `ID`, and **verified the join end-to-end against the live
+DB** (read-only, over VPN): 1,400/1,400 `ID`s resolve to `history` rows, `started` matches
+1,400/1,400 exactly, and `history.id → student_id` reproduces 63 BA / 105 MA / 14 Other =
+182 students / 584+776+40 = 1,400 messages with zero per-student Status conflicts. So for
+the 2025-03-15→06-30 study window the label needs no coordinator handover. Durable details
+recorded in `bergmann-framework.md` (join-keys section) and `source-data-dictionary.md`;
+the residual open item (origin/derivation of `Status`, coverage for the full ~443-student
+cohort, consent-compatibility beyond the published window) is tracked in `open-questions.md`
+and was put to Leonardo/Daniel by email 2026-07-09. No decision changed; the OSF dataset
+stays git-ignored local (D-16/D-30) — it contains chat text.

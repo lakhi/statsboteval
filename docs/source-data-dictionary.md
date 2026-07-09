@@ -65,7 +65,13 @@ Columns: `Vorname`, `Nachname`, `Matrikelnummer`, `E-Mail-Adresse`, `uid`, `Grup
 Facts that matter for analysis:
 - **No program level here either:** `Gruppen` is one Moodle course for everyone, so the
   Bergmann `Status` column (bachelor/master/other) is confirmed **not derivable from the
-  production DB** — it came from outside (Daniel/coordinators; still open).
+  production DB** — it came from outside (Daniel/coordinators; origin still open). The
+  MethodsHub Moodle *participant view* was also checked directly (2026-07-09): no
+  study-level column there either, and `Matrikelnummer`'s leading digits are the enrollment
+  year, not the program. **But it is recoverable for the study window:** the public OSF
+  `full_dataset.csv` carries per-message `Status` keyed on `ID = history.id`, and that join
+  was verified end-to-end against the live DB (2026-07-09) — see the Bergmann reference at
+  the end of this file and `open-questions.md`.
 - **Roster coverage as a staff/student proxy:** 540 of 550 `students` rows and 435 of 443
   messaging students match the roster on normalized `uid`; the unmatched ~8–10 are
   plausibly the faculty pre/postdocs Bergmann called "Other". Weak signal, not a
@@ -135,4 +141,9 @@ Semester rhythm is visible (June peaks: 653 in 2025, 385 in 2026).
 (invited only from 2025-05-16); master: 776 / 105; "other" (faculty pre/postdocs): 40 /
 14. Their extract carried a per-student `Status` (program level) column now **confirmed
 absent from the production DB** (2026-07-07 recon, incl. the `import` roster) — it came
-from outside the DB; source still an open question (Daniel).
+from outside the DB; **origin** still an open question (Leonardo/Daniel). The **label
+itself is recoverable for the study window**, though: it ships in the public OSF
+`full_dataset.csv` keyed on `ID = history.id`, and that join was verified end-to-end against
+the live DB on 2026-07-09 (1,400/1,400 `ID`s resolve; `started` matches 1,400/1,400;
+reproduces 63/105/14). What is still needed from the coordinators is the derivation method
+and coverage for the *full* cohort beyond the 182 study-window users (`open-questions.md`).

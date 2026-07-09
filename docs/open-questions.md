@@ -104,14 +104,30 @@ items below are still open; each open item is chased in parallel, not waited on.
       Stage-2 prompt `.odt`s and as `*_themes.csv`).
 - [x] **The coded dataset and what identifies a message** — public
       (`full_dataset.csv`/`merged_data.csv`, Stage-2 folder); `id` = `history.id` (matches
-      the manuscript's "consecutive message ID" and the `history` column set). Verify on
-      import against `sent`/timestamps.
-- [ ] **Bachelor/master mapping — residual** (Daniel/coordinators): the study got a
-      per-student `Status` column with the coordinators' extract ("Other" = pre/postdocs).
-      How is it derived, and how does our weekly extract reproduce it? *2026-07-07 recon:
-      confirmed absent from the production DB (incl. the `import` roster — one Moodle
-      course for everyone), so it can only come from the coordinators. Until answered,
-      program-level segmentation stays out of our aggregates (contract §13 unaffected).*
+      the manuscript's "consecutive message ID" and the `history` column set). **Join
+      verified end-to-end against the live DB 2026-07-09** (over VPN, read-only): all 1,400
+      `full_dataset.csv` `ID`s resolve to `history` rows, `started` matches 1,400/1,400
+      exactly (a client epoch-ms value — effectively a fingerprint), and joining through
+      `history.id → student_id` reproduces the study's 63 BA / 105 MA / 14 Other = 182
+      students and 584/776/40 messages with zero per-student Status conflicts. (`sent` text
+      matches 1,265/1,400; the rest are cp1252/whitespace serialization noise, not join
+      errors — `started` proves row identity.)
+- [ ] **Bachelor/master mapping — residual** (Leonardo + Daniel/coordinators): the study
+      got a per-student `Status` column with the coordinators' extract ("Other" =
+      pre/postdocs). How is it derived, and how does our weekly extract reproduce it?
+      *2026-07-07 recon: confirmed absent from the production DB (incl. the `import` roster —
+      one Moodle course for everyone) and from the MethodsHub Moodle participant view
+      (checked 2026-07-09: no study-level column; `Matrikelnummer` leading digits are the
+      enrollment year, not the program), so it can only come from the coordinators.*
+      **2026-07-09: the label is recoverable for the study window** — the OSF
+      `full_dataset.csv` `Status` column joins to the live DB via the verified `history.id`
+      key above (182 users: 63 BA / 105 MA / 14 Other). What remains open is (a) how
+      `Status` was originally derived (u:space program enrollment? invitation lists?),
+      (b) coverage beyond the 182 study-window users to the full cohort (~443 messaging /
+      550 total, growing each semester), and (c) consent-compatibility of using the linkage
+      beyond the already-published study window (overlaps the milestone-2 gate below). Email
+      to Leonardo (and Daniel) drafted 2026-07-09 asking (a)–(c). Until answered,
+      program-level segmentation stays out of our aggregates (contract §13 unaffected).
 - [ ] **Declarative Statement production prompt** (Leonardo): the public deductive prompt
       file contains only 12 of 13 codebook blocks — Declarative Statement is missing
       (interim: manuscript Table 1 definition).
