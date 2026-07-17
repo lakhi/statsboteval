@@ -10,6 +10,7 @@ dependencies = [
     "jsonschema>=4.21",
     "azure-storage-blob>=12.19",
     "pymysql>=1.1",
+    "lingua-language-detector>=2.0",
 ]
 
 [project.optional-dependencies]

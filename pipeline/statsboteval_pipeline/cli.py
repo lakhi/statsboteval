@@ -28,7 +28,16 @@ def main(argv: list[str] | None = None) -> int:
     ext = sub.add_parser("extract", help="ingest new production rows into the local corpus (read-only source)")
     ext.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file (created if missing)")
     ext.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
+    lang = sub.add_parser("detect-language", help="label unlabeled messages locally (lang-heuristic-v1)")
+    lang.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     args = parser.parse_args(argv)
+
+    if args.command == "detect-language":
+        from .language import LABEL_VERSION, detect_languages
+
+        n = detect_languages(open_corpus(args.corpus))
+        print(f"labeled {n} messages with {LABEL_VERSION}")
+        return 0
 
     if args.command == "extract":
         from .config import ExtractSettings
