@@ -14,8 +14,11 @@ public 1,400-message dataset. Chat text is sent only to Azure OpenAI EU (Data Zo
 Standard) for transient classification; only floored aggregates ever leave the local
 machine.
 
-**Status: drafted 2026-07-06 (D-30); re-scoped in place 2026-07-07 (D-33/D-34), not
-started.** The re-scope: production DB access is in hand (Uni Wien VPN), so the extract
+**Status: drafted 2026-07-06 (D-30); re-scoped in place 2026-07-07 (D-33/D-34); Tasks
+1–2 done; re-sequenced 2026-07-17 (D-35/D-36): Task 3 skipped as satisfied (extract
+validated row-level against the public dataset), Tasks 4 and 17 pulled into
+`docs/plans/2026-07-17-go-live-first.md` (go-live first), Tasks 5–16/18–20 resume after
+that plan's real-data publish.** The re-scope: production DB access is in hand (Uni Wien VPN), so the extract
 moves from "gated with Part 4" into this plan; emergent-theme generation joins the scope
 (the frozen-list-only compromise was rejected — the Topics tab promises emergent themes);
 the dashboard task is retargeted at the D-32 tab architecture; the three go-live gates are

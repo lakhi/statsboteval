@@ -448,3 +448,34 @@ the residual open item (origin/derivation of `Status`, coverage for the full ~44
 cohort, consent-compatibility beyond the published window) is tracked in `open-questions.md`
 and was put to Leonardo/Daniel by email 2026-07-09. No decision changed; the OSF dataset
 stays git-ignored local (D-16/D-30) — it contains chat text.
+
+## 2026-07-17 — extract validated; go-live re-sequenced (with Claude Code)
+
+**D-35 · Extract validated against the public Bergmann dataset; formal Task 3 module
+skipped as satisfied.** The Phase B plan gated the first real publish on a
+Bergmann-descriptives ETL check (Task 3). Its substance was delivered 2026-07-17,
+stronger than specified: joining the public OSF Stage-2 `full_dataset.csv` (`ID` →
+`messages.history_id`), **all 1,400/1,400 rows match the corpus** on `prompt_tokens`,
+`completion_tokens`, and `started`, and every published reference statistic reproduces
+exactly — token medians (BA 113.5, MA 611.5), messages-per-chat (1.8/1.4, 2.5/2.1),
+users by Status (63/105/14). The exact operationalizations (their token metric =
+`prompt_tokens` median; the user-typology rules, incl. R-code quirks) were pinned from
+the published R scripts and recorded in `bergmann-framework.md` ("Exact
+operationalizations"), with the dataset cached git-ignored at
+`pipeline/data/reference/full_dataset.csv`. Decision: the "descriptives check passed"
+precondition is **satisfied**; the tested `check-descriptives` module is not built now
+(it was a one-time ETL check, per Phase A Part 3's own wording) and can be formalized
+later if a future re-extract raises doubt.
+
+**D-36 · Re-sequenced to "go-live first, Topics later"** (amends D-33's sequencing; new
+plan `docs/plans/2026-07-17-go-live-first.md`). Rationale: the owner's near-term
+objective is the deployed dashboard on real data; the five Phase A tabs need **no
+classification** (Language was always designed as local `lang-heuristic-v1`, lingua-py),
+and the Topics tab renders its designed "not in this release yet" state (contract
+invariant 5), so publishing without `topics` is a planned condition, not a compromise.
+The blocker was never Task 3 or labels but the unbuilt Phase A Part 3 aggregation (thin
+slice covers one of five sections, all-time window only). The new plan = windows
+registry + full Phase A sections + labels table (Phase B Task 4, shared infra) +
+language heuristic + `run-weekly` + erasure runbook (Phase B Task 17, publish
+precondition) + gated first real publish. Phase B Tasks 5–16/18–19 (classification,
+themes, topics, Azure OpenAI) resume unchanged after go-live.
