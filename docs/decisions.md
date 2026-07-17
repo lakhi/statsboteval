@@ -479,3 +479,19 @@ registry + full Phase A sections + labels table (Phase B Task 4, shared infra) +
 language heuristic + `run-weekly` + erasure runbook (Phase B Task 17, publish
 precondition) + gated first real publish. Phase B Tasks 5–16/18–19 (classification,
 themes, topics, Azure OpenAI) resume unchanged after go-live.
+
+**D-37 — First real-data publish (go-live).** The dashboard serves production data as
+of 2026-07-17: blob `v1/aggregates_2026-W28_20260717T195040Z.json` (+ `latest.json`),
+built from the corpus extracted through 2026-07-14, published axis 2025-W09 →
+2026-W28 (72 complete weeks; `axis_start = 2025-03-01` clips the Jul 2024–Feb 2025
+pilot traffic, which stays corpus-only), floor N=3, `data_provenance: "production"`
+(the synthetic banner retires itself). Go-live preconditions all held: gates closed
+(D-34), extract validated (D-35), erasure runbook + CLI in place (GL6), publish guard
+green. Operator review of the document produced one change before upload: the
+session-duration histogram publishes robust stats only (median/IQR, no mean/sd) —
+resumed chats span days under the (student, `started`) session key and made the mean
+meaningless (441 min, sd 6,404). The GL7 verification also caught that the deployed
+bundle was still the pre-D-32 thin-slice dashboard; redeployed with the five-tab
+bundle the same day. Headline first real numbers: 379 active students all-time,
+3,521 messages, 1,521 sessions; languages 1,840 de / 1,446 en / 235 undetermined;
+user classes 176 one-time / 17 monthly / 186 sporadic.

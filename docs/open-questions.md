@@ -58,17 +58,15 @@ preconditions in the Phase B plan (recon, descriptives check, erasure runbook).*
       transient Azure OpenAI EU classification + floored-aggregates-only publish approved
       as consent-consistent.
 
-## Phase A build scoping — resolve before the affected Part 3 work, not before Part 2
+## Phase A build scoping — resolved by the D-32 redesign + go-live
 
-- [ ] **Hour×weekday heatmap value** (owner, with educator feedback once the demo URL
-      exists): does the 7×24 activity grid add enough educator value to build? It is the
-      metric most affected by suppression even at N=3, and D-27 removed the chart-library
-      dependency on it. If dropped, `temporal_usage.per_window` ships empty in v1 —
-      additive to introduce later (contract §10).
-- [ ] **Chart catalog** (owner, post-E2E): which exact charts/graphs the educator
-      dashboard uses — decided once the aggregate plumbing is proven end-to-end on the
-      demo URL (D-28). Thin-slice visuals are provisional; only the ok/zero/suppressed
-      rendering distinction is contract-bound. Subsumes the heatmap item above.
+- [x] **Hour×weekday heatmap value** (owner) — resolved by building it: the D-32 Timing
+      tab ships the 7×24 grid, and the first real publish (D-37) shows it carries signal
+      (clear weekday-afternoon peaks) despite per-cell suppression of quiet hours.
+      Educator feedback on the live dashboard may still prune it later.
+- [x] **Chart catalog** (owner) — resolved 2026-07-05/2026-07-17: the D-32 five-tab
+      information architecture is the catalog, live on real data since D-37. Future
+      changes are dashboard iterations, not open scoping.
 
 ## Thesis-interpretation items — needed for the write-up and Phase B context, not the build
 

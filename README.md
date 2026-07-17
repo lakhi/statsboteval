@@ -5,11 +5,14 @@ An automated evaluation framework for student–GenAI interactions — master's 
 GPT-based statistics chatbot used by psychology students at the University of Vienna since
 March 2025, and surfaces aggregated, non-identifying insights to educators through a dashboard.
 
-**Status:** Milestone 1, Phase A Part 2 complete — the thin slice runs end-to-end, and the
-dashboard carries the full Phase A information architecture: five educator-question tabs
-with a global semester/window filter (D-32), on synthetic data, clearly bannered. Hosting
-is migrating from the interim App Service F1 to Container Apps (D-31); the demo URL will be
-recorded here once migrated (ops notes in `infra/README.md`).
+**Status:** Milestone 1 — **live on real data** since 2026-07-17 (D-37). The weekly
+pipeline extracts from the production DB (read-only, in-flight pseudonymization),
+aggregates the full Phase A metric set under the N=3 privacy floor, and publishes to the
+dashboard: five educator-question tabs with a global semester/window filter (D-32) at
+**https://statsboteval.azurewebsites.net** — only floored, non-identifying aggregates
+exist cloud-side. The Topics tab awaits Phase B (classification). Hosting stays on the
+interim App Service F1 for now (Container Apps migration deferred, D-31; ops notes in
+`infra/README.md`).
 
 ## Layout
 

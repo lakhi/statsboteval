@@ -9,7 +9,7 @@ privacy-floored, published with `data_provenance: "production"` (which retires t
 synthetic banner by itself). The Topics tab keeps rendering its designed "not in this
 data release yet" state (contract invariant 5) until Phase B resumes.
 
-**Status: drafted 2026-07-17 (D-35/D-36), in progress.** Supersedes the *sequencing* of
+**Status: COMPLETE 2026-07-17 — first real-data publish live (D-37).** Supersedes the *sequencing* of
 the Phase B plan (2026-07-06), not its content: Phase B Tasks 5–16 and 18–19
 (classification, themes, topics) resume after go-live; Tasks 4 and 17 are pulled into
 this plan verbatim (shared infrastructure / publish precondition); Task 3 is **skipped as
@@ -154,16 +154,18 @@ contact, pepper dependency per D-34).
 
 ### Task GL7 (operator, real data): first real publish
 
-- [ ] Fresh `extract` run (VPN) to be current; `detect-language` over the corpus.
-- [ ] `run-weekly --out` locally; **operator reviews the JSON** (spot-check counts,
-      suppression, window labels; confirm no unexpected fields — guard enforces
-      structurally, review confirms semantically).
-- [ ] `run-weekly --upload` to the production blob; verify the deployed dashboard
-      serves real data, synthetic banner gone, all five tabs correct, Topics shows its
-      designed empty state.
-- [ ] Update `README.md` status + demo URL note; record the go-live date in
-      `docs/decisions.md`; close the corresponding `docs/open-questions.md` items.
-- [ ] Commit: `Record first real-data publish`
+- [x] Fresh `extract` run — owner call 2026-07-17: the 14-July corpus is current
+      enough; VPN was down, published via `run-weekly --skip-extract`.
+      `detect-language` labeled all 4,419 messages locally.
+- [x] `run-weekly --out` locally; operator review done (findings: duration mean/sd
+      dropped — resumed chats; all other sections plausible and consistent).
+- [x] `run-weekly --upload` → `v1/aggregates_2026-W28_20260717T195040Z.json` +
+      `latest.json`. Verification also caught the deployed bundle was still the
+      pre-D-32 thin slice → rebuilt + redeployed; all five tabs verified live on real
+      data, banner gone, Topics empty state correct.
+- [x] `README.md` status + demo URL updated; D-37 recorded in `docs/decisions.md`;
+      Phase A scoping items closed in `docs/open-questions.md`.
+- [x] Commit: `Record first real-data publish`
 
 ## Verification summary
 
