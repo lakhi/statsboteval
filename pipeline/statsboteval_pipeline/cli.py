@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 
@@ -30,7 +30,57 @@ def main(argv: list[str] | None = None) -> int:
     ext.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
     lang = sub.add_parser("detect-language", help="label unlabeled messages locally (lang-heuristic-v1)")
     lang.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    wk = sub.add_parser(
+        "run-weekly", help="extract -> detect-language -> aggregate (production) -> guard -> write/upload"
+    )
+    wk.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file (created if missing)")
+    wk.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
+    wk.add_argument("--floor-n", type=int, default=3)
+    wk.add_argument(
+        "--axis-start",
+        type=date.fromisoformat,
+        default=date(2025, 3, 1),
+        help="publish weeks from this date on (default: production launch; pilot rows stay corpus-only)",
+    )
+    wk.add_argument("--out", type=Path, help="write the guarded document to this file (operator review)")
+    wk.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
     args = parser.parse_args(argv)
+
+    if args.command == "run-weekly":
+        from .config import ExtractSettings
+        from .extract import connect_source, extract_new_rows
+        from .language import detect_languages
+
+        settings = ExtractSettings(_env_file=args.env_file)
+        con = open_corpus(args.corpus)
+        source = connect_source(settings)
+        try:
+            n_new = extract_new_rows(con, source, pepper=settings.pseudonym_pepper)
+        finally:
+            source.close()
+        n_labeled = detect_languages(con)
+        doc = build_aggregates(
+            con,
+            floor_n=args.floor_n,
+            now=datetime.now(timezone.utc),
+            provenance="production",
+            pipeline_version=version("statsboteval-pipeline"),
+            axis_start=args.axis_start,
+        )
+        payload = render(doc)  # guard runs here, before anything is written or uploaded
+        print(f"extracted {n_new} new messages; labeled {n_labeled}; data through {doc.data_through_week}")
+        if args.out:
+            args.out.write_bytes(payload)
+            print(f"wrote {args.out}")
+        if args.upload:
+            connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+            if not connection_string:
+                parser.error("--upload requires AZURE_STORAGE_CONNECTION_STRING in the environment")
+            immutable, latest = publish(doc, connection_string=connection_string)
+            print(f"uploaded {immutable} and {latest}")
+        if not args.out and not args.upload:
+            print("guard OK; pass --out and/or --upload to emit the document")
+        return 0
 
     if args.command == "detect-language":
         from .language import LABEL_VERSION, detect_languages
