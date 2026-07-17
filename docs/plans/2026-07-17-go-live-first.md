@@ -51,11 +51,11 @@ WS = Oct 1–Jan 31 (label style: `Summer semester 2025`, `Winter semester 2025/
 `trailing_4` = last 4 complete weeks, recomputed each publish; semester `weeks` = full
 membership, `coverage` = clipped to the data range.
 
-- [ ] Failing tests: hand-computed semester assignment across year/semester boundaries
+- [x] Failing tests: hand-computed semester assignment across year/semester boundaries
       (incl. the Thursday rule on New-Year weeks); trailing_4 contents; coverage
       clipping when a semester is partially covered by data.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add windows registry (semesters, trailing, all-time)`
+- [x] Implement; full suite green.
+- [x] Commit: `Add windows registry (semesters, trailing, all-time)`
 
 ### Task GL2: Versioned labels table (corpus migration 003) — Phase B Task 4, verbatim
 
@@ -64,10 +64,10 @@ Schema and helpers exactly as specified in the Phase B plan (labels keyed by
 `label_versions_present`). Needed now because `lang-heuristic-v1` labels live here;
 Phase B's LLM labels land in the same table later with no further migration.
 
-- [ ] Failing tests: migration applies on an existing 001+002 corpus; round-trip;
+- [x] Failing tests: migration applies on an existing 001+002 corpus; round-trip;
       versions coexist; upsert idempotent.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add versioned labels table to the corpus`
+- [x] Implement; full suite green.
+- [x] Commit: `Add versioned labels table to the corpus`
 
 ### Task GL3: Local language detection (`lang-heuristic-v1`)
 
@@ -83,11 +83,11 @@ reachable; low-confidence or very short inputs → `undetermined` (mirrors the r
 version; `label_versions` metadata key `language: lang-heuristic-v1` flows into the
 aggregates document.
 
-- [ ] Failing tests (synthetic strings): clear German → `de`, clear English → `en`, a
+- [x] Failing tests (synthetic strings): clear German → `de`, clear English → `en`, a
       third language → `other`, gibberish/short → `undetermined`; idempotent re-run;
       labels written under the right version/domain.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add local language detection as lang-heuristic-v1 labels`
+- [x] Implement; full suite green.
+- [x] Commit: `Add local language detection as lang-heuristic-v1 labels`
 
 ### Task GL4: Widen aggregation to the full Phase A section set
 
@@ -119,12 +119,12 @@ keyed by the GL1 registry:
   traffic before 2025-03 may be excluded from publish; the corpus itself keeps
   everything).
 
-- [ ] Failing tests: hand-seeded synthetic corpus with hand-computed expected values
+- [x] Failing tests: hand-seeded synthetic corpus with hand-computed expected values
       per section; floor behavior per cell/bin/heatmap; window-key completeness
       (every `per_window` key in the registry); schema round-trip of the full document.
-- [ ] Implement; full suite green; regenerate `schema/aggregates.schema.json` drift
+- [x] Implement; full suite green; regenerate `schema/aggregates.schema.json` drift
       check (no changes expected — assert that).
-- [ ] Commit: `Widen aggregation to the full Phase A section set`
+- [x] Commit: `Widen aggregation to the full Phase A section set`
 
 ### Task GL5: `run-weekly` CLI + provenance switch
 
@@ -135,10 +135,10 @@ extract → detect-language → aggregate (`provenance="production"`) → publis
 write/upload. `--out` without `--upload` supports the operator-review step in GL7.
 `run-synthetic` keeps its current behavior (fixtures, `provenance="synthetic"`).
 
-- [ ] Failing tests (stubbed source/publisher): stage order, guard failure blocks
+- [x] Failing tests (stubbed source/publisher): stage order, guard failure blocks
       upload, provenance set correctly.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add run-weekly pipeline entry point`
+- [x] Implement; full suite green.
+- [x] Commit: `Add run-weekly pipeline entry point`
 
 ### Task GL6: Erasure runbook + CLI — Phase B Task 17, verbatim (publish precondition)
 
@@ -147,10 +147,10 @@ delete across `students`/`messages`/`labels` → re-aggregate → republish (gua
 git-ignored local log; runbook `docs/runbooks/erasure.md` (flow, Daniel as erasure
 contact, pepper dependency per D-34).
 
-- [ ] Failing tests (synthetic corpus, fake publisher): exact-row deletion,
+- [x] Failing tests (synthetic corpus, fake publisher): exact-row deletion,
       re-aggregation reflects removal, unknown uid = warned no-op, log appended.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add student erasure procedure (recompute, delete, re-aggregate, republish)`
+- [x] Implement; full suite green.
+- [x] Commit: `Add student erasure procedure (recompute, delete, re-aggregate, republish)`
 
 ### Task GL7 (operator, real data): first real publish
 
