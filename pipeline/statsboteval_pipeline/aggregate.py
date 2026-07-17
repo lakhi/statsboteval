@@ -115,22 +115,27 @@ def _quantile_type2(sorted_vals: list[float], p: float) -> float:
     return (sorted_vals[lo - 1] + sorted_vals[hi - 1]) / 2
 
 
-def _summary(values: list[float], students: set[str], floor_n: int) -> SummaryStats | None:
+def _summary(
+    values: list[float], students: set[str], floor_n: int, *, with_mean_sd: bool = True
+) -> SummaryStats | None:
     """Summary stats under the same floor as cells; None when there is nothing to summarize."""
     if not values:
         return None
     if len(students) < floor_n:
         return SuppressedSummaryStats(status="suppressed")
     vals = sorted(values)
-    mean = sum(vals) / len(vals)
-    sd = round(math.sqrt(sum((v - mean) ** 2 for v in vals) / (len(vals) - 1)), 1) if len(vals) > 1 else None
+    mean = sd = None
+    if with_mean_sd:
+        mean = round(sum(vals) / len(vals), 1)
+        if len(vals) > 1:
+            sd = round(math.sqrt(sum((v - sum(vals) / len(vals)) ** 2 for v in vals) / (len(vals) - 1)), 1)
     return OkSummaryStats(
         status="ok",
         n_students=len(students),
         median=round(_quantile_type2(vals, 0.5), 1),
         p25=round(_quantile_type2(vals, 0.25), 1),
         p75=round(_quantile_type2(vals, 0.75), 1),
-        mean=round(mean, 1),
+        mean=mean,
         sd=sd,
     )
 
@@ -159,6 +164,8 @@ def _histogram(
     items: list[tuple[int, float, str]],  # (bin value, summary value, pseudonym)
     floor_n: int,
     footnote_ids: list[str] | None = None,
+    *,
+    with_mean_sd: bool = True,
 ) -> Histogram:
     counts = [0] * len(edges)
     students: list[set[str]] = [set() for _ in edges]
@@ -178,7 +185,7 @@ def _histogram(
             for i, (lo, hi) in enumerate(edges)
         ],
         n_total=floored_count(len(items), len(all_students), floor_n),
-        summary=_summary([sv for _, sv, _ in items], all_students, floor_n),
+        summary=_summary([sv for _, sv, _ in items], all_students, floor_n, with_mean_sd=with_mean_sd),
         footnote_ids=footnote_ids,
     )
 
@@ -379,6 +386,9 @@ def build_aggregates(
                 [(int(s.duration_minutes), s.duration_minutes, s.pseudonym) for s in w_sessions],
                 floor_n,
                 ["chat_fragmentation", "duration_definition"],
+                # Resumed chats span days under the (student, started) session key,
+                # so a duration mean is dominated by them; robust stats only.
+                with_mean_sd=False,
             ),
         )
         token_windows[window.id] = TokensWindow(

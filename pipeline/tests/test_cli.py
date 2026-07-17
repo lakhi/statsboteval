@@ -93,6 +93,14 @@ def test_run_weekly_upload_uses_publisher(
     assert published == [{"provenance": "production", "conn": "UseDevelopmentStorage=true"}]
 
 
+def test_run_weekly_skip_extract(corpus: Path, env_file: Path, stages: list[str], tmp_path: Path) -> None:
+    out = tmp_path / "aggregates.json"
+    args = ["run-weekly", "--corpus", str(corpus), "--env-file", str(env_file), "--skip-extract", "--out", str(out)]
+    assert cli.main(args) == 0
+    assert stages == ["detect", "aggregate"]  # no source connection attempted
+    assert json.loads(out.read_text())["data_provenance"] == "production"
+
+
 def test_run_weekly_axis_start_is_forwarded(
     corpus: Path, env_file: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

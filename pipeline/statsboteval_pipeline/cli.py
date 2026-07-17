@@ -44,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     wk.add_argument("--out", type=Path, help="write the guarded document to this file (operator review)")
     wk.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
+    wk.add_argument("--skip-extract", action="store_true", help="publish the corpus as-is (no VPN/source connection)")
     er = sub.add_parser("erase-student", help="erase one student from the corpus, re-aggregate, republish (guarded)")
     er.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     er.add_argument("--uid", required=True, help="the student's source uid (normalized + HMAC'd, never stored)")
@@ -94,11 +95,14 @@ def main(argv: list[str] | None = None) -> int:
 
         settings = ExtractSettings(_env_file=args.env_file)
         con = open_corpus(args.corpus)
-        source = connect_source(settings)
-        try:
-            n_new = extract_new_rows(con, source, pepper=settings.pseudonym_pepper)
-        finally:
-            source.close()
+        if args.skip_extract:
+            n_new = 0
+        else:
+            source = connect_source(settings)
+            try:
+                n_new = extract_new_rows(con, source, pepper=settings.pseudonym_pepper)
+            finally:
+                source.close()
         n_labeled = detect_languages(con)
         doc = build_aggregates(
             con,

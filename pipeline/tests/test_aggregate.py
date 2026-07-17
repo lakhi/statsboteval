@@ -319,14 +319,14 @@ def test_sessions_histograms(con2: duckdb.DuckDBPyConnection) -> None:
         (16, 30, 0),
         (31, None, 1),
     ]
+    # Resumed chats make duration means meaningless (multi-day "sessions"):
+    # robust stats only — no mean/sd keys at all in the dumped document.
     assert dur["summary"] == {
         "status": "ok",
         "n_students": 3,
         "median": 0.0,
         "p25": 0.0,
         "p75": 5.0,
-        "mean": 10.0,
-        "sd": 19.7,
     }
     assert dur["footnote_ids"] == ["chat_fragmentation", "duration_definition"]
 
