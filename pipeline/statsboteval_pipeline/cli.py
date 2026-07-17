@@ -44,7 +44,48 @@ def main(argv: list[str] | None = None) -> int:
     )
     wk.add_argument("--out", type=Path, help="write the guarded document to this file (operator review)")
     wk.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
+    er = sub.add_parser("erase-student", help="erase one student from the corpus, re-aggregate, republish (guarded)")
+    er.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    er.add_argument("--uid", required=True, help="the student's source uid (normalized + HMAC'd, never stored)")
+    er.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
+    er.add_argument("--floor-n", type=int, default=3)
+    er.add_argument("--axis-start", type=date.fromisoformat, default=date(2025, 3, 1))
+    er.add_argument("--log", type=Path, default=Path("data/erasure.log"), help="git-ignored local erasure log")
+    er.add_argument("--out", type=Path, help="write the re-aggregated document to this file")
+    er.add_argument("--upload", action="store_true", help="republish via $AZURE_STORAGE_CONNECTION_STRING")
     args = parser.parse_args(argv)
+
+    if args.command == "erase-student":
+        from .config import ExtractSettings
+        from .erase import erase_student
+
+        settings = ExtractSettings(_env_file=args.env_file)
+        con = open_corpus(args.corpus)
+        deleted = erase_student(con, args.uid, pepper=settings.pseudonym_pepper, log_path=args.log)
+        if deleted is None:
+            return 0  # warned no-op; nothing to republish
+        print("erased: " + " ".join(f"{table}={n}" for table, n in deleted.items()))
+        doc = build_aggregates(
+            con,
+            floor_n=args.floor_n,
+            now=datetime.now(timezone.utc),
+            provenance="production",
+            pipeline_version=version("statsboteval-pipeline"),
+            axis_start=args.axis_start,
+        )
+        payload = render(doc)
+        if args.out:
+            args.out.write_bytes(payload)
+            print(f"wrote {args.out}")
+        if args.upload:
+            connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+            if not connection_string:
+                parser.error("--upload requires AZURE_STORAGE_CONNECTION_STRING in the environment")
+            immutable, latest = publish(doc, connection_string=connection_string)
+            print(f"republished {immutable} and {latest}")
+        if not args.upload:
+            print("NOTE: the erased student may still be reflected in the published blob until you republish")
+        return 0
 
     if args.command == "run-weekly":
         from .config import ExtractSettings
