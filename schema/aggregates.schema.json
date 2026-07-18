@@ -550,6 +550,17 @@
           ],
           "default": null
         },
+        "topics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TopicsSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "usage_context": {
           "anyOf": [
             {
@@ -752,6 +763,193 @@
         "completion_tokens_per_message"
       ],
       "title": "TokensWindow",
+      "type": "object"
+    },
+    "TopicDistribution": {
+      "properties": {
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TopicItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "n_total": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "N Total"
+        }
+      },
+      "required": [
+        "items",
+        "n_total"
+      ],
+      "title": "TopicDistribution",
+      "type": "object"
+    },
+    "TopicGroup": {
+      "properties": {
+        "deductive": {
+          "$ref": "#/$defs/TopicDistribution"
+        },
+        "emergent_themes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TopicDistribution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "method_themes": {
+          "$ref": "#/$defs/TopicDistribution"
+        },
+        "software_themes": {
+          "$ref": "#/$defs/TopicDistribution"
+        }
+      },
+      "required": [
+        "deductive",
+        "method_themes",
+        "software_themes"
+      ],
+      "title": "TopicGroup",
+      "type": "object"
+    },
+    "TopicItem": {
+      "properties": {
+        "cell": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Cell"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "cell"
+      ],
+      "title": "TopicItem",
+      "type": "object"
+    },
+    "TopicsSection": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TopicsWindowEntry"
+          },
+          "title": "Per Window",
+          "type": "object"
+        },
+        "theme_set_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Theme Set Version"
+        }
+      },
+      "required": [
+        "per_window"
+      ],
+      "title": "TopicsSection",
+      "type": "object"
+    },
+    "TopicsWindowEntry": {
+      "properties": {
+        "by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/TopicGroup"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By Status"
+        },
+        "deductive": {
+          "$ref": "#/$defs/TopicDistribution"
+        },
+        "emergent_themes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TopicDistribution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "method_themes": {
+          "$ref": "#/$defs/TopicDistribution"
+        },
+        "software_themes": {
+          "$ref": "#/$defs/TopicDistribution"
+        }
+      },
+      "required": [
+        "deductive",
+        "method_themes",
+        "software_themes"
+      ],
+      "title": "TopicsWindowEntry",
       "type": "object"
     },
     "TrailingWindow": {

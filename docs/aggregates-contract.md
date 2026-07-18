@@ -194,6 +194,9 @@ Initial catalog:
 | `language_heuristic` | language detected by local heuristic (`lang-heuristic-v1`); short/mixed messages may misclassify |
 | `user_class_definitions` | one-time/monthly/sporadic per the Bergmann Stage-2 operational definitions |
 | `duration_definition` | session duration = last − first server `created_at` in the session; single-message sessions = 0 |
+| `multi_label` | a message may carry several categories/themes; topic counts do not sum to the message total (schema 1.1.0) |
+| `label_provenance` | topics come from automated classification; `label_versions.classification` names the exact version (schema 1.1.0) |
+| `status_rule` | program level from coordinator roster lists; BA→MA transitioners counted by status at usage time, session-level (D-39) |
 
 Adding a footnote or attaching an existing id to a metric is additive.
 
@@ -266,17 +269,41 @@ of published cells (legal display math); a suppressed language renders as "< N s
 with no share. Governed by `label_versions.language` — the file's first exercise of the
 D-07 label-versioning design.
 
-## 8 · Phase B extension path (informative)
+## 8 · `topics` section (Phase B, schema 1.1.0 — normative)
 
-Phase B adds — additively, same file (locked in this session):
+*Made normative 2026-07-18 (D-38/D-39); supersedes the informative sketch. Additive
+minor bump: `SCHEMA_VERSION` 1.0.0 → 1.1.0, same `v1/` blob prefix (§10); a 1.0.0
+document still validates and 1.0.0 readers ignore this section (invariant 5).*
 
-- `sections.topics`: per-window distributions over the Bergmann deductive categories and
-  inductive themes (`Histogram`-shaped over categorical bins), footnoted with label
-  provenance.
-- `label_versions.classification`: the one configured version (`statsboteval-v1` or
-  `bergmann-v1`), per D-07.
+```json
+{ "per_window": { "<window_id>": {
+      "deductive":       TopicDistribution,   // 13 Bergmann categories
+      "method_themes":   TopicDistribution,   // frozen list (21)
+      "software_themes": TopicDistribution,   // frozen list (9)
+      "emergent_themes": TopicDistribution,   // OPTIONAL — Stage 2 (D-38); absent until then
+      "by_status": {                          // OPTIONAL — D-39 program-level split
+          "bachelor": TopicGroup, "master": TopicGroup,
+          "staff": TopicGroup, "unknown": TopicGroup } } },   // unknown only when non-empty
+  "theme_set_version": "statsboteval-themes-v1" }             // OPTIONAL, with emergent_themes
+```
 
-No existing key changes meaning; v1 readers ignore the new section (invariant 5).
+- `TopicDistribution` = `{ items: [{label, cell: CountCell}], n_total: CountCell,
+  footnote_ids? }` — a categorical distribution, **not** the numeric `Histogram`.
+  Cells are multi-label counts (a message may be several categories/themes) and do
+  **not** sum to `n_total` (`multi_label` footnote); `n_total` is the floored message
+  count of the (window × status) slice. The floor tests distinct contributing
+  students per cell, as everywhere.
+- `by_status` keys are the closed set `bachelor | master | staff | unknown`; a status
+  group appears only when non-empty, and every cell inside it floors independently —
+  the floor, not the schema, is the small-group defense. Resolution is the D-39
+  usage-time rule at session level (`status_rule` footnote).
+- Deductive item labels are the public manuscript category names; theme labels are the
+  frozen/reviewed theme strings (the D-33 operator review is the privacy control for
+  emergent labels entering this file).
+- `label_versions.classification` names the one configured version (`statsboteval-v1`
+  or `bergmann-v1`, D-07); `theme_set_version` documents the reviewed emergent set.
+
+No existing key changed meaning.
 
 ## 9 · Blob layout & publish protocol
 

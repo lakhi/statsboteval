@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 FootnoteId = str
 
@@ -293,13 +293,56 @@ class LanguageSection(BaseModel):
     per_window: dict[str, LanguageWindow]
 
 
+class TopicItem(BaseModel):
+    label: str
+    cell: CountCell
+
+
+class TopicDistribution(BaseModel):
+    # Multi-label counts: a message may carry several categories/themes, so item
+    # cells do not sum to n_total (the multi_label footnote states so).
+    items: list[TopicItem]
+    n_total: CountCell
+    footnote_ids: list[FootnoteId] | None = None
+
+
+class TopicGroup(BaseModel):
+    deductive: TopicDistribution
+    method_themes: TopicDistribution
+    software_themes: TopicDistribution
+    emergent_themes: TopicDistribution | None = None  # Stage 2 (D-38); absence is a designed state
+
+
+STATUS_KEYS = ("bachelor", "master", "staff", "unknown")
+
+
+class TopicsWindowEntry(TopicGroup):
+    # D-39: optional program-level split; every cell floored independently —
+    # the floor, not the schema, is the small-group defense.
+    by_status: dict[str, TopicGroup] | None = None
+
+    @model_validator(mode="after")
+    def _status_keys_known(self) -> "TopicsWindowEntry":
+        if self.by_status is not None:
+            unexpected = set(self.by_status) - set(STATUS_KEYS)
+            if unexpected:
+                raise ValueError(f"by_status keys must be among {STATUS_KEYS}: unexpected {sorted(unexpected)}")
+        return self
+
+
+class TopicsSection(BaseModel):
+    per_window: dict[str, TopicsWindowEntry]
+    theme_set_version: str | None = None  # reviewed set behind emergent_themes (D-33)
+
+
 class Sections(BaseModel):
-    # Every section optional: readers tolerate absence (invariant 5); Phase B adds "topics".
+    # Every section optional: readers tolerate absence (invariant 5).
     temporal_usage: TemporalUsage | None = None
     usage_context: UsageContext | None = None
     sessions: SessionsSection | None = None
     tokens: TokensSection | None = None
     language: LanguageSection | None = None
+    topics: TopicsSection | None = None  # Phase B (schema 1.1.0); 1.0.0 readers ignore it
 
 
 class Footnote(BaseModel):
@@ -351,7 +394,7 @@ class Aggregates(BaseModel):
 
     def _per_window_maps(self) -> Iterator[tuple[str, dict[str, Any]]]:
         s = self.sections
-        for name in ("temporal_usage", "usage_context", "sessions", "tokens", "language"):
+        for name in ("temporal_usage", "usage_context", "sessions", "tokens", "language", "topics"):
             section = getattr(s, name)
             if section is not None:
                 yield name, section.per_window

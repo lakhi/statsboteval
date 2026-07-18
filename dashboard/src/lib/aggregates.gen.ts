@@ -47,11 +47,20 @@ export type Dow = number;
 export type Hour = number;
 export type Cells = HeatmapCell[];
 export type FootnoteIds3 = string[] | null;
+export type ByStatus = {
+  [k: string]: TopicGroup;
+} | null;
+export type FootnoteIds4 = string[] | null;
+export type Cell3 = OkCell | SuppressedCell;
+export type Label = string;
+export type Items = TopicItem[];
+export type NTotal1 = OkCell | SuppressedCell;
+export type ThemeSetVersion = string | null;
 export type ActiveStudents = OkCell | SuppressedCell;
 export type Messages = OkCell | SuppressedCell;
 export type NewRegistrations = OkCell | SuppressedCell;
 export type Sessions = OkCell | SuppressedCell;
-export type FootnoteIds4 = string[] | null;
+export type FootnoteIds5 = string[] | null;
 export type Monthly = OkCell | SuppressedCell;
 export type OneTime = OkCell | SuppressedCell;
 export type Sporadic = OkCell | SuppressedCell;
@@ -60,16 +69,16 @@ export type From = string;
 export type Through = string;
 export type Id = string;
 export type Kind = "all_time";
-export type Label = string;
+export type Label1 = string;
 export type EndDate = string;
 export type Id1 = string;
 export type Kind1 = "semester";
-export type Label1 = string;
+export type Label2 = string;
 export type StartDate = string;
 export type Weeks = string[];
 export type Id2 = string;
 export type Kind2 = "trailing";
-export type Label2 = string;
+export type Label3 = string;
 export type Weeks1 = string[];
 export type Windows = (AllTimeWindow | SemesterWindow | TrailingWindow)[];
 
@@ -107,6 +116,7 @@ export interface Sections {
   sessions?: SessionsSection | null;
   temporal_usage?: TemporalUsage | null;
   tokens?: TokensSection | null;
+  topics?: TopicsSection | null;
   usage_context?: UsageContext | null;
   [k: string]: unknown;
 }
@@ -240,12 +250,46 @@ export interface TokensWindow {
   completion_tokens_per_message: Histogram;
   [k: string]: unknown;
 }
-export interface UsageContext {
+export interface TopicsSection {
   per_window: PerWindow4;
-  weekly: UsageContextWeekly;
+  theme_set_version?: ThemeSetVersion;
   [k: string]: unknown;
 }
 export interface PerWindow4 {
+  [k: string]: TopicsWindowEntry;
+}
+export interface TopicsWindowEntry {
+  by_status?: ByStatus;
+  deductive: TopicDistribution;
+  emergent_themes?: TopicDistribution | null;
+  method_themes: TopicDistribution;
+  software_themes: TopicDistribution;
+  [k: string]: unknown;
+}
+export interface TopicGroup {
+  deductive: TopicDistribution;
+  emergent_themes?: TopicDistribution | null;
+  method_themes: TopicDistribution;
+  software_themes: TopicDistribution;
+  [k: string]: unknown;
+}
+export interface TopicDistribution {
+  footnote_ids?: FootnoteIds4;
+  items: Items;
+  n_total: NTotal1;
+  [k: string]: unknown;
+}
+export interface TopicItem {
+  cell: Cell3;
+  label: Label;
+  [k: string]: unknown;
+}
+export interface UsageContext {
+  per_window: PerWindow5;
+  weekly: UsageContextWeekly;
+  [k: string]: unknown;
+}
+export interface PerWindow5 {
   [k: string]: UsageContextWindow;
 }
 export interface UsageContextWindow {
@@ -261,7 +305,7 @@ export interface UsageContextTotals {
   [k: string]: unknown;
 }
 export interface UserClasses {
-  footnote_ids?: FootnoteIds4;
+  footnote_ids?: FootnoteIds5;
   monthly: Monthly;
   one_time: OneTime;
   sporadic: Sporadic;
@@ -275,7 +319,7 @@ export interface AllTimeWindow {
   coverage: Coverage;
   id: Id;
   kind: Kind;
-  label: Label;
+  label: Label1;
   [k: string]: unknown;
 }
 export interface Coverage {
@@ -288,7 +332,7 @@ export interface SemesterWindow {
   end_date: EndDate;
   id: Id1;
   kind: Kind1;
-  label: Label1;
+  label: Label2;
   start_date: StartDate;
   weeks: Weeks;
   [k: string]: unknown;
@@ -297,7 +341,7 @@ export interface TrailingWindow {
   coverage: Coverage;
   id: Id2;
   kind: Kind2;
-  label: Label2;
+  label: Label3;
   weeks: Weeks1;
   [k: string]: unknown;
 }
