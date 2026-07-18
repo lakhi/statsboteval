@@ -160,14 +160,94 @@ const perWindow = (f, ids = Object.keys(windowStudents)) =>
 
 const langSplit = { de: 0.55, en: 0.35, other: 0.04, undetermined: 0.06 };
 
+// ---- topics (schema 1.1.0) -------------------------------------------------
+// Deductive labels are the PUBLIC manuscript category names; every theme label
+// below is invented ("Synthetic …") — the real frozen/generated lists are
+// git-ignored local materials (D-16/D-33) and never enter the repo.
+const DEDUCTIVE = [
+  "Statistics Interaction", "Specific Method", "Data Analysis Software",
+  "Reference to a Prior Content", "Multiple Choice", "Question Posed",
+  "Instruction Given", "Capability Request", "Declarative Statement",
+  "English Input", "German Input", "Politeness Expression", "Greeting Expression",
+];
+const METHOD_THEMES = [
+  "Synthetic regression theme", "Synthetic ANOVA-like theme",
+  "Synthetic correlation theme with a deliberately long label",
+  "Synthetic t-test theme", "Synthetic power-analysis theme", "Synthetic factor theme",
+];
+const SOFTWARE_THEMES = [
+  "Synthetic software A", "Synthetic software B", "Synthetic software C", "Synthetic software D",
+];
+const EMERGENT_THEMES = [
+  "Synthetic exam-preparation theme", "Synthetic homework-help theme",
+  "Synthetic conceptual-confusion theme", "Synthetic tool-how-to theme",
+  "Synthetic study-design theme",
+];
+
+function topicDistribution(id, labels, statusShare, footnote_ids) {
+  const n = Math.round(windowStudents[id] * statusShare);
+  const msgs = Math.round(rowsFor(id).reduce((a, r) => a + r.messages, 0) * statusShare);
+  const items = labels.map((label, i) => {
+    const share = Math.min(0.85, 0.9 / (i + 1.4)); // long tail; guarantees zeros late
+    const st = Math.round(n * share * (0.55 + rnd() * 0.7));
+    return { label, cell: cell(st, st === 0 ? 0 : Math.max(1, Math.round(msgs * share * (0.2 + rnd() * 0.5)))) };
+  });
+  return { items, n_total: cell(n, msgs), ...(footnote_ids && { footnote_ids }) };
+}
+
+function topicGroup(id, statusShare, { withStatusRule = false, withEmergent = true } = {}) {
+  const notes = withStatusRule
+    ? ["multi_label", "label_provenance", "status_rule"]
+    : ["multi_label", "label_provenance"];
+  return {
+    deductive: topicDistribution(id, DEDUCTIVE, statusShare, notes),
+    method_themes: topicDistribution(id, METHOD_THEMES, statusShare, notes),
+    software_themes: topicDistribution(id, SOFTWARE_THEMES, statusShare, notes),
+    ...(withEmergent && { emergent_themes: topicDistribution(id, EMERGENT_THEMES, statusShare, notes) }),
+  };
+}
+
+// trailing_4 omitted -> exercises the topics WindowGap state; 2025S omits
+// emergent_themes -> exercises the per-card absent state. Staff share is small
+// enough to suppress in the smaller windows; "unknown" published only where
+// non-empty (all_time).
+const statusShares = { bachelor: 0.36, master: 0.5, staff: 0.06 };
+const topics = {
+  per_window: Object.fromEntries(
+    Object.keys(windowStudents)
+      .filter((id) => id !== "trailing_4")
+      .map((id) => {
+        const withEmergent = id !== "2025S";
+        return [
+          id,
+          {
+            ...topicGroup(id, 1, { withEmergent }),
+            by_status: {
+              ...Object.fromEntries(
+                Object.entries(statusShares).map(([status, share]) => [
+                  status,
+                  topicGroup(id, share, { withStatusRule: true, withEmergent }),
+                ]),
+              ),
+              ...(id === "all_time" && {
+                unknown: topicGroup(id, 0.04, { withStatusRule: true, withEmergent }),
+              }),
+            },
+          },
+        ];
+      }),
+  ),
+  theme_set_version: "statsboteval-themes-v1",
+};
+
 const doc = {
-  schema_version: "1.0.0",
+  schema_version: "1.1.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),
   first_week: weeks[0],
   privacy_floor_n: FLOOR_N,
-  label_versions: { language: "lang-heuristic-v1" },
+  label_versions: { language: "lang-heuristic-v1", classification: "statsboteval-v1" },
   timezone: "Europe/Vienna",
   data_provenance: "synthetic",
   pipeline_version: "0.1.0+design-fixture",
@@ -187,6 +267,15 @@ const doc = {
     },
     duration_definition: {
       text: "Session duration = last minus first server timestamp in the session; single-message sessions count as 0 minutes.",
+    },
+    multi_label: {
+      text: "A message may carry several categories or themes, so topic counts do not sum to the message total.",
+    },
+    label_provenance: {
+      text: "Topics come from automated classification; label_versions.classification names the exact classifier version.",
+    },
+    status_rule: {
+      text: "Program level comes from coordinator roster lists; students who moved from bachelor to master are counted by their status at usage time (per session).",
     },
   },
   sections: {
@@ -300,6 +389,7 @@ const doc = {
         };
       }),
     },
+    topics,
   },
 };
 
