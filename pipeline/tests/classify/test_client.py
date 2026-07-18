@@ -1,0 +1,101 @@
+"""Phase B Task 8: Azure OpenAI classifier client (no network — httpx mock transport)."""
+
+import json
+import os
+from typing import Any
+
+import httpx
+import pytest
+from pydantic import ValidationError
+
+from statsboteval_pipeline.classify.client import ClassifierClient
+from statsboteval_pipeline.classify.config import ClassifierSettings
+
+
+def make_settings(**overrides: Any) -> ClassifierSettings:
+    values: dict[str, Any] = {
+        "azure_openai_endpoint": "https://example.openai.azure.com",
+        "azure_openai_api_key": "test-key",
+    }
+    values.update(overrides)
+    return ClassifierSettings(_env_file=None, **values)
+
+
+def completion_body(content: str) -> dict[str, Any]:
+    return {
+        "id": "chatcmpl-x",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-5-mini",
+        "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": content}}],
+    }
+
+
+def client_with(handler: Any, settings: ClassifierSettings | None = None) -> ClassifierClient:
+    settings = settings or make_settings()
+    return ClassifierClient(settings, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_missing_endpoint_raises_clear_config_error() -> None:
+    with pytest.raises(ValidationError, match="azure_openai_endpoint"):
+        ClassifierSettings(_env_file=None, azure_openai_api_key="k")
+
+
+def test_complete_returns_canned_content_and_pins_settings() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=completion_body("| Message | X |"))
+
+    client = client_with(handler)
+    assert client.complete("prompt text") == "| Message | X |"
+    assert "/deployments/gpt-5-mini/" in seen["url"]
+    assert "api-version=" in seen["url"]
+    body = seen["body"]
+    assert body["model"] == "gpt-5-mini"
+    assert body["reasoning_effort"] == "minimal"
+    assert body["seed"] == make_settings().classifier_seed
+    assert body["messages"] == [{"role": "user", "content": "prompt text"}]
+
+
+def test_429_then_200_retries_once_and_succeeds() -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"retry-after": "0"}, json={"error": {"message": "throttled"}})
+        return httpx.Response(200, json=completion_body("ok"))
+
+    assert client_with(handler).complete("p") == "ok"
+    assert len(calls) == 2
+
+
+def test_exhausted_retries_raise() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, headers={"retry-after": "0"}, json={"error": {"message": "throttled"}})
+
+    with pytest.raises(Exception):
+        client_with(handler).complete("p")
+
+
+@pytest.mark.skipif(
+    not all(os.environ.get(v) for v in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY")),
+    reason="live smoke needs AZURE_OPENAI_* exported (never set in CI)",
+)
+def test_live_smoke_completes() -> None:
+    # Mirrors the extract live smoke: runs only on the operator machine with real env.
+    client = ClassifierClient(ClassifierSettings())  # type: ignore[call-arg]
+    assert client.complete("Reply with the single word OK.").strip()
+
+
+def test_empty_completion_raises() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = completion_body("x")
+        body["choices"][0]["message"]["content"] = None
+        return httpx.Response(200, json=body)
+
+    with pytest.raises(RuntimeError, match="empty completion"):
+        client_with(handler).complete("p")

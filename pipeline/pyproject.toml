@@ -11,6 +11,8 @@ dependencies = [
     "azure-storage-blob>=12.19",
     "pymysql>=1.1",
     "lingua-language-detector>=2.0",
+    "openai>=1.40",
+    "azure-identity>=1.17",
 ]
 
 [project.optional-dependencies]
