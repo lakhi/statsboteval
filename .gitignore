@@ -2,6 +2,8 @@
 # unpublished results (decision D-16 in docs/decisions.md)
 docs/bergmann-framework.md
 docs/bergmann-prompts.md
+# …and the materialized codebook dir (BERGMANN_PROMPTS_DIR), wherever placed in-tree
+bergmann-materials/
 
 # --- DATA MUST NEVER ENTER THIS REPO (see docs/ethics/data-handling.md) ---
 # Real student data is excluded by type and by directory. Synthetic test
