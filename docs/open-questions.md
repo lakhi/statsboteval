@@ -110,7 +110,7 @@ items below are still open; each open item is chased in parallel, not waited on.
       students and 584/776/40 messages with zero per-student Status conflicts. (`sent` text
       matches 1,265/1,400; the rest are cp1252/whitespace serialization noise, not join
       errors — `started` proves row identity.)
-- [ ] **Bachelor/master mapping — residual** (Leonardo + Daniel/coordinators): the study
+- [x] **Bachelor/master mapping — residual** (Leonardo + Daniel/coordinators): the study
       got a per-student `Status` column with the coordinators' extract ("Other" =
       pre/postdocs). How is it derived, and how does our weekly extract reproduce it?
       *2026-07-07 recon: confirmed absent from the production DB (incl. the `import` roster —
@@ -124,8 +124,15 @@ items below are still open; each open item is chased in parallel, not waited on.
       (b) coverage beyond the 182 study-window users to the full cohort (~443 messaging /
       550 total, growing each semester), and (c) consent-compatibility of using the linkage
       beyond the already-published study window (overlaps the milestone-2 gate below). Email
-      to Leonardo (and Daniel) drafted 2026-07-09 asking (a)–(c). Until answered,
-      program-level segmentation stays out of our aggregates (contract §13 unaffected).
+      to Leonardo (and Daniel) drafted 2026-07-09 asking (a)–(c).
+      **Resolved 2026-07-18 (D-39):** (a) Leonardo replied — Daniel performed the
+      program-level linkage last year, producing the anonymous dataset behind the
+      published paper; (b) full-cohort coverage solved by the owner's own roster-list
+      derivation (8 program Excels outside the repo, uid→HMAC join; 550/550 corpus users
+      labeled, zero unknown: 298 MA / 170 BA / 36 BA→MA transitioners / 46 staff);
+      (c) **the linkage is in line with the ethics approval** (Leonardo, in writing).
+      Program-level segmentation is unblocked; corpus storage + import = Phase B plan
+      Task 21.
 - [ ] **Declarative Statement production prompt** (Leonardo): the public deductive prompt
       file contains only 12 of 13 codebook blocks — Declarative Statement is missing
       (interim: manuscript Table 1 definition).

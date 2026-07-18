@@ -519,3 +519,34 @@ Owner decisions taken this session:
   regeneration (v2) is a per-semester operator-review question out of Phase B scope;
   Task 18 re-verifies the Data Zone Standard Sweden Central model catalog at
   provisioning time (D-30's check ages).
+
+**D-39 · Program-level status enters the corpus (consent confirmed; usage-time
+modality).** (Closes the open-questions "bachelor/master mapping — residual" item;
+adds Phase B Task 21.)
+- **Consent:** Leonardo confirmed in writing (2026-07-18) that the program-level
+  linkage is in line with the ethics approval — Daniel performed the same linkage last
+  year to produce the anonymous dataset behind the published paper. Program-level
+  segmentation is unblocked for this project.
+- **Source & coverage:** the owner's roster-list derivation (parallel session; 8
+  program Excels outside the repo, u:account uid ↔ `students.uid` join) labels
+  **550/550 corpus users with zero unknowns**: 298 MA / 170 BA / 36 BA→MA
+  transitioners / 46 staff (36 no-list + 10 Doktorat). Validated against Bergmann's
+  OSF `Status`: 180/182 agree; the 12 disagreements are transitioners, correct under
+  usage-time semantics.
+- **Modality: compact per-student row, resolved at usage time** — `student_status
+  (pseudonym PK, status, ma_start_semester NULLABLE, provenance)`, with
+  `status_at(session)` resolving transitioners by comparing the session's `started` to
+  the Master Beginnsemester's calendar start (S → Mar 1, W → Oct 1; owner rule
+  2026-07-17, session-level so a session never straddles statuses). Chosen over a
+  per-(student, semester) row table because the source facts are exactly "one static
+  label + at most one transition boundary" — semester expansion would store derived
+  redundancy and invent rows for semesters without enrollment evidence. Staff
+  sub-levels (PhD vs no-list-match) collapse to `staff` (owner: focus is students);
+  `provenance` keeps the distinction locally.
+- **Handoff & hygiene:** the roster session delivers a git-ignored **uid-keyed** CSV
+  (`uid,status,ma_start_semester,source`); `import-status` pseudonymizes in flight
+  (extract.py discipline — identifiers never persisted); `erase-student` covers the
+  new table; the roster snapshot is refreshed + re-imported each semester.
+- **Pending owner call:** whether Stage 1's topics publish includes a per-status
+  split (BA/MA/staff, floored per cell as everywhere) or the dimension stays
+  local/thesis-only at first.

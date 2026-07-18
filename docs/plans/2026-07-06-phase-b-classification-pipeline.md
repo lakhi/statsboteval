@@ -643,6 +643,42 @@ Not a code task; a recorded operator step once Tasks 4–12 and 18 land.
       `theme_set_version` appear on the Topics tab.
 - [ ] Record completion in `docs/decisions.md` (theme-set version).
 
+### Task 21: Student-status dimension (migration 005, `import-status`) — NEW (D-39)
+
+**Files:** `pipeline/migrations/005_student_status.sql`,
+`pipeline/statsboteval_pipeline/status.py`, CLI subcommand `import-status`,
+`pipeline/tests/test_status.py`; `erase.py` (extend); runbook note.
+
+**Produces:** the program-level dimension (consent confirmed 2026-07-18, D-39;
+independent of Tasks 5–12 — can land any time, must precede any per-status aggregation):
+
+```sql
+CREATE TABLE student_status (
+  pseudonym         TEXT PRIMARY KEY,
+  status            TEXT NOT NULL,   -- 'bachelor' | 'master' | 'staff'
+  ma_start_semester TEXT,            -- NULL unless BA→MA transitioner ('2025W', ...)
+  provenance        TEXT NOT NULL    -- source list, e.g. 'roster-mar25' | 'doktorat'
+);
+```
+
+- `import-status --csv PATH`: read the git-ignored roster-derived CSV
+  (`uid,status,ma_start_semester,source`, one row per student), normalize + HMAC the
+  uid **in flight** (identical discipline to `extract.py` — identifiers never touch
+  disk), upsert. Report corpus pseudonyms lacking a status row (drift indicator — the
+  roster derivation is a snapshot; refresh + re-import each semester, runbook note).
+- `status_at(row, session_started)` resolution helper implementing the **usage-time
+  rule at session level** (owner, 2026-07-17): `master` iff `ma_start_semester` is set
+  and the session's `started` falls on/after that semester's calendar start (S → Mar 1,
+  W → Oct 1); else the stored `status`; no row → `unknown`. A session never straddles
+  two statuses.
+- `erase-student` extends to delete from `student_status`.
+- [ ] Failing tests (synthetic): HMAC/normalization parity with extract; transitioner
+      resolution across the boundary incl. break-month sessions (Aug before an Oct
+      transition → still bachelor); upsert idempotence; missing-row → `unknown` +
+      reported; erasure covers the table.
+- [ ] Implement; full suite green.
+- [ ] Commit: `Add student-status dimension with usage-time resolution`
+
 ---
 
 ## Verification summary
@@ -668,9 +704,10 @@ emergent pass is corpus-wide and our own; D-33); the missing Declarative Stateme
 production prompt and production repetition protocol (open Bergmann items;
 `docs/open-questions.md`); Azure OpenAI **Batch** SKU cost optimization (sync calls
 suffice at this corpus size — revisit if Task 1's volume says otherwise); per-course
-(`lv`) / program-level (`Status`) topic segmentation (contract §13 — the status *source*
-is being derived in a parallel session; corpus ingestion may land as an add-on, but
-published splits stay out pending the consent check in `open-questions.md`);
+(`lv`) topic segmentation (no source — Task 1 recon); *publishing* program-level
+(`Status`) splits in the aggregates — the source, consent, and corpus storage are all
+resolved (D-39, Task 21), but whether a per-status topics split ships in Stage 1 or a
+later publish is a pending owner call;
 theme-set regeneration (`statsboteval-themes-v2`) as new semesters accrue (per-semester
 operator review, D-38); returning the Bergmann materials to the public repo (gated on
 the team's formal publication, D-16). The `run-weekly` wrapper and Phase A Parts 3–4
