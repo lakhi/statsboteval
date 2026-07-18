@@ -402,9 +402,12 @@ domain.)
 
 **Produces:** `import_bergmann_v1(con, csv_path) -> int` — read `full_dataset.csv`
 (git-ignored local path) via DuckDB; map `id → history_id`; write the 13 deductive
-categories (0/1) and method/software theme codings as `label_version="bergmann-v1"`,
-with `provenance` from the `group` column (`human_consensus` for the 300-row
-`Master_sample`, else `gpt5`). With the real corpus present (Task 2), the join check —
+categories (0/1) as `label_version="bergmann-v1"`, with `provenance` from the `group`
+column (`human_consensus` for the 300-row `Master_sample`, else `gpt5`).
+*Implementation deviation (2026-07-18): the public `full_dataset.csv` carries no
+method/software theme codings, so the import is deductive-only — themes are not
+MCC-validated anyway (Bergmann validated them by expert similarity); a theme import
+from another Stage-2 file can be added later if a comparison is ever wanted.* With the real corpus present (Task 2), the join check —
 verify a sample of `sent`/timestamps against corpus rows — **runs for real** rather than
 being skipped-and-logged.
 
