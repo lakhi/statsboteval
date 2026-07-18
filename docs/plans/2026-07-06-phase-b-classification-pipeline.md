@@ -1,7 +1,8 @@
 # Phase B — classification pipeline (implementation plan)
 
-**Goal:** add automated message classification to StatsBotEval and take the project to its
-first **real-data publish**. The local weekly pipeline gains an `extract` stage (direct
+**Goal:** add automated message classification to StatsBotEval; with the first real-data
+publish already live (D-37), the finish line is now the **`topics` section live on the
+dashboard's first tab**. The local weekly pipeline gains an `extract` stage (direct
 MySQL, in-flight pseudonymization) and a `classify` stage that codes each message against
 the Bergmann deductive scheme (13 binary categories), assigns the frozen methods/software
 themes, and — new in the 2026-07-07 re-scope — runs our own **two-stage inductive pass**
@@ -18,7 +19,9 @@ machine.
 1–2 done; re-sequenced 2026-07-17 (D-35/D-36): Task 3 skipped as satisfied (extract
 validated row-level against the public dataset), Tasks 4 and 17 pulled into
 `docs/plans/2026-07-17-go-live-first.md` (go-live first), Tasks 5–16/18–20 resume after
-that plan's real-data publish.** The re-scope: production DB access is in hand (Uni Wien VPN), so the extract
+that plan's real-data publish; resumed 2026-07-18 (D-38) in two stages — Stage 1
+(deductive + frozen themes → first topics publish), Stage 2 (emergent themes →
+republish) — and `run-weekly` gains classification. See "Resumption deltas".** The re-scope: production DB access is in hand (Uni Wien VPN), so the extract
 moves from "gated with Part 4" into this plan; emergent-theme generation joins the scope
 (the frozen-list-only compromise was rejected — the Topics tab promises emergent themes);
 the dashboard task is retargeted at the D-32 tab architecture; the three go-live gates are
@@ -55,6 +58,40 @@ text* — it is git-ignored local like the Bergmann materials, and its labels ma
 a published aggregate **only after operator review** confirms they are short, generic,
 and non-identifying (the generation prompt instructs this; the review is a named runbook
 step).
+
+## Resumption deltas (2026-07-18, D-38)
+
+Go-live (D-36/D-37) landed between this plan's drafting and its resumption; the deltas
+below re-shape the tail of the plan. Two are owner decisions taken 2026-07-18:
+
+- **The finish line moved.** The "first real-data publish" this plan originally ended
+  with is live (D-37, Phase A sections). Phase B now ends with `topics` live on the
+  dashboard's first tab — in two stages.
+- **Staged topics publish (owner).** Stage 1 = deductive (13) + frozen method/software
+  themes, validated on public data (Task 19), aggregated and published with
+  `emergent_themes` omitted — a state Tasks 13–15 already design as valid and rendered
+  (invariant 5). Stage 2 = the emergent pass (Task 12) + review + assignment +
+  republish. Rationale: the generate→review→freeze loop is the slowest, most
+  operator-bound piece; tab #1 shouldn't wait on it. Task 20 splits into 20a/20b.
+- **Classification joins the weekly cadence (owner).** GL5's `run-weekly` (which this
+  plan predates) is extended in Task 16 to chain `classify` (+ `assign-themes` once a
+  reviewed theme set exists) with a `--skip-classify` escape hatch. The Task 9 runner's
+  idempotency by `(history_id, label_version)` makes the weekly increment safe and
+  cents-cheap; without this, weekly publishes would serve stale topics next to fresh
+  Phase A sections.
+- **`axis_start` interplay (D-37):** classification runs corpus-wide (idempotent; the
+  sub-floor pilot rows cost pennies) — published topics respect `axis_start`/window
+  coverage automatically at aggregation time. No design change.
+- **Theme-set drift:** `statsboteval-themes-v1` freezes at Stage 2; new semesters will
+  eventually outgrow it. Regeneration (v2) is a per-semester operator-review question —
+  out of Phase B scope, noted in the Task 16 runbook.
+- **Task 18 re-verifies the model catalog** (Data Zone Standard, Sweden Central) at
+  provisioning time — D-30's availability check ages, and that catalog demonstrably
+  shifts.
+
+**Execution order:** 5 → 6 → 7 → 8 → 9 → 10 → 11 → 19 (with 18 provisioned any time
+before it) → 13 → 14 → 15 → 16 → **20a (Stage 1 publish)** → 12 → **20b (Stage 2
+republish)**.
 
 ## Architecture (decisions D-07, D-16, D-20, D-22, D-24, D-25, D-30, D-32, D-33, D-34)
 
@@ -198,6 +235,10 @@ matching recon exactly; rerun ingests 0; corpus `created_at` verified as true UT
 
 ### Task 3 (operator, real data local-only): ETL correctness check — Bergmann descriptives
 
+**Skipped 2026-07-17 as satisfied (D-35)** — the row-level validation against the public
+dataset (1,400/1,400 field matches; all reference descriptives reproduce) delivered the
+substance; the module is not built unless a future re-extract raises doubt.
+
 **Files:** `pipeline/statsboteval_pipeline/check_descriptives.py`, CLI subcommand
 `check-descriptives`, `pipeline/tests/test_check_descriptives.py` (synthetic).
 
@@ -237,11 +278,15 @@ CREATE TABLE labels (
 - `write_labels(con, rows)` — bulk upsert; `read_labels(con, label_version)` → typed rows;
   `label_versions_present(con)` → set. Deductive rows store explicit 0/1 (MCC needs true
   negatives); theme rows store only assignments (value=1).
-- [ ] Failing tests: migration 003 applies on an existing 001+002 corpus; write/read
+- [x] Failing tests: migration 003 applies on an existing 001+002 corpus; write/read
       round-trip; `bergmann-v1` and `statsboteval-v1` rows coexist without collision;
       provenance preserved; re-writing the same key is idempotent (upsert, not duplicate).
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add versioned labels table to the corpus`
+- [x] Implement; full suite green.
+- [x] Commit: `Add versioned labels table to the corpus`
+
+**Done 2026-07-17 via the go-live plan (GL2, commit `d37ed46`)** — pulled forward because
+`lang-heuristic-v1` labels live in the same table; the `domain` enum already includes
+`language`.
 
 ### Task 5: Codebook + frozen theme-list loading (git-ignored, synthetic in tests)
 
@@ -384,7 +429,7 @@ conflation caveat (model **and** consolidated-prompt differences from their pipe
 - [ ] Implement; full suite green.
 - [ ] Commit: `Add classifier validation harness (per-category MCC vs bergmann-v1)`
 
-### Task 12: Emergent-theme generation (two-stage, reviewed, versioned) — NEW (D-33)
+### Task 12: Emergent-theme generation (two-stage, reviewed, versioned) — NEW (D-33) — Stage 2 (D-38): after the first topics publish
 
 **Files:** `pipeline/migrations/004_theme_sets.sql`,
 `pipeline/statsboteval_pipeline/classify/generate.py`,
@@ -508,12 +553,19 @@ the window entry.
   `import-bergmann --csv PATH` · `validate`. `run-synthetic` gains `--with-labels`
   seeding deterministic synthetic labels (all four domains) so the E2E slice and demo
   show a populated Topics tab without any API call.
+- **`run-weekly` chains classification (D-38):** after `detect-language`, run `classify`
+  (deductive + frozen themes) and — once a reviewed theme set exists — `assign-themes`,
+  before aggregation; `--skip-classify` mirrors `--skip-extract` for offline runs.
+  Task 9's idempotency keeps the weekly increment safe and cents-cheap.
 - Operator runbook: the full order (extract → classify → generate/review/freeze → assign
   → aggregate → publish); the one-off `import-bergmann` + `validate` on the public
-  dataset; the theme-review step spelled out as the privacy control (D-33).
+  dataset; the theme-review step spelled out as the privacy control (D-33); the
+  theme-set regeneration (v2) note (per-semester operator review, D-38).
 - [ ] Failing tests: `run-synthetic --with-labels` produces a document whose `topics`
       (incl. `emergent_themes`) validates and whose `data_provenance == "synthetic"`;
-      `validate` on a seeded two-version corpus prints a well-formed report.
+      `validate` on a seeded two-version corpus prints a well-formed report;
+      `run-weekly` stage order includes classify (stub client), `--skip-classify`
+      bypasses it, guard behavior unchanged.
 - [ ] Extend `e2e_local.sh` to assert a dense `topics` section end-to-end; run it.
 - [ ] Commit: `Wire classification CLI, synthetic labels, and operator runbook`
 
@@ -529,11 +581,15 @@ before any real aggregate is public: `erase-student --uid <uid>` → normalize +
 local (git-ignored) erasure log. The runbook documents the flow, Daniel's role as erasure
 *contact*, and the pepper dependency (D-34: no pepper, no erasure — hence the backup).
 
-- [ ] Failing tests (synthetic corpus, fake publisher): erasure removes exactly the
+- [x] Failing tests (synthetic corpus, fake publisher): erasure removes exactly the
       target student's rows across all tables; re-aggregation output no longer reflects
       them; unknown uid is a clean no-op with a warning; log line appended.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add student erasure procedure (recompute, delete, re-aggregate, republish)`
+- [x] Implement; full suite green.
+- [x] Commit: `Add student erasure procedure (recompute, delete, re-aggregate, republish)`
+
+**Done 2026-07-17 via the go-live plan (GL6, commit `dca9858`)** — a go-live publish
+precondition. Note for Stage 2: erasure must also cover `theme_candidates` once
+migration 004 exists (the spec above already lists it).
 
 ### Task 18 (operator + infra): Azure OpenAI provisioning (Sweden Central, DZS, gpt-5-mini)
 
@@ -564,23 +620,28 @@ Not a code task; a recorded operator step once Tasks 4–12 and 18 land.
 - [ ] Note the chosen production model + version in `docs/decisions.md` (amend D-30) and
       in `label_versions.classification` for real publishes.
 
-### Task 20 (operator, real data): real-corpus run & first real publish
+### Task 20a (operator, real data): Stage 1 — real-corpus run & first topics publish
 
-The Phase B finish line. **Preconditions (all in-plan):** Tasks 1–3 done (recon,
-extract proven by descriptives check), Task 17 (erasure runbook), Task 19 (model
-decision), publish guard green.
+**Preconditions (all in-plan):** Task 19 model decision recorded; publish guard green
+(the former recon/extract/erasure preconditions closed via D-35 and GL6).
 
-- [ ] Full extract of the production history; `classify` (deductive + frozen themes)
-      with the Task-19 model.
+- [ ] Fresh extract; `classify` (deductive + frozen method/software themes) over the
+      corpus with the Task-19 model — via `run-weekly` with classification enabled or
+      stepwise.
+- [ ] Aggregate (floor N=3, D-34) → publish guard → publish to Blob. `topics` goes live
+      on tab #1 with three distributions; the `emergent_themes` card renders its
+      designed absent state (invariant 5).
+- [ ] Record in `docs/decisions.md` (date, model, corpus snapshot size); update `README`
+      demo notes if needed.
+
+### Task 20b (operator, real data): Stage 2 — emergent themes & republish
+
 - [ ] `generate-themes` over the real corpus → **operator reviews the draft theme list**
       (short, generic, non-identifying — the D-33 control) → `freeze-themes` as
       `statsboteval-themes-v1` → `assign-themes`.
-- [ ] Aggregate (floor N=3, D-34) → publish guard → publish to Blob. This is the
-      project's **first real-data publish** — the Phase A sections go real in the same
-      document; `data_provenance` flips and the dashboard's synthetic banner retires by
-      itself.
-- [ ] Record completion in `docs/decisions.md` (date, model, theme-set version, corpus
-      snapshot size); update `README` demo notes if needed.
+- [ ] Re-aggregate → publish guard → republish; `emergent_themes` and
+      `theme_set_version` appear on the Topics tab.
+- [ ] Record completion in `docs/decisions.md` (theme-set version).
 
 ---
 
@@ -607,10 +668,13 @@ emergent pass is corpus-wide and our own; D-33); the missing Declarative Stateme
 production prompt and production repetition protocol (open Bergmann items;
 `docs/open-questions.md`); Azure OpenAI **Batch** SKU cost optimization (sync calls
 suffice at this corpus size — revisit if Task 1's volume says otherwise); per-course
-(`lv`) / program-level (`Status`) topic segmentation (contract §13, blocked on sources —
-Task 1 recon informs); the `run-weekly` cadence wrapper and remaining Phase A Parts 3–4
-metric widening (follow this plan); returning the Bergmann materials to the public repo
-(gated on the team's formal publication, D-16).
+(`lv`) / program-level (`Status`) topic segmentation (contract §13 — the status *source*
+is being derived in a parallel session; corpus ingestion may land as an add-on, but
+published splits stay out pending the consent check in `open-questions.md`);
+theme-set regeneration (`statsboteval-themes-v2`) as new semesters accrue (per-semester
+operator review, D-38); returning the Bergmann materials to the public repo (gated on
+the team's formal publication, D-16). The `run-weekly` wrapper and Phase A Parts 3–4
+widening, listed here originally, were delivered by the go-live plan (D-36/D-37).
 
 ## Related decisions
 

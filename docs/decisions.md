@@ -495,3 +495,27 @@ bundle was still the pre-D-32 thin-slice dashboard; redeployed with the five-tab
 bundle the same day. Headline first real numbers: 379 active students all-time,
 3,521 messages, 1,521 sessions; languages 1,840 de / 1,446 en / 235 undetermined;
 user classes 176 one-time / 17 monthly / 186 sporadic.
+
+## 2026-07-18 — Phase B resumption session (with Claude Code)
+
+**D-38 · Phase B resumes in two stages; classification joins the weekly cadence.**
+(Amends the finish line of D-33 — the first real-data publish it named is already live
+per D-37; the Phase B plan is updated in place, owner call, rather than re-issued.)
+Owner decisions taken this session:
+- **Staged topics publish.** Stage 1 = deductive (13 categories) + frozen method/software
+  themes, validated on the public dataset (Task 19), aggregated and published with
+  `emergent_themes` omitted — a state the 1.1.0 schema and Topics tab already design as
+  valid and rendered (invariant 5). Stage 2 = the emergent-theme pass (generate →
+  operator review → freeze `statsboteval-themes-v1` → assign) and a republish. Grounds:
+  the generate→review→freeze loop is the slowest, operator-bound piece; the dashboard's
+  first tab shouldn't wait on it.
+- **`run-weekly` chains `classify`** (and `assign-themes` once a reviewed theme set
+  exists) with a `--skip-classify` escape hatch mirroring `--skip-extract`. Grounds: the
+  classification runner is idempotent by `(history_id, label_version)`, the weekly
+  increment costs cents, and without this weekly publishes would serve stale topics next
+  to fresh Phase A sections.
+- Also recorded in the plan's "Resumption deltas": classification runs corpus-wide under
+  `axis_start` (published windows clip at aggregation — no design change); theme-set
+  regeneration (v2) is a per-semester operator-review question out of Phase B scope;
+  Task 18 re-verifies the Data Zone Standard Sweden Central model catalog at
+  provisioning time (D-30's check ages).
