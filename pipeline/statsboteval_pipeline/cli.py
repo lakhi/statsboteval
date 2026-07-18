@@ -45,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
     wk.add_argument("--out", type=Path, help="write the guarded document to this file (operator review)")
     wk.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
     wk.add_argument("--skip-extract", action="store_true", help="publish the corpus as-is (no VPN/source connection)")
+    st = sub.add_parser("import-status", help="import the roster-derived status CSV (uids HMAC'd in flight)")
+    st.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    st.add_argument("--csv", type=Path, help="override $STUDENT_STATUS_CSV")
+    st.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
     er = sub.add_parser("erase-student", help="erase one student from the corpus, re-aggregate, republish (guarded)")
     er.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     er.add_argument("--uid", required=True, help="the student's source uid (normalized + HMAC'd, never stored)")
@@ -125,6 +129,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"uploaded {immutable} and {latest}")
         if not args.out and not args.upload:
             print("guard OK; pass --out and/or --upload to emit the document")
+        return 0
+
+    if args.command == "import-status":
+        from .config import StatusSettings
+        from .status import import_status_csv
+
+        status_settings = StatusSettings(_env_file=args.env_file)
+        csv_path = args.csv or (Path(status_settings.student_status_csv) if status_settings.student_status_csv else None)
+        if csv_path is None:
+            parser.error("no CSV given: pass --csv or set STUDENT_STATUS_CSV in the env file")
+        result = import_status_csv(open_corpus(args.corpus), csv_path, pepper=status_settings.pseudonym_pepper)
+        print(f"imported {result.imported} status rows; {result.unmatched_corpus_students} corpus students unmatched")
+        if result.unmatched_corpus_students:
+            print("note: unmatched students aggregate as 'unknown' — refresh the roster derivation per semester")
         return 0
 
     if args.command == "detect-language":

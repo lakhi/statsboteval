@@ -53,7 +53,7 @@ def counts(con: duckdb.DuckDBPyConnection) -> tuple[int, int, int]:
 def test_erasure_removes_exactly_the_target(con: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
     log = tmp_path / "erasure.log"
     deleted = erase_student(con, "A1234567 ", pepper=PEPPER, log_path=log)  # normalization applies
-    assert deleted == {"labels": 2, "messages": 2, "students": 1}
+    assert deleted == {"labels": 2, "messages": 2, "student_status": 0, "students": 1}
     assert counts(con) == (1, 1, 1)  # the other student is untouched
     other = pseudonymize("b7654321", PEPPER)
     assert con.execute("SELECT pseudonym FROM students").fetchone()[0] == other

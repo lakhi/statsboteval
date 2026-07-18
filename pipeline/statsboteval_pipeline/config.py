@@ -20,3 +20,16 @@ class ExtractSettings(BaseSettings):
     statsbot_db_user: str
     statsbot_db_password: str
     pseudonym_pepper: str
+
+
+class StatusSettings(BaseSettings):
+    """Roster-status import (D-39) — needs the pepper but no DB credentials.
+
+    The CSV lives outside the repo tree, beside its source roster Excels
+    (docs/ethics/data-handling.md, program-level section).
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    pseudonym_pepper: str
+    student_status_csv: str | None = None

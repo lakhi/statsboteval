@@ -28,7 +28,12 @@ def test_migration_003_applies_on_existing_corpus(tmp_path: Path) -> None:
 
     con = open_corpus(path)  # real migrations dir: 003 applies now
     applied = [row[0] for row in con.execute("SELECT name FROM _migrations ORDER BY name").fetchall()]
-    assert applied == ["001_corpus_init.sql", "002_extract_meta.sql", "003_labels.sql"]
+    assert applied == [
+        "001_corpus_init.sql",
+        "002_extract_meta.sql",
+        "003_labels.sql",
+        "004_student_status.sql",
+    ]
     assert con.execute("SELECT count(*) FROM students").fetchone()[0] == 1  # data survived
     assert con.execute("SELECT count(*) FROM labels").fetchone()[0] == 0
 

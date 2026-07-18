@@ -440,14 +440,15 @@ conflation caveat (model **and** consolidated-prompt differences from their pipe
 
 ### Task 12: Emergent-theme generation (two-stage, reviewed, versioned) — NEW (D-33) — Stage 2 (D-38): after the first topics publish
 
-**Files:** `pipeline/migrations/004_theme_sets.sql`,
+**Files:** `pipeline/migrations/005_theme_sets.sql` (renumbered from 004 — Task 21's
+`student_status` ships first under the D-38 order and took 004),
 `pipeline/statsboteval_pipeline/classify/generate.py`,
 `pipeline/statsboteval_pipeline/classify/synthesize.py`,
 `pipeline/tests/classify/test_generate.py`, `test_synthesize.py`.
 
 **Produces** our reproduction of Bergmann's two-stage inductive method, corpus-wide:
 
-- **Migration 004:** `theme_candidates` (run-scoped candidate codes per message:
+- **Migration 005:** `theme_candidates` (run-scoped candidate codes per message:
   `history_id, run_id, code`) and `theme_sets` (`set_version, code, description,
   created_at, reviewed_at NULLABLE`) — a theme set is usable only once `reviewed_at` is
   stamped.
@@ -677,9 +678,9 @@ and GL6).
       `theme_set_version` appear on the Topics tab.
 - [ ] Record completion in `docs/decisions.md` (theme-set version).
 
-### Task 21: Student-status dimension (migration 005, `import-status`) — NEW (D-39)
+### Task 21: Student-status dimension (migration 004, `import-status`) — NEW (D-39)
 
-**Files:** `pipeline/migrations/005_student_status.sql`,
+**Files:** `pipeline/migrations/004_student_status.sql`,
 `pipeline/statsboteval_pipeline/status.py`, CLI subcommand `import-status`,
 `pipeline/tests/test_status.py`; `erase.py` (extend); runbook note.
 

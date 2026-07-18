@@ -34,7 +34,8 @@ What it does, in order:
 
 1. Verifies the pepper fingerprint against the corpus (`meta` table).
 2. Recomputes `HMAC(normalize(uid), pepper)` and deletes that pseudonym's rows from
-   `labels`, `messages`, and `students` (in that order — labels reference messages).
+   `labels`, `messages`, `student_status`, and `students` (in that order — labels
+   reference messages).
 3. Prints per-table deletion counts. An unknown uid is a warned no-op (check the uid
    with Daniel; a typo must not look like a completed erasure).
 4. Re-aggregates and re-runs the publish guard; `--upload` overwrites `v1/latest.json`
@@ -44,6 +45,10 @@ What it does, in order:
 
 ## Afterwards
 
+- **Delete the student's row from the roster CSV** (`STUDENT_STATUS_CSV`, outside the
+  repo beside the roster Excels) — otherwise the next `import-status` re-import
+  restores their status row (D-39; `docs/ethics/data-handling.md`, program-level
+  section). Do the same in any roster re-derivation.
 - Reply to Daniel with the completion date (the log line is the record).
 - Note: previously published **immutable** versioned blobs under `v1/` may still
   contain the student's contribution inside floored aggregate counts — no individual
