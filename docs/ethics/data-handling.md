@@ -52,6 +52,37 @@ disagree, the PDF wins.
      delete the pseudonymized corpus. The pipeline should eventually implement this
      anonymize-and-export step.
 
+## Program-level roster data (approved linkage, EK 01548)
+
+The consent addendum states that "anonymous course data (e.g. data relating to enrollment
+in and withdrawal from statistics tutorials) … are linked to chat histories in order to
+better analyze usage patterns"; the addendum application naming this linkage was approved
+by the Ethics Committee (EK 01548, decision 2026-05-05), and the study leader confirmed in
+writing (2026-07-18) that program-level linkage is in line with the approval — the same
+linkage produced the published Stage-2 paper's dataset. Program level (bachelor/master/
+staff) is enrollment-type data in this sense. Handling rules (decision D-39):
+
+1. The linkage input is a **uid-keyed CSV** (`uid,status,ma_start_semester,source`)
+   derived from the coordinators' roster lists. It lives **outside the repo tree**, in
+   the same password-protected/encrypted directory as its source Excel lists — one
+   identifier custody location; the repo working tree stays free of direct identifiers,
+   extending rule 4's in-flight principle tree-wide. The importer reads its path from
+   `STUDENT_STATUS_CSV` in the git-ignored `pipeline/.env`.
+2. The pseudonymization promise above attaches to *chat histories*; the corpus keeps it —
+   it stores only the pseudonymized derivative (`student_status`, HMAC-keyed), and the
+   status↔message linkage happens on pseudonyms, locally. "Anonymous course data"
+   describes the data as analyzed, not the intermediate: an identified join key is
+   inherent to any linkage, matching the study leader's own confirmed practice.
+3. Published aggregates expose program level only as privacy-floored `by_status` cells
+   (rule 2 unchanged; sub-floor groups suppress).
+4. **Lifecycle:** the CSV follows the corpus deadlines (rule 6) — permanently deleted in
+   the end-of-2027 anonymize-and-delete step. An **erasure request also removes the
+   student's row from the CSV** (not only from `student_status`); otherwise the next
+   roster re-import would restore it.
+5. Assessed 2026-07-18: the keying choice is internal data-handling within the approved
+   linkage — no new data category, purpose, or recipient — and therefore not a content
+   amendment requiring re-submission to the committee.
+
 ## Accepted residual risk — repeated releases
 
 Published aggregate file versions are retained (decision D-10), so consecutive weekly

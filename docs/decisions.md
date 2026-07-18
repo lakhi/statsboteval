@@ -556,5 +556,17 @@ adds Phase B Task 21.)
   session** (validated list semantics live there; this repo only imports — no
   re-derivation from summaries) and stays **uid-keyed** (single-hasher invariant —
   only extract/import ever map uid→pseudonym; survives pepper rotation, unlike a
-  pre-hashed file; spot-checkable against the rosters; custody = the encrypted
-  medium already holding the roster Excels).
+  pre-hashed file; spot-checkable against the rosters).
+- **Ethics check & custody (owner request, same session):** verified against the
+  primary documents — EK 01548 approval (2026-05-05, "no ethical objection … as
+  proposed") and the consent addendum's linkage clause. The uid-keyed CSV preserves
+  the approval: the pseudonymization promise attaches to *chat histories* (the corpus
+  keeps it); program level is enrollment-type data, the approved linkage category; an
+  identified intermediate is inherent to any linkage and matches the study leader's
+  own confirmed practice; the keying choice is internal data-handling, not a content
+  amendment requiring re-submission. **Custody: the CSV lives outside the repo tree**,
+  beside the roster Excels (one identifier custody point; the repo tree stays
+  identifier-free tree-wide; importer reads `STUDENT_STATUS_CSV` from
+  `pipeline/.env`). Lifecycle: deleted with the corpus end-2027; **erasure also
+  removes the student's CSV row** (else re-import restores it). Full rules:
+  `docs/ethics/data-handling.md` §program-level.

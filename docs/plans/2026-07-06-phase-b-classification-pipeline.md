@@ -692,17 +692,23 @@ CREATE TABLE student_status (
 );
 ```
 
-- `import-status --csv PATH`: read the git-ignored roster-derived CSV
-  (`uid,status,ma_start_semester,source`, one row per student), normalize + HMAC the
-  uid **in flight** (identical discipline to `extract.py` — identifiers never touch
-  disk), upsert. Report corpus pseudonyms lacking a status row (drift indicator — the
-  roster derivation is a snapshot; refresh + re-import each semester, runbook note).
+- `import-status [--csv PATH]`: read the roster-derived CSV
+  (`uid,status,ma_start_semester,source`, one row per student) from
+  `STUDENT_STATUS_CSV` in the git-ignored `pipeline/.env` (the file lives **outside the
+  repo tree**, beside its source Excels — custody rules in
+  `docs/ethics/data-handling.md` §program-level), normalize + HMAC the uid **in
+  flight** (identical discipline to `extract.py` — identifiers never enter the repo
+  tree or the corpus), upsert. Report corpus pseudonyms lacking a status row (drift
+  indicator — the roster derivation is a snapshot; refresh + re-import each semester,
+  runbook note).
 - `status_at(row, session_started)` resolution helper implementing the **usage-time
   rule at session level** (owner, 2026-07-17): `master` iff `ma_start_semester` is set
   and the session's `started` falls on/after that semester's calendar start (S → Mar 1,
   W → Oct 1); else the stored `status`; no row → `unknown`. A session never straddles
   two statuses.
-- `erase-student` extends to delete from `student_status`.
+- `erase-student` extends to delete from `student_status`; the erasure runbook gains
+  the operator step of also removing the student's row from the roster CSV (else the
+  next re-import restores it — `docs/ethics/data-handling.md` §program-level).
 - [ ] Failing tests (synthetic): HMAC/normalization parity with extract; transitioner
       resolution across the boundary incl. break-month sessions (Aug before an Oct
       transition → still bachelor); upsert idempotence; missing-row → `unknown` +
@@ -715,8 +721,9 @@ the validated list semantics and overlap analysis live there — re-deriving her
 summary risks divergence from the 180/182-validated labeling; exporting there is
 trivial). It stays **uid-keyed** (D-39): only this repo's two blessed code paths ever
 map uid→pseudonym, the file survives pepper rotation, and rows stay spot-checkable
-against the rosters; custody = the same encrypted, git-ignored medium that already
-holds the roster Excels.
+against the rosters; custody = the records directory **outside the repo tree**, beside
+the roster Excels, verified against the primary ethics documents (EK 01548 + consent
+addendum — `docs/ethics/data-handling.md` §program-level).
 
 ---
 
