@@ -13,7 +13,7 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 import duckdb
@@ -59,7 +59,10 @@ from .contract import (
     week_sunday,
     weeks_range,
 )
+from .classify.codebook import DEDUCTIVE_CATEGORY_NAMES, category_code
+from .contract import TopicDistribution, TopicGroup, TopicItem, TopicsSection, TopicsWindowEntry
 from .language import LABEL_VERSION as LANGUAGE_LABEL_VERSION
+from .status import read_status, resolve_status
 from .windows import build_windows
 
 VIENNA = ZoneInfo("Europe/Vienna")
@@ -92,7 +95,23 @@ FOOTNOTES = {
         text="Session duration = last minus first server timestamp in the session; "
         "single-message sessions count as 0 minutes."
     ),
+    "multi_label": Footnote(
+        text="A message may carry several categories or themes, so topic counts do not "
+        "sum to the message total."
+    ),
+    "label_provenance": Footnote(
+        text="Topics come from automated classification; label_versions.classification "
+        "names the exact classifier version."
+    ),
+    "status_rule": Footnote(
+        text="Program level comes from coordinator roster lists; students who moved from "
+        "bachelor to master are counted by their status at usage time (per session)."
+    ),
 }
+
+# Display labels for deductive codes: the public manuscript names (codebook.py constant).
+_DEDUCTIVE_LABELS = {category_code(name): name for name in DEDUCTIVE_CATEGORY_NAMES}
+_TOPIC_DOMAINS = ("deductive", "method_theme", "software_theme", "emergent_theme")
 
 
 def floored_count(value: int, n_students: int, floor_n: int) -> OkCell | SuppressedCell:
@@ -142,6 +161,7 @@ def _summary(
 
 @dataclass(frozen=True)
 class _Message:
+    history_id: int
     pseudonym: str
     session: tuple[str, int]
     local: datetime  # Europe/Vienna
@@ -231,9 +251,11 @@ def build_aggregates(
     provenance: Literal["synthetic", "production"],
     pipeline_version: str,
     axis_start: date | None = None,
+    classification_version: str | None = None,
+    theme_set_version: str | None = None,
 ) -> Aggregates:
     rows = con.execute(
-        "SELECT m.pseudonym, m.session_started, m.created_at, m.completion_tokens, l.code "
+        "SELECT m.history_id, m.pseudonym, m.session_started, m.created_at, m.completion_tokens, l.code "
         "FROM messages m LEFT JOIN labels l ON l.history_id = m.history_id "
         "  AND l.label_version = ? AND l.domain = 'language'",
         [LANGUAGE_LABEL_VERSION],
@@ -250,7 +272,7 @@ def build_aggregates(
     through_monday = week_monday(through)
 
     msgs: list[_Message] = []
-    for pseudonym, session_started, created_at, completion_tokens, lang in rows:
+    for history_id, pseudonym, session_started, created_at, completion_tokens, lang in rows:
         local = created_at.replace(tzinfo=timezone.utc).astimezone(VIENNA)
         if axis_start is not None and local.date() < axis_start:
             continue  # pre-launch pilot traffic stays in the corpus, out of publishes
@@ -258,7 +280,10 @@ def build_aggregates(
         if week_monday(week) > through_monday:
             continue  # current, incomplete week
         msgs.append(
-            _Message(pseudonym, (pseudonym, session_started), local, week, completion_tokens, lang or "undetermined")
+            _Message(
+                history_id, pseudonym, (pseudonym, session_started), local, week, completion_tokens,
+                lang or "undetermined",
+            )
         )
     if not msgs:
         raise ValueError("no corpus data within the publishable range (axis_start / complete weeks)")
@@ -411,6 +436,77 @@ def build_aggregates(
         counts, students = tally([(m.pseudonym, m.week) for m in msgs if m.lang == code])
         lang_weekly[code] = weekly_series(counts, students)
 
+    # ---- topics (Phase B, schema 1.1.0; by_status per D-39) -----------------
+    topics_section: TopicsSection | None = None
+    if classification_version is not None:
+        positives: dict[str, dict[str, set[int]]] = {domain: defaultdict(set) for domain in _TOPIC_DOMAINS}
+        for domain, code, history_id in con.execute(
+            "SELECT domain, code, history_id FROM labels "
+            "WHERE label_version = ? AND value = 1 AND domain IN ('deductive', 'method_theme', "
+            "'software_theme', 'emergent_theme')",
+            [classification_version],
+        ).fetchall():
+            positives[domain][code].add(history_id)
+
+        def topic_distribution(domain: str, subset: list[_Message], with_status_rule: bool) -> TopicDistribution:
+            def display(code: str) -> str:
+                return _DEDUCTIVE_LABELS.get(code, code) if domain == "deductive" else code
+
+            items = []
+            for code in sorted(positives[domain], key=display):
+                hits = [m for m in subset if m.history_id in positives[domain][code]]
+                items.append(
+                    TopicItem(
+                        label=display(code),
+                        cell=floored_count(len(hits), len({m.pseudonym for m in hits}), floor_n),
+                    )
+                )
+            footnote_ids = ["multi_label", "label_provenance"] + (["status_rule"] if with_status_rule else [])
+            return TopicDistribution(
+                items=items,
+                n_total=floored_count(len(subset), len({m.pseudonym for m in subset}), floor_n),
+                footnote_ids=footnote_ids,
+            )
+
+        def topic_group(subset: list[_Message], *, with_status_rule: bool = False) -> dict[str, Any]:
+            return {
+                "deductive": topic_distribution("deductive", subset, with_status_rule),
+                "method_themes": topic_distribution("method_theme", subset, with_status_rule),
+                "software_themes": topic_distribution("software_theme", subset, with_status_rule),
+                "emergent_themes": (
+                    topic_distribution("emergent_theme", subset, with_status_rule)
+                    if positives["emergent_theme"]
+                    else None
+                ),
+            }
+
+        if any(positives[domain] for domain in _TOPIC_DOMAINS):
+            status_rows = read_status(con)
+            message_status: dict[int, str] | None = None
+            if status_rows:
+                message_status = {
+                    m.history_id: resolve_status(status_rows.get(m.pseudonym), m.session[1]) for m in msgs
+                }
+            topics_windows: dict[str, TopicsWindowEntry] = {}
+            for window in windows:
+                weeks = _window_weeks(window, axis)
+                w_msgs = [m for m in msgs if m.week in weeks]
+                by_status: dict[str, TopicGroup] | None = None
+                if message_status is not None:
+                    grouped: dict[str, list[_Message]] = defaultdict(list)
+                    for m in w_msgs:
+                        grouped[message_status[m.history_id]].append(m)
+                    by_status = {
+                        status: TopicGroup(**topic_group(group_msgs, with_status_rule=True))
+                        for status, group_msgs in sorted(grouped.items())
+                    }
+                topics_windows[window.id] = TopicsWindowEntry(**topic_group(w_msgs), by_status=by_status)
+            topics_section = TopicsSection(per_window=topics_windows, theme_set_version=theme_set_version)
+
+    label_versions = {"language": LANGUAGE_LABEL_VERSION}
+    if topics_section is not None and classification_version is not None:
+        label_versions["classification"] = classification_version
+
     return Aggregates(
         schema_version=SCHEMA_VERSION,
         generated_at=now.astimezone(timezone.utc),
@@ -418,7 +514,7 @@ def build_aggregates(
         data_through_date=week_sunday(through),
         first_week=first,
         privacy_floor_n=floor_n,
-        label_versions={"language": LANGUAGE_LABEL_VERSION},
+        label_versions=label_versions,
         timezone="Europe/Vienna",
         data_provenance=provenance,
         pipeline_version=pipeline_version,
@@ -447,5 +543,6 @@ def build_aggregates(
                 ),
                 per_window=language_windows,
             ),
+            topics=topics_section,
         ),
     )
