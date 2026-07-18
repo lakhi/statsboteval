@@ -547,6 +547,14 @@ adds Phase B Task 21.)
   (`uid,status,ma_start_semester,source`); `import-status` pseudonymizes in flight
   (extract.py discipline — identifiers never persisted); `erase-student` covers the
   new table; the roster snapshot is refreshed + re-imported each semester.
-- **Pending owner call:** whether Stage 1's topics publish includes a per-status
-  split (BA/MA/staff, floored per cell as everywhere) or the dimension stays
-  local/thesis-only at first.
+- **Per-status split ships in Stage 1 (owner, same day):** `by_status`
+  (bachelor/master/staff, `unknown` only when non-empty) enters the 1.1.0 schema in
+  Task 13, aggregation in Task 14 (session-level `status_at` resolution; every cell
+  floored independently), and the Topics tab as a segmented control in Task 15;
+  Task 21 + a real `import-status` run precede Task 20a. Follow-ups (owner accepted
+  the recommendations): the roster CSV is **produced in the roster-derivation
+  session** (validated list semantics live there; this repo only imports — no
+  re-derivation from summaries) and stays **uid-keyed** (single-hasher invariant —
+  only extract/import ever map uid→pseudonym; survives pepper rotation, unlike a
+  pre-hashed file; spot-checkable against the rosters; custody = the encrypted
+  medium already holding the roster Excels).

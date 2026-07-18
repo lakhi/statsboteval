@@ -88,10 +88,16 @@ below re-shape the tail of the plan. Two are owner decisions taken 2026-07-18:
 - **Task 18 re-verifies the model catalog** (Data Zone Standard, Sweden Central) at
   provisioning time — D-30's availability check ages, and that catalog demonstrably
   shifts.
+- **Per-status topics ship in Stage 1 (owner, 2026-07-18, D-39):** the program-level
+  dimension (Task 21) gets schema support in Task 13 (`by_status`), aggregation in
+  Task 14, and a dashboard control in Task 15; Task 21 plus a real `import-status`
+  run must precede 20a. The roster CSV is produced in the roster-derivation session
+  (the validated list semantics live there; this repo only imports) and stays
+  **uid-keyed** (single-hasher invariant, survives pepper rotation, human-checkable).
 
 **Execution order:** 5 → 6 → 7 → 8 → 9 → 10 → 11 → 19 (with 18 provisioned any time
-before it) → 13 → 14 → 15 → 16 → **20a (Stage 1 publish)** → 12 → **20b (Stage 2
-republish)**.
+before it) → 13 → 14 → 15 → 16 → 21 (independent — any time before here) → **20a
+(Stage 1 publish)** → 12 → **20b (Stage 2 republish)**.
 
 ## Architecture (decisions D-07, D-16, D-20, D-22, D-24, D-25, D-30, D-32, D-33, D-34)
 
@@ -477,17 +483,24 @@ conflation caveat (model **and** consolidated-prompt differences from their pipe
   n_total: CountCell; footnote_ids?: [...] }`. Cells are **multi-label** counts (a
   message may be several categories/themes) — they do **not** sum to `n_total`; a
   footnote states so.
-- `TopicsSection` = `per_window: dict[str, { deductive: TopicDistribution;
-  method_themes: TopicDistribution; software_themes: TopicDistribution;
-  emergent_themes: TopicDistribution }]` plus optional `theme_set_version: str`
-  (documents which reviewed set produced `emergent_themes`), added optional to
-  `Sections`. `label_versions` gains a documented optional `classification` domain key.
-  `SCHEMA_VERSION` → `"1.1.0"`. New footnote `label_provenance` in §6.2.
+- `TopicsSection` = `per_window: dict[str, TopicGroup]` where `TopicGroup` =
+  `{ deductive: TopicDistribution; method_themes: TopicDistribution;
+  software_themes: TopicDistribution; emergent_themes?: TopicDistribution }`, plus
+  optional `theme_set_version: str` (documents which reviewed set produced
+  `emergent_themes`), added optional to `Sections`. `label_versions` gains a documented
+  optional `classification` domain key. `SCHEMA_VERSION` → `"1.1.0"`. New footnote
+  `label_provenance` in §6.2.
+- **Per-status split (D-39):** each `per_window` entry additionally carries optional
+  `by_status: dict[str, TopicGroup]` (keys `bachelor` | `master` | `staff` |
+  `unknown`; `unknown` present only when non-empty). Every cell is floored
+  independently — the floor, not the schema, is the small-group defense. New footnote
+  `status_rule` in §6.2 (roster provenance; usage-time resolution at session level).
 - [ ] Failing tests: a topics document round-trips and validates; the committed 1.0.0
       synthetic fixture still validates against the 1.1.0 schema (additive proof); schema
       export drift-check passes; `label_versions.classification` and `theme_set_version`
       optional; per_window keys validated against the windows registry (existing
-      cross-doc validator covers topics).
+      cross-doc validator covers topics); `by_status` optional, reuses the `TopicGroup`
+      shape, rejects unknown status keys, `unknown` allowed.
 - [ ] Implement; regenerate artifacts; full suite green (including `test_schema_export`).
 - [ ] Commit: `Extend aggregates contract with topics section (schema 1.1.0)`
 
@@ -505,10 +518,19 @@ attaches `label_provenance` + multi-label footnotes. Absent labels → `topics` 
 (still a valid 1.1.0 document); absent emergent labels → `emergent_themes` omitted from
 the window entry.
 
+**Per-status (D-39):** when `student_status` rows exist, also emit `by_status` per
+window: sessions resolve via Task 21's `status_at` (usage-time rule at session level;
+messages inherit their session's status), each status group runs the identical floored
+distribution build, students without a status row group under `unknown` (emitted only
+when non-empty), and the `status_rule` footnote attaches. No status rows → `by_status`
+omitted; document still valid.
+
 - [ ] Failing tests: hand-seeded corpus + labels → exact topics distributions with a
       category suppressed for sub-floor students; `n_total` floored independently;
       version keys reflect configuration; no labels → no topics section, document still
-      valid.
+      valid; a transitioner's messages split bachelor/master by session date across the
+      boundary; a sub-floor status group suppresses per cell; no status rows →
+      `by_status` omitted.
 - [ ] Implement; full suite green.
 - [ ] Commit: `Aggregate classification labels into the topics section`
 
@@ -532,8 +554,15 @@ the window entry.
   ChartCard chrome.
 - A publish without `topics` (or without `emergent_themes`) renders the explicit
   "not in this data release yet" state (invariant 5) — the teaser copy retires.
+- **Status segmented control (D-39):** `All students | Bachelor | Master | Staff`
+  (`Unknown` appears only when the group is present in the data) above the four cards;
+  selection switches every card to the chosen `by_status` group — a key lookup, never
+  client re-aggregation, same rule as the window picker; syncs to a URL query param
+  (shareable, D-32 convention). Absent `by_status` hides the control entirely. The
+  `status_rule` footnote renders on each card while a status group is selected.
 - `dev-fixtures/generate.mjs` emits a synthetic `topics` section across all windows and
-  all cell states, so FE work runs on `NEXT_PUBLIC_DATA_SOURCE=fixture` with no pipeline.
+  all cell states — including a `by_status` split with one sub-floor group — so FE work
+  runs on `NEXT_PUBLIC_DATA_SOURCE=fixture` with no pipeline.
 - [ ] Build against the fixture, then the local stack (Azurite + CLI publish incl.
       synthetic labels + uvicorn); verify suppressed/zero/ok/absent distinct and the
       provenance footnote shows.
@@ -622,12 +651,14 @@ Not a code task; a recorded operator step once Tasks 4–12 and 18 land.
 
 ### Task 20a (operator, real data): Stage 1 — real-corpus run & first topics publish
 
-**Preconditions (all in-plan):** Task 19 model decision recorded; publish guard green
-(the former recon/extract/erasure preconditions closed via D-35 and GL6).
+**Preconditions (all in-plan):** Task 19 model decision recorded; Task 21 landed and
+`import-status` run with the roster CSV (so `by_status` populates in this publish);
+publish guard green (the former recon/extract/erasure preconditions closed via D-35
+and GL6).
 
-- [ ] Fresh extract; `classify` (deductive + frozen method/software themes) over the
-      corpus with the Task-19 model — via `run-weekly` with classification enabled or
-      stepwise.
+- [ ] Fresh extract; `import-status` with the roster-session CSV; `classify` (deductive
+      + frozen method/software themes) over the corpus with the Task-19 model — via
+      `run-weekly` with classification enabled or stepwise.
 - [ ] Aggregate (floor N=3, D-34) → publish guard → publish to Blob. `topics` goes live
       on tab #1 with three distributions; the `emergent_themes` card renders its
       designed absent state (invariant 5).
@@ -679,6 +710,14 @@ CREATE TABLE student_status (
 - [ ] Implement; full suite green.
 - [ ] Commit: `Add student-status dimension with usage-time resolution`
 
+The CSV itself is produced in the roster-derivation session (owner call 2026-07-18:
+the validated list semantics and overlap analysis live there — re-deriving here from a
+summary risks divergence from the 180/182-validated labeling; exporting there is
+trivial). It stays **uid-keyed** (D-39): only this repo's two blessed code paths ever
+map uid→pseudonym, the file survives pepper rotation, and rows stay spot-checkable
+against the rosters; custody = the same encrypted, git-ignored medium that already
+holds the roster Excels.
+
 ---
 
 ## Verification summary
@@ -704,10 +743,9 @@ emergent pass is corpus-wide and our own; D-33); the missing Declarative Stateme
 production prompt and production repetition protocol (open Bergmann items;
 `docs/open-questions.md`); Azure OpenAI **Batch** SKU cost optimization (sync calls
 suffice at this corpus size — revisit if Task 1's volume says otherwise); per-course
-(`lv`) topic segmentation (no source — Task 1 recon); *publishing* program-level
-(`Status`) splits in the aggregates — the source, consent, and corpus storage are all
-resolved (D-39, Task 21), but whether a per-status topics split ships in Stage 1 or a
-later publish is a pending owner call;
+(`lv`) topic segmentation (no source — Task 1 recon); extending the per-status split
+beyond topics (e.g. the Language tab's de/en mix by program level — Bergmann's 75.7%
+vs 46.1% suggests it's worth a later iteration);
 theme-set regeneration (`statsboteval-themes-v2`) as new semesters accrue (per-semester
 operator review, D-38); returning the Bergmann materials to the public repo (gated on
 the team's formal publication, D-16). The `run-weekly` wrapper and Phase A Parts 3–4
