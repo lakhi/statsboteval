@@ -125,3 +125,56 @@ def classify_corpus(
         # stall is otherwise indistinguishable from slow progress.
         print(f"classified {labeled}/{len(pending)} pending messages", flush=True)
     return labeled
+
+
+def assign_emergent_themes(
+    con: duckdb.DuckDBPyConnection,
+    client: CompletionClient,
+    themes: Sequence[str],
+    *,
+    label_version: str,
+    model_tag: str,
+    theme_set_version: str,
+    batch_size: int = BATCH_LIMIT,
+    reasoning_effort: Effort = "minimal",
+) -> int:
+    """Assign the frozen emergent list (Task 12); returns how many messages were labeled.
+
+    Unlike the piggybacked method/software passes, this runs standalone, so
+    done-ness needs its own invariant: explicit 0/1 rows per theme per message
+    (aggregates only read value = 1). The anti-join is scoped to the domain.
+    """
+    pending = con.execute(
+        "SELECT m.history_id, m.sent FROM messages m "
+        "WHERE NOT EXISTS (SELECT 1 FROM labels l WHERE l.history_id = m.history_id "
+        "AND l.label_version = ? AND l.domain = 'emergent_theme') "
+        "ORDER BY m.history_id",
+        [label_version],
+    ).fetchall()
+    provenance = f"{model_tag}#{theme_set_version}"
+    labeled = 0
+    for start in range(0, len(pending), batch_size):
+        chunk = pending[start : start + batch_size]
+        ids = [row[0] for row in chunk]
+        texts = [row[1] for row in chunk]
+        assigned = _complete_parsed(
+            client,
+            build_theme_prompt(themes, texts, "conversation themes"),
+            lambda out: parse_themes(out, themes, len(texts)),
+            base_effort=reasoning_effort,
+        )
+        rows = [
+            LabelRow(history_id, label_version, "emergent_theme", theme, int(theme in labels), provenance)
+            for history_id, labels in zip(ids, assigned, strict=True)
+            for theme in themes
+        ]
+        con.execute("BEGIN TRANSACTION")
+        try:
+            write_labels(con, rows)
+            con.execute("COMMIT")
+        except BaseException:
+            con.execute("ROLLBACK")
+            raise
+        labeled += len(chunk)
+        print(f"assigned emergent themes for {labeled}/{len(pending)} pending messages", flush=True)
+    return labeled

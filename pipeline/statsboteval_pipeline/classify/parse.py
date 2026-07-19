@@ -61,6 +61,40 @@ def parse_themes(text: str, allowed: Sequence[str], n: int) -> list[set[str]]:
     return result
 
 
+_CANDIDATE_MAX_WORDS = 5
+_CANDIDATE_MAX_CHARS = 60
+
+
+def parse_candidates(text: str, n: int) -> list[list[str]]:
+    """Parse a candidate-code table into one normalized code list per message.
+
+    Codes are free text (unlike theme numbers), so validation is structural:
+    non-empty, short (<=5 words / 60 chars — long cells smell like quoted chat
+    text), normalized to lowercase with collapsed whitespace, deduplicated.
+    """
+    rows = _table_rows(text, expected_columns=["Codes"], n=n)
+    result: list[list[str]] = []
+    for number in range(1, n + 1):
+        cells, raw = rows[number]
+        cell = cells[0]
+        if cell.lower() == "none":
+            result.append([])
+            continue
+        codes: list[str] = []
+        for part in cell.split(";"):
+            code = " ".join(part.lower().split())
+            if not code:
+                raise ClassifierParseError(f"empty code in row: {raw}")
+            if len(code.split()) > _CANDIDATE_MAX_WORDS or len(code) > _CANDIDATE_MAX_CHARS:
+                raise ClassifierParseError(
+                    f"code {code!r} exceeds {_CANDIDATE_MAX_WORDS} words/{_CANDIDATE_MAX_CHARS} chars in row: {raw}"
+                )
+            if code not in codes:
+                codes.append(code)
+        result.append(codes)
+    return result
+
+
 def _table_rows(text: str, *, expected_columns: list[str], n: int) -> dict[int, tuple[list[str], str]]:
     """Extract table rows keyed by message number; validate header, count, and width."""
     lines = [line.strip() for line in text.splitlines() if line.strip().startswith("|")]

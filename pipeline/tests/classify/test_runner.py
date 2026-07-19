@@ -147,6 +147,47 @@ def test_other_versions_do_not_mark_messages_done(tmp_path: Path) -> None:
     assert classify_corpus(con, StubClient(cb), cb, label_version=VERSION, model_tag=MODEL_TAG) == 2
 
 
+def test_emergent_assignment_writes_explicit_rows(tmp_path: Path) -> None:
+    from statsboteval_pipeline.classify.runner import assign_emergent_themes
+
+    cb = synthetic_codebook()
+    con = seed_corpus(tmp_path / "corpus.duckdb", 3)
+    themes = ["theme alpha", "theme beta"]
+    client = StubClient(cb)  # theme table: first message of the batch gets theme[0], rest "none"
+    n = assign_emergent_themes(
+        con, client, themes, label_version=VERSION, model_tag=MODEL_TAG, theme_set_version="set-v1"
+    )
+    assert n == 3
+    rows = [r for r in read_labels(con, VERSION) if r.domain == "emergent_theme"]
+    # Explicit 0/1 per theme per message: done-ness is visible even for all-zero messages.
+    assert len(rows) == 3 * len(themes)
+    assert {(r.history_id, r.code): r.value for r in rows} == {
+        (1, "theme alpha"): 1,
+        (1, "theme beta"): 0,
+        (2, "theme alpha"): 0,
+        (2, "theme beta"): 0,
+        (3, "theme alpha"): 0,
+        (3, "theme beta"): 0,
+    }
+    assert {r.provenance for r in rows} == {f"{MODEL_TAG}#set-v1"}
+
+
+def test_emergent_assignment_is_idempotent_and_domain_scoped(tmp_path: Path) -> None:
+    from statsboteval_pipeline.classify.runner import assign_emergent_themes
+
+    cb = synthetic_codebook()
+    con = seed_corpus(tmp_path / "corpus.duckdb", 2)
+    client = StubClient(cb)
+    # Prior deductive/method rows under the same version must not mark messages done.
+    assert classify_corpus(con, client, cb, label_version=VERSION, model_tag=MODEL_TAG) == 2
+    themes = ["theme alpha"]
+    kwargs = dict(label_version=VERSION, model_tag=MODEL_TAG, theme_set_version="set-v1")
+    assert assign_emergent_themes(con, client, themes, **kwargs) == 2
+    calls_after_first = client.calls
+    assert assign_emergent_themes(con, client, themes, **kwargs) == 0
+    assert client.calls == calls_after_first
+
+
 def test_empty_corpus_is_a_noop(tmp_path: Path) -> None:
     cb = synthetic_codebook()
     con = open_corpus(tmp_path / "corpus.duckdb")

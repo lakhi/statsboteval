@@ -88,6 +88,64 @@ def build_theme_prompt(themes: Sequence[str], batch: Sequence[str], domain: str)
     )
 
 
+def build_candidate_prompt(batch: Sequence[str]) -> str:
+    """Stage 1 of the emergent pass (D-33): short candidate codes per message.
+
+    Codes must be generic and non-identifying — the instruction matters because
+    everything generated here derives from real chat text; the parser enforces
+    shape and the operator review of the synthesized list is the final control.
+    """
+    _check_batch(batch)
+    n = len(batch)
+    return (
+        "You are an experienced qualitative coder performing open coding. Read the chat messages "
+        "below — students in a university statistics course talking to an AI assistant — and give "
+        "each message 1 to 3 short candidate codes capturing what the message is about.\n\n"
+        "Rules for codes:\n"
+        "- English, lowercase, at most 5 words each.\n"
+        "- Generic topic wording only — never names, never verbatim quotes, never message-specific "
+        "details (numbers, datasets, titles) that could identify a person or a piece of work.\n"
+        "- Messages in other languages still get English codes.\n"
+        "- Use the single word \"none\" for messages with no codable content.\n\n"
+        "Output exactly one Markdown table with one row per message. The first column is the "
+        f"message number (1..{n}); the second column is a semicolon-separated list of the codes, "
+        "or \"none\". No other text.\n"
+        "Example:\n"
+        "| Message | Codes |\n"
+        "|---|---|\n"
+        "| 1 | interpreting regression output; asking for examples |\n"
+        "| 2 | none |\n\n"
+        f"Here are the {n} chat messages:\n\n"
+        f"{_render_messages(batch)}"
+    )
+
+
+def build_synthesis_prompt(code_frequencies: Sequence[tuple[str, int]], *, target: tuple[int, int] = (12, 20)) -> str:
+    """Stage 2 of the emergent pass: consolidate candidate codes into draft themes.
+
+    Input is the distinct candidate-code list with frequencies — codes only, no
+    chat text is re-sent (asserted in tests). The output table becomes the
+    operator's review draft, never a published list directly.
+    """
+    if not code_frequencies:
+        raise ValueError("no candidate codes to synthesize")
+    lo, hi = target
+    listing = "\n".join(f"- {code} ({count})" for code, count in code_frequencies)
+    return (
+        "You are an experienced qualitative coder. Below are candidate codes from open coding of "
+        "chat messages by students in a university statistics course, each with its frequency. "
+        f"Consolidate them into roughly {lo}-{hi} themes covering the codes' content.\n\n"
+        "Rules for themes:\n"
+        "- Short generic English labels (at most 6 words) with a one-line description each.\n"
+        "- No names, no identifying specifics; merge near-duplicates; drop codes too rare or too "
+        "vague to form a theme.\n\n"
+        "Output exactly one Markdown table, one row per theme, no other text:\n"
+        "| Theme | Description |\n"
+        "|---|---|\n\n"
+        f"The candidate codes:\n{listing}"
+    )
+
+
 def _check_batch(batch: Sequence[str]) -> None:
     if not batch:
         raise ValueError("empty message batch")

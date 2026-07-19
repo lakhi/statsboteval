@@ -136,3 +136,38 @@ def test_theme_empty_cell_raises() -> None:
     text = GOOD_THEMES.replace("| 2 | none |", "| 2 |  |")
     with pytest.raises(ClassifierParseError):
         parse_themes(text, THEMES, 3)
+
+
+GOOD_CANDIDATES = (
+    "| Message | Codes |\n"
+    "|---|---|\n"
+    "| 1 | Interpreting  Output ; choosing a test; interpreting output |\n"
+    "| 2 | none |\n"
+    "| 3 | software help |"
+)
+
+
+def test_candidates_normalized_and_deduplicated() -> None:
+    from statsboteval_pipeline.classify.parse import parse_candidates
+
+    assert parse_candidates(GOOD_CANDIDATES, 3) == [
+        ["interpreting output", "choosing a test"],
+        [],
+        ["software help"],
+    ]
+
+
+def test_candidate_over_word_limit_raises() -> None:
+    from statsboteval_pipeline.classify.parse import parse_candidates
+
+    text = GOOD_CANDIDATES.replace("software help", "six words is one word too many")
+    with pytest.raises(ClassifierParseError, match="exceeds 5 words"):
+        parse_candidates(text, 3)
+
+
+def test_candidate_empty_code_raises() -> None:
+    from statsboteval_pipeline.classify.parse import parse_candidates
+
+    text = GOOD_CANDIDATES.replace("| 3 | software help |", "| 3 | software help; |")
+    with pytest.raises(ClassifierParseError, match="empty code"):
+        parse_candidates(text, 3)
