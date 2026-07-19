@@ -38,7 +38,7 @@ wait_port "$BLOB_PORT"
 
 echo "== publishing synthetic aggregates"
 AZURE_STORAGE_CONNECTION_STRING="$CONN" "$ROOT/pipeline/.venv/bin/python" \
-  -m statsboteval_pipeline.cli run-synthetic --corpus "$WORKDIR/corpus.duckdb" --upload
+  -m statsboteval_pipeline.cli run-synthetic --corpus "$WORKDIR/corpus.duckdb" --with-labels --upload
 
 echo "== starting API on :$API_PORT"
 (cd "$ROOT/api" && AZURE_STORAGE_CONNECTION_STRING="$CONN" DASHBOARD_DIST="$ROOT/dashboard/out" \
@@ -57,7 +57,12 @@ weeks = [entry["week"] for entry in series]
 assert len(weeks) == len(set(weeks)) and len(weeks) >= 4, weeks
 statuses = {entry["cell"]["status"] for entry in series}
 assert statuses == {"ok", "suppressed"}, statuses
-print(f"aggregates OK: {len(weeks)} dense weeks, both cell states present")
+topics = doc["sections"]["topics"]
+assert doc["label_versions"]["classification"] == "statsboteval-v1"
+entry = topics["per_window"]["all_time"]
+assert entry["deductive"]["items"] and entry["emergent_themes"]["items"]
+assert set(entry["by_status"]) & {"bachelor", "master"}, entry["by_status"]
+print(f"aggregates OK: {len(weeks)} dense weeks, both cell states, topics populated")
 '
 if [ -f "$ROOT/dashboard/out/index.html" ]; then
   curl -sf "localhost:$API_PORT/" | grep -qi "<html" && echo "dashboard bundle served at /"

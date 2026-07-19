@@ -12,7 +12,16 @@ from random import Random
 
 import duckdb
 
+from .classify.codebook import DEDUCTIVE_CATEGORY_NAMES, category_code
 from .contract import date_to_week, week_monday
+from .labels import LabelRow, write_labels
+
+# Synthetic theme labels only — the real frozen/generated lists are git-ignored
+# local materials (D-16/D-33) and never enter the repo.
+_METHOD_THEMES = ["SYNTHETIC regression theme", "SYNTHETIC ANOVA theme", "SYNTHETIC correlation theme"]
+_SOFTWARE_THEMES = ["SYNTHETIC software R-like", "SYNTHETIC software SPSS-like"]
+_EMERGENT_THEMES = ["SYNTHETIC exam-prep theme", "SYNTHETIC homework theme", "SYNTHETIC concept-confusion theme"]
+SYNTHETIC_THEME_SET_VERSION = "statsboteval-themes-v1"
 
 _DE_SENT = [
     "SYNTHETIC: Wie berechne ich den Median?",
@@ -109,3 +118,41 @@ def seed_synthetic(
                     created_at += timedelta(minutes=rng.randint(1, 15))
                     prompt_tokens += rng.randint(100, 600)  # context re-sent, grows per exchange
     con.executemany("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?)", messages)
+
+
+def seed_synthetic_labels(con: duckdb.DuckDBPyConnection, *, seed: int = 42) -> None:
+    """Deterministic synthetic labels (all four domains) + status rows for E2E/demo.
+
+    Deductive uses the public category names with explicit 0/1 per message
+    (mirroring the runner); themes and statuses are invented. Lets the Topics
+    tab render fully populated — including by_status — without any API call.
+    """
+    rng = Random(seed)
+    codes = [category_code(name) for name in DEDUCTIVE_CATEGORY_NAMES]
+    rows: list[LabelRow] = []
+    for (history_id,) in con.execute("SELECT history_id FROM messages ORDER BY history_id").fetchall():
+        for i, code in enumerate(codes):
+            value = 1 if rng.random() < 0.75 / (i + 1.3) else 0
+            rows.append(LabelRow(history_id, "statsboteval-v1", "deductive", code, value, "synthetic-fixture"))
+        for domain, themes, p in (
+            ("method_theme", _METHOD_THEMES, 0.35),
+            ("software_theme", _SOFTWARE_THEMES, 0.2),
+            ("emergent_theme", _EMERGENT_THEMES, 0.45),
+        ):
+            for theme in themes:
+                if rng.random() < p:
+                    rows.append(LabelRow(history_id, "statsboteval-v1", domain, theme, 1, "synthetic-fixture"))
+    write_labels(con, rows)
+    statuses: list[tuple[str, str, str | None, str]] = []
+    for (pseudonym,) in con.execute("SELECT pseudonym FROM students ORDER BY pseudonym").fetchall():
+        roll = rng.random()
+        if roll < 0.35:
+            statuses.append((pseudonym, "bachelor", None, "synthetic-roster"))
+        elif roll < 0.45:  # BA→MA transitioner: resolves per session at usage time
+            statuses.append((pseudonym, "bachelor", "2025W", "synthetic-roster"))
+        elif roll < 0.92:
+            statuses.append((pseudonym, "master", None, "synthetic-roster"))
+        elif roll < 0.97:
+            statuses.append((pseudonym, "staff", None, "synthetic-roster"))
+        # else: no row -> resolves to 'unknown' (exercises the unknown group)
+    con.executemany("INSERT OR REPLACE INTO student_status VALUES (?, ?, ?, ?)", statuses)

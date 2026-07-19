@@ -22,3 +22,9 @@ class ClassifierSettings(BaseSettings):
     # reasoning_effort are pinned; the exact model/version goes into provenance.
     classifier_seed: int = 20260718
     classifier_max_retries: int = 5
+    # Codebook materials directory (git-ignored local files, D-16) and the label
+    # bookkeeping: which version this pipeline writes, and the provenance tag
+    # recorded per row (update at the Task 19 model decision).
+    bergmann_prompts_dir: str | None = None
+    classifier_label_version: str = "statsboteval-v1"
+    classifier_model_tag: str = "gpt-5-mini@2025-08-07"

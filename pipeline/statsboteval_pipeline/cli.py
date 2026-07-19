@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .aggregate import build_aggregates
 from .corpus import open_corpus
-from .fixtures import seed_synthetic
+from .fixtures import SYNTHETIC_THEME_SET_VERSION, seed_synthetic, seed_synthetic_labels
 from .publish import publish, render
 
 
@@ -25,6 +25,9 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--floor-n", type=int, default=3)
     run.add_argument("--out", type=Path, help="write the guarded document to this file")
     run.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
+    run.add_argument(
+        "--with-labels", action="store_true", help="seed synthetic labels + statuses so topics publishes"
+    )
     ext = sub.add_parser("extract", help="ingest new production rows into the local corpus (read-only source)")
     ext.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file (created if missing)")
     ext.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
@@ -45,6 +48,20 @@ def main(argv: list[str] | None = None) -> int:
     wk.add_argument("--out", type=Path, help="write the guarded document to this file (operator review)")
     wk.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
     wk.add_argument("--skip-extract", action="store_true", help="publish the corpus as-is (no VPN/source connection)")
+    wk.add_argument("--skip-classify", action="store_true", help="skip the classification pass (no Azure OpenAI)")
+    wk.add_argument(
+        "--classification-version",
+        default="statsboteval-v1",
+        help="label version aggregated into topics (topics omitted while no such labels exist)",
+    )
+    cf = sub.add_parser("classify", help="run the LLM classification pass (deductive + frozen themes)")
+    cf.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    cf.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
+    ib = sub.add_parser("import-bergmann", help="import the public Stage-2 coded dataset as bergmann-v1")
+    ib.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    ib.add_argument("--csv", type=Path, required=True, help="git-ignored local full_dataset.csv")
+    va = sub.add_parser("validate", help="per-category MCC of statsboteval-v1 vs bergmann-v1 (human consensus)")
+    va.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     st = sub.add_parser("import-status", help="import the roster-derived status CSV (uids HMAC'd in flight)")
     st.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     st.add_argument("--csv", type=Path, help="override $STUDENT_STATUS_CSV")
@@ -108,6 +125,12 @@ def main(argv: list[str] | None = None) -> int:
             finally:
                 source.close()
         n_labeled = detect_languages(con)
+        if args.skip_classify:
+            n_classified = 0
+        else:
+            from .classify import step as classify_step
+
+            n_classified = classify_step.run_classification(con, env_file=args.env_file)
         doc = build_aggregates(
             con,
             floor_n=args.floor_n,
@@ -115,9 +138,13 @@ def main(argv: list[str] | None = None) -> int:
             provenance="production",
             pipeline_version=version("statsboteval-pipeline"),
             axis_start=args.axis_start,
+            classification_version=args.classification_version,
         )
         payload = render(doc)  # guard runs here, before anything is written or uploaded
-        print(f"extracted {n_new} new messages; labeled {n_labeled}; data through {doc.data_through_week}")
+        print(
+            f"extracted {n_new} new messages; language-labeled {n_labeled}; classified {n_classified}; "
+            f"data through {doc.data_through_week}"
+        )
         if args.out:
             args.out.write_bytes(payload)
             print(f"wrote {args.out}")
@@ -152,6 +179,26 @@ def main(argv: list[str] | None = None) -> int:
         print(f"labeled {n} messages with {LABEL_VERSION}")
         return 0
 
+    if args.command == "classify":
+        from .classify import step as classify_step
+
+        n = classify_step.run_classification(open_corpus(args.corpus), env_file=args.env_file)
+        print(f"classified {n} messages")
+        return 0
+
+    if args.command == "import-bergmann":
+        from .import_bergmann import import_bergmann_v1
+
+        n = import_bergmann_v1(open_corpus(args.corpus), args.csv)
+        print(f"imported bergmann-v1 labels for {n} messages")
+        return 0
+
+    if args.command == "validate":
+        from .validate import format_validation_report, validate_against_bergmann
+
+        print(format_validation_report(validate_against_bergmann(open_corpus(args.corpus))))
+        return 0
+
     if args.command == "extract":
         from .config import ExtractSettings
         from .extract import connect_source, extract_new_rows
@@ -170,12 +217,16 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"{args.corpus} already exists; run-synthetic expects a fresh corpus file")
     con = open_corpus(args.corpus)
     seed_synthetic(con, weeks=args.weeks, seed=args.seed)
+    if args.with_labels:
+        seed_synthetic_labels(con, seed=args.seed)
     doc = build_aggregates(
         con,
         floor_n=args.floor_n,
         now=datetime.now(timezone.utc),
         provenance="synthetic",
         pipeline_version=version("statsboteval-pipeline"),
+        classification_version="statsboteval-v1" if args.with_labels else None,
+        theme_set_version=SYNTHETIC_THEME_SET_VERSION if args.with_labels else None,
     )
     payload = render(doc)
     if args.out:
