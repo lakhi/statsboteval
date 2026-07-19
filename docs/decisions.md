@@ -570,3 +570,27 @@ adds Phase B Task 21.)
   `pipeline/.env`). Lifecycle: deleted with the corpus end-2027; **erasure also
   removes the student's CSV row** (else re-import restores it). Full rules:
   `docs/ethics/data-handling.md` §program-level.
+
+## D-40 — 2026-07-19: Classifier runs on the existing DZS gpt-5-mini deployment (gpt-5.4-mini rejected on data-zone grounds)
+
+- **Context:** for the first real-data classification run (Task 20a), the owner
+  deployed `gs-statsboteval-5.4-mini` (gpt-5.4-mini `2026-03-17`) on the shared
+  `statistics-tutor` Azure OpenAI resource (MOPS / Lehrprojekt RG, Sweden Central)
+  and pointed the pipeline at it.
+- **Finding:** that deployment is **GlobalStandard** — inference may route to any
+  Azure region worldwide. Consented practice (consent addendum; D-30/D-34) allows
+  sending chat text only to **EU data centers**, i.e. Data Zone Standard (or an
+  EU-regional Standard) deployment. Checked via `az cognitiveservices model list`:
+  `gpt-5.4-mini` offers **no DataZoneStandard SKU in any EU region** (Sweden
+  Central, West Europe, France Central, Germany West Central all list only
+  GlobalStandard / provisioned tiers). There is no consent-compliant pay-as-you-go
+  path for gpt-5.4-mini today.
+- **Decision:** classification uses the resource's existing `statsbot_gpt-5-mini`
+  deployment — **DataZoneStandard**, gpt-5-mini `2025-08-07`, ~1M TPM — which is
+  exactly the model+version D-30 pinned (`classifier_model_tag =
+  gpt-5-mini@2025-08-07`, label version `statsboteval-v1`). The gs- deployment
+  stays untouched (owner may delete it or keep it for non-chat-text use); only
+  synthetic connectivity probes were ever sent through it.
+- **Revisit:** if Azure later ships a DZS SKU for gpt-5.4-mini (or the Task 19
+  validation argues for a stronger model), re-run under a **new** label version —
+  never mix models within one (see `docs/runbooks/classification.md`).

@@ -307,11 +307,11 @@ method (21) and software (9) theme lists from the local Bergmann materials. A
 `synthetic_codebook()` factory builds a tiny well-formed codebook for tests (no real
 definitions).
 
-- [ ] Failing tests (synthetic codebook only): all 13 categories present with required
+- [x] Failing tests (synthetic codebook only): all 13 categories present with required
       fields; method/software theme lists non-empty; a malformed block raises; loader is
       pure (no network, no import-time file read).
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add classification codebook and theme-list loading`
+- [x] Implement; full suite green.
+- [x] Commit: `Add classification codebook and theme-list loading`
 
 ### Task 6: Consolidated multi-label + theme-assignment prompt builders
 
@@ -329,11 +329,11 @@ definitions).
   generated `statsboteval-themes-v1` list in Task 12 — same builder, no special case).
 - Category/theme→column grouping is a parameter, so a fragile category can later be split
   into its own call without code change.
-- [ ] Failing tests: deterministic render (same inputs → identical string); all 13
+- [x] Failing tests: deterministic render (same inputs → identical string); all 13
       category headers appear; message numbering is 1..n; a >50 batch raises; theme
       prompt embeds the given list verbatim.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add consolidated multi-label and theme prompt builders`
+- [x] Implement; full suite green.
+- [x] Commit: `Add consolidated multi-label and theme prompt builders`
 
 ### Task 7: Strict response parsing
 
@@ -347,12 +347,12 @@ values in {0,1} for deductive; themes outside the allowed list rejected; raises
 `ClassifierParseError` with the offending row on any deviation (a silent mis-parse would
 corrupt labels). Tolerant only of benign whitespace/pipe-padding.
 
-- [ ] Failing tests: a canned good table parses to the expected matrix; missing row,
+- [x] Failing tests: a canned good table parses to the expected matrix; missing row,
       extra column, non-binary value, and an out-of-list theme each raise; ragged
       whitespace still parses; row order independence (keyed by chat number, not
       position).
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add strict classifier response parsing`
+- [x] Implement; full suite green.
+- [x] Commit: `Add strict classifier response parsing`
 
 ### Task 8: Azure OpenAI client (deterministic settings, retry; faked in tests)
 
@@ -369,11 +369,11 @@ corrupt labels). Tolerant only of benign whitespace/pipe-padding.
   `seed`, and a fixed `api-version`. Retries 429/5xx with capped exponential backoff.
 - Settings via `pydantic-settings` (`config.py`); `.env.example` documents the Data Zone
   Standard endpoint + deployment.
-- [ ] Failing tests (no network): client builds from settings; a stub transport returns a
+- [x] Failing tests (no network): client builds from settings; a stub transport returns a
       canned completion; a 429-then-200 stub exercises one retry then succeeds; missing
       endpoint raises a clear config error.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add Azure OpenAI classifier client with retry and deterministic settings`
+- [x] Implement; full suite green.
+- [x] Commit: `Add Azure OpenAI classifier client with retry and deterministic settings`
 
 ### Task 9: Classification runner (statsboteval-v1 producer, idempotent, resumable)
 
@@ -388,12 +388,12 @@ leaves already-written batches intact (resumable). Returns the count newly label
 (The emergent-theme assignment pass plugs in here in Task 12 — same batching, different
 domain.)
 
-- [ ] Failing tests (stub client returning deterministic canned tables): a full run over
+- [x] Failing tests (stub client returning deterministic canned tables): a full run over
       a synthetic corpus writes deductive + theme rows for every message with the right
       provenance tag; a second run writes zero (idempotent); a client raising mid-run
       leaves prior batches persisted and re-run completes the rest.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add batch classification runner (statsboteval-v1 producer)`
+- [x] Implement; full suite green.
+- [x] Commit: `Add batch classification runner (statsboteval-v1 producer)`
 
 ### Task 10: bergmann-v1 importer (from the public Stage-2 dataset)
 
@@ -411,12 +411,12 @@ from another Stage-2 file can be added later if a comparison is ever wanted.* Wi
 verify a sample of `sent`/timestamps against corpus rows — **runs for real** rather than
 being skipped-and-logged.
 
-- [ ] Failing tests: import a **synthetic** CSV constructed in the test → labels table
+- [x] Failing tests: import a **synthetic** CSV constructed in the test → labels table
       has `bergmann-v1` rows with correct provenance split; a row whose `id` collides
       across versions does not overwrite `statsboteval-v1`; malformed CSV (missing
       category column) raises.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add bergmann-v1 label importer from the public Stage-2 dataset`
+- [x] Implement; full suite green.
+- [x] Commit: `Add bergmann-v1 label importer from the public Stage-2 dataset`
 
 ### Task 11: Validation harness (per-category MCC vs bergmann-v1)
 
@@ -432,11 +432,11 @@ similarity rating, not MCC); emergent themes have no Bergmann counterpart at all
 report notes both. The report records the classifier model/version and the two-way
 conflation caveat (model **and** consolidated-prompt differences from their pipeline).
 
-- [ ] Failing tests: hand-computed MCC on a tiny synthetic labelled pair matches; only
+- [x] Failing tests: hand-computed MCC on a tiny synthetic labelled pair matches; only
       human-consensus rows enter the score; an all-zero category yields NA, not a crash;
       report carries model tag + caveat text.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add classifier validation harness (per-category MCC vs bergmann-v1)`
+- [x] Implement; full suite green.
+- [x] Commit: `Add classifier validation harness (per-category MCC vs bergmann-v1)`
 
 ### Task 12: Emergent-theme generation (two-stage, reviewed, versioned) — NEW (D-33) — Stage 2 (D-38): after the first topics publish
 
@@ -499,14 +499,14 @@ conflation caveat (model **and** consolidated-prompt differences from their pipe
   `unknown`; `unknown` present only when non-empty). Every cell is floored
   independently — the floor, not the schema, is the small-group defense. New footnote
   `status_rule` in §6.2 (roster provenance; usage-time resolution at session level).
-- [ ] Failing tests: a topics document round-trips and validates; the committed 1.0.0
+- [x] Failing tests: a topics document round-trips and validates; the committed 1.0.0
       synthetic fixture still validates against the 1.1.0 schema (additive proof); schema
       export drift-check passes; `label_versions.classification` and `theme_set_version`
       optional; per_window keys validated against the windows registry (existing
       cross-doc validator covers topics); `by_status` optional, reuses the `TopicGroup`
       shape, rejects unknown status keys, `unknown` allowed.
-- [ ] Implement; regenerate artifacts; full suite green (including `test_schema_export`).
-- [ ] Commit: `Extend aggregates contract with topics section (schema 1.1.0)`
+- [x] Implement; regenerate artifacts; full suite green (including `test_schema_export`).
+- [x] Commit: `Extend aggregates contract with topics section (schema 1.1.0)`
 
 ### Task 14: Topics aggregation (labels → contract, floored)
 
@@ -529,14 +529,14 @@ distribution build, students without a status row group under `unknown` (emitted
 when non-empty), and the `status_rule` footnote attaches. No status rows → `by_status`
 omitted; document still valid.
 
-- [ ] Failing tests: hand-seeded corpus + labels → exact topics distributions with a
+- [x] Failing tests: hand-seeded corpus + labels → exact topics distributions with a
       category suppressed for sub-floor students; `n_total` floored independently;
       version keys reflect configuration; no labels → no topics section, document still
       valid; a transitioner's messages split bachelor/master by session date across the
       boundary; a sub-floor status group suppresses per cell; no status rows →
       `by_status` omitted.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Aggregate classification labels into the topics section`
+- [x] Implement; full suite green.
+- [x] Commit: `Aggregate classification labels into the topics section`
 
 ### Task 15: Dashboard Topics tab (retargeted at the D-32 architecture)
 
@@ -567,11 +567,11 @@ omitted; document still valid.
 - `dev-fixtures/generate.mjs` emits a synthetic `topics` section across all windows and
   all cell states — including a `by_status` split with one sub-floor group — so FE work
   runs on `NEXT_PUBLIC_DATA_SOURCE=fixture` with no pipeline.
-- [ ] Build against the fixture, then the local stack (Azurite + CLI publish incl.
+- [x] Build against the fixture, then the local stack (Azurite + CLI publish incl.
       synthetic labels + uvicorn); verify suppressed/zero/ok/absent distinct and the
       provenance footnote shows.
-- [ ] `pnpm build` exports clean.
-- [ ] Commit: `Render the Topics tab from the topics section (categorical cell primitive)`
+- [x] `pnpm build` exports clean.
+- [x] Commit: `Render the Topics tab from the topics section (categorical cell primitive)`
 
 ### Task 16: CLI wiring + synthetic label fixtures + operator runbook
 
@@ -594,13 +594,13 @@ omitted; document still valid.
   → aggregate → publish); the one-off `import-bergmann` + `validate` on the public
   dataset; the theme-review step spelled out as the privacy control (D-33); the
   theme-set regeneration (v2) note (per-semester operator review, D-38).
-- [ ] Failing tests: `run-synthetic --with-labels` produces a document whose `topics`
+- [x] Failing tests: `run-synthetic --with-labels` produces a document whose `topics`
       (incl. `emergent_themes`) validates and whose `data_provenance == "synthetic"`;
       `validate` on a seeded two-version corpus prints a well-formed report;
       `run-weekly` stage order includes classify (stub client), `--skip-classify`
       bypasses it, guard behavior unchanged.
-- [ ] Extend `e2e_local.sh` to assert a dense `topics` section end-to-end; run it.
-- [ ] Commit: `Wire classification CLI, synthetic labels, and operator runbook`
+- [x] Extend `e2e_local.sh` to assert a dense `topics` section end-to-end; run it.
+- [x] Commit: `Wire classification CLI, synthetic labels, and operator runbook`
 
 ### Task 17: Erasure runbook + CLI — NEW (pulled from Part 4; publish precondition)
 
@@ -629,15 +629,25 @@ migration 004 exists (the spec above already lists it).
 **Files:** `infra/scripts/` (provisioning script alongside the existing az-CLI scripts),
 `.env.example`.
 
-- [ ] Verify gpt-5-mini **Data Zone Standard** deployability in MOPS / Sweden Central
+- [x] Verify gpt-5-mini **Data Zone Standard** deployability in MOPS / Sweden Central
       (`az cognitiveservices model list`) — closes D-30's open confirmation.
-- [ ] Provision the Azure OpenAI resource in the shared **`Lehrprojekt`** RG (operator
+- [x] Provision the Azure OpenAI resource in the shared **`Lehrprojekt`** RG (operator
       has no RG-create rights — D-31 finding) + the gpt-5-mini deployment with the DZS
       SKU; script it like the existing `infra/scripts` so it's reproducible.
-- [ ] Auth: API key into `pipeline/.env` (operator lacks `roleAssignments/write`, so
+- [x] Auth: API key into `pipeline/.env` (operator lacks `roleAssignments/write`, so
       managed-identity/RBAC is out for now — same constraint D-31 recorded for blob).
-- [ ] Live smoke test (the Task 8 `skipif` test) passes against the deployment.
-- [ ] Commit: `Add Azure OpenAI provisioning script (Data Zone Standard, gpt-5-mini)`
+- [x] Live smoke test (the Task 8 `skipif` test) passes against the deployment.
+- [ ] ~~Commit: `Add Azure OpenAI provisioning script (Data Zone Standard, gpt-5-mini)`~~
+      — no script needed: the shared `statistics-tutor` resource (Lehrprojekt RG, Sweden
+      Central) already carried a `statsbot_gpt-5-mini` **DataZoneStandard** deployment
+      (gpt-5-mini `2025-08-07`, ~1M TPM), which we use as-is.
+
+**Done 2026-07-19, with a deviation (D-40):** the newly created
+`gs-statsboteval-5.4-mini` deployment turned out to be **GlobalStandard** (non-EU
+inference routing), and `gpt-5.4-mini` offers **no DataZoneStandard SKU in any EU
+region** — so it cannot be used for chat text under the consented practice. The
+pipeline runs against `statsbot_gpt-5-mini` (DZS) instead, which is exactly the
+D-30-pinned model.
 
 ### Task 19 (operator, public data — not CI): validation run & model decision
 
@@ -713,12 +723,12 @@ CREATE TABLE student_status (
 - `erase-student` extends to delete from `student_status`; the erasure runbook gains
   the operator step of also removing the student's row from the roster CSV (else the
   next re-import restores it — `docs/ethics/data-handling.md` §program-level).
-- [ ] Failing tests (synthetic): HMAC/normalization parity with extract; transitioner
+- [x] Failing tests (synthetic): HMAC/normalization parity with extract; transitioner
       resolution across the boundary incl. break-month sessions (Aug before an Oct
       transition → still bachelor); upsert idempotence; missing-row → `unknown` +
       reported; erasure covers the table.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add student-status dimension with usage-time resolution`
+- [x] Implement; full suite green.
+- [x] Commit: `Add student-status dimension with usage-time resolution`
 
 The CSV itself is produced in the roster-derivation session (owner call 2026-07-18:
 the validated list semantics and overlap analysis live there — re-deriving here from a
