@@ -167,3 +167,90 @@ def test_run_weekly_axis_start_is_forwarded(
     args = ["run-weekly", "--corpus", str(corpus), "--env-file", str(env_file), "--skip-classify", "--out", str(out)]
     assert cli.main(args) == 0
     assert str(seen["axis_start"]) == "2025-03-01"  # the D-36 owner default
+
+
+def _freeze_test_set(corpus: Path, set_version: str = "statsboteval-themes-v1") -> None:
+    from datetime import datetime, timezone
+
+    from statsboteval_pipeline.themes import ThemeEntry, freeze_theme_set
+
+    con = open_corpus(corpus)
+    entries = [ThemeEntry(f"synthetic theme {i}", "synthetic description") for i in range(3)]
+    freeze_theme_set(con, entries, set_version, now=datetime(2026, 7, 19, tzinfo=timezone.utc))
+    con.close()
+
+
+def test_run_weekly_chains_assignment_once_a_set_is_frozen(
+    corpus: Path, env_file: Path, stages: list[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _freeze_test_set(corpus)
+    monkeypatch.setattr(
+        classify_step_module, "run_theme_assignment", lambda con, *, env_file: (stages.append("assign"), 0)[1]
+    )
+    out = tmp_path / "aggregates.json"
+    assert cli.main(["run-weekly", "--corpus", str(corpus), "--env-file", str(env_file), "--out", str(out)]) == 0
+    assert stages == ["extract", "detect", "classify", "assign", "aggregate"]
+    # Assignment ran but wrote no labels (stub) -> theme_set_version stays absent.
+    assert "topics" not in json.loads(out.read_text())["sections"]
+
+
+def test_run_weekly_skip_classify_skips_assignment_too(
+    corpus: Path, env_file: Path, stages: list[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _freeze_test_set(corpus)
+    monkeypatch.setattr(
+        classify_step_module, "run_theme_assignment", lambda con, *, env_file: (stages.append("assign"), 0)[1]
+    )
+    args = ["run-weekly", "--corpus", str(corpus), "--env-file", str(env_file), "--skip-classify"]
+    assert cli.main(args) == 0
+    assert stages == ["extract", "detect", "aggregate"]
+
+
+def test_run_weekly_aggregates_carry_theme_set_version_with_emergent_labels(
+    corpus: Path, env_file: Path, stages: list[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from statsboteval_pipeline.labels import LabelRow, write_labels
+
+    _freeze_test_set(corpus)
+    con = open_corpus(corpus)
+    ids = [row[0] for row in con.execute("SELECT history_id FROM messages LIMIT 5").fetchall()]
+    write_labels(
+        con,
+        [LabelRow(i, "statsboteval-v1", "emergent_theme", "synthetic theme 0", 1, "stub@x#set") for i in ids],
+    )
+    con.close()
+    monkeypatch.setattr(classify_step_module, "run_theme_assignment", lambda con, *, env_file: 0)
+    out = tmp_path / "aggregates.json"
+    assert cli.main(["run-weekly", "--corpus", str(corpus), "--env-file", str(env_file), "--out", str(out)]) == 0
+    topics = json.loads(out.read_text())["sections"]["topics"]
+    assert topics["theme_set_version"] == "statsboteval-themes-v1"
+
+
+def test_freeze_themes_cli_loads_reviewed_draft(corpus: Path, env_file: Path, tmp_path: Path) -> None:
+    from statsboteval_pipeline.themes import reviewed_theme_labels
+
+    draft = tmp_path / "draft.md"
+    draft.write_text(
+        "| Theme | Description |\n|---|---|\n"
+        "| synthetic a | d |\n| synthetic b | d |\n| synthetic c | d |\n"
+    )
+    args = ["freeze-themes", "--corpus", str(corpus), "--env-file", str(env_file), "--draft", str(draft)]
+    assert cli.main(args) == 0
+    con = open_corpus(corpus)
+    assert reviewed_theme_labels(con, "statsboteval-themes-v1") == ["synthetic a", "synthetic b", "synthetic c"]
+    con.close()
+
+
+def test_assign_themes_refuses_missing_or_unreviewed_set(corpus: Path, tmp_path: Path) -> None:
+    from statsboteval_pipeline.classify.step import run_theme_assignment
+    from statsboteval_pipeline.themes import ThemeSetError
+
+    env = tmp_path / "azure.env"
+    env.write_text("AZURE_OPENAI_ENDPOINT=https://example.invalid/\nAZURE_OPENAI_API_KEY=fake\n")
+    con = open_corpus(corpus)
+    with pytest.raises(ThemeSetError, match="does not exist"):
+        run_theme_assignment(con, env_file=env)
+    con.execute("INSERT INTO theme_sets VALUES ('statsboteval-themes-v1', 'a theme', 'd', now(), NULL)")
+    with pytest.raises(ThemeSetError, match="not reviewed"):
+        run_theme_assignment(con, env_file=env)
+    con.close()

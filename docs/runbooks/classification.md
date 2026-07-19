@@ -66,16 +66,33 @@ Note: the public `full_dataset.csv` carries the 13 deductive categories only;
 Bergmann's theme codings are not in the public release, so validation covers
 the deductive pass (documented plan deviation, Task 10).
 
-## Stage 2: emergent themes (deferred, D-38)
+## Stage 2: emergent themes (D-33/D-38)
 
-The emergent-theme pass (inductive discovery over our corpus) ships after the
-first Stage-1 publish. Its **theme-review step is a privacy control**, not
-polish: generated theme labels are strings derived from real chat text, so the
-operator must review the generated list for identifying content (names, unique
-incidents) before it is frozen into a `theme_sets` version and published.
-Regenerating themes later (new data, prompt change) mints a NEW
-`theme_set_version` — published versions are immutable; the dashboard reads one
-configured version.
+One-off per theme-set version (then `run-weekly` maintains assignments):
+
+```sh
+.venv/bin/python -m statsboteval_pipeline.cli generate-themes --corpus data/corpus.duckdb
+# -> REVIEW data/theme-draft-<set_version>.md by hand (see below), then:
+.venv/bin/python -m statsboteval_pipeline.cli freeze-themes \
+  --corpus data/corpus.duckdb --draft data/theme-draft-<set_version>.md
+.venv/bin/python -m statsboteval_pipeline.cli assign-themes --corpus data/corpus.duckdb
+```
+
+`generate-themes` runs both inductive stages: per-message candidate codes into
+the local-only `theme_candidates` table (idempotent/resumable like `classify`),
+then one synthesis call — over the distinct code list only, no chat text — that
+writes the draft file. The **review of that draft is a privacy control**, not
+polish: every label derives from real chat text, so check each one for
+identifying content (names, unique incidents, quoted phrasing) and edit the
+table freely before freezing. `assign-themes` (and the `run-weekly` chaining)
+refuses any set without a `reviewed_at` stamp, and `freeze-themes` refuses to
+overwrite an existing version.
+
+Once a reviewed set matching `CLASSIFIER_THEME_SET_VERSION` exists, `run-weekly`
+chains `assign-themes` after `classify` and stamps `theme_set_version` into the
+published document. Regenerating themes later (new data, prompt change) mints a
+NEW `theme_set_version` with its own review — published versions are immutable;
+the dashboard reads one configured version.
 
 ## When the Azure deployment changes
 

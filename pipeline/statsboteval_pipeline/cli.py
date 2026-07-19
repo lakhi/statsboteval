@@ -57,6 +57,18 @@ def main(argv: list[str] | None = None) -> int:
     cf = sub.add_parser("classify", help="run the LLM classification pass (deductive + frozen themes)")
     cf.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     cf.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
+    gt = sub.add_parser("generate-themes", help="emergent stages 1+2: candidate codes -> draft theme list to review")
+    gt.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    gt.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
+    gt.add_argument("--draft", type=Path, help="draft file path (default: data/theme-draft-<set_version>.md)")
+    ft = sub.add_parser("freeze-themes", help="load the REVIEWED draft into theme_sets, stamp reviewed_at (D-33)")
+    ft.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    ft.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
+    ft.add_argument("--draft", type=Path, required=True, help="the reviewed draft file")
+    ft.add_argument("--set-version", help="override $CLASSIFIER_THEME_SET_VERSION")
+    at = sub.add_parser("assign-themes", help="assign the frozen emergent theme set (refuses an unreviewed set)")
+    at.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    at.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
     ib = sub.add_parser("import-bergmann", help="import the public Stage-2 coded dataset as bergmann-v1")
     ib.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     ib.add_argument("--csv", type=Path, required=True, help="git-ignored local full_dataset.csv")
@@ -125,12 +137,27 @@ def main(argv: list[str] | None = None) -> int:
             finally:
                 source.close()
         n_labeled = detect_languages(con)
+        from .classify.config import ThemeSettings
+        from .themes import reviewed_theme_labels
+
+        theme_set = ThemeSettings(_env_file=args.env_file).classifier_theme_set_version
+        themes_frozen = reviewed_theme_labels(con, theme_set) is not None  # raises if unreviewed
         if args.skip_classify:
-            n_classified = 0
+            n_classified = n_assigned = 0
         else:
             from .classify import step as classify_step
 
             n_classified = classify_step.run_classification(con, env_file=args.env_file)
+            n_assigned = classify_step.run_theme_assignment(con, env_file=args.env_file) if themes_frozen else 0
+        # theme_set_version documents the set behind emergent_themes, so it rides
+        # along only when the aggregator will actually emit that distribution.
+        has_emergent = (
+            con.execute(
+                "SELECT 1 FROM labels WHERE label_version = ? AND domain = 'emergent_theme' AND value = 1 LIMIT 1",
+                [args.classification_version],
+            ).fetchone()
+            is not None
+        )
         doc = build_aggregates(
             con,
             floor_n=args.floor_n,
@@ -139,11 +166,12 @@ def main(argv: list[str] | None = None) -> int:
             pipeline_version=version("statsboteval-pipeline"),
             axis_start=args.axis_start,
             classification_version=args.classification_version,
+            theme_set_version=theme_set if themes_frozen and has_emergent else None,
         )
         payload = render(doc)  # guard runs here, before anything is written or uploaded
         print(
             f"extracted {n_new} new messages; language-labeled {n_labeled}; classified {n_classified}; "
-            f"data through {doc.data_through_week}"
+            f"assigned emergent themes for {n_assigned}; data through {doc.data_through_week}"
         )
         if args.out:
             args.out.write_bytes(payload)
@@ -184,6 +212,36 @@ def main(argv: list[str] | None = None) -> int:
 
         n = classify_step.run_classification(open_corpus(args.corpus), env_file=args.env_file)
         print(f"classified {n} messages")
+        return 0
+
+    if args.command == "generate-themes":
+        from .classify import step as classify_step
+        from .classify.config import ThemeSettings
+
+        set_version = ThemeSettings(_env_file=args.env_file).classifier_theme_set_version
+        draft = args.draft or Path(f"data/theme-draft-{set_version}.md")
+        processed, entries = classify_step.run_theme_generation(
+            open_corpus(args.corpus), env_file=args.env_file, draft_path=draft
+        )
+        print(f"generated candidates for {processed} messages; synthesized {len(entries)} draft themes")
+        print(f"REVIEW the draft before freezing (D-33 privacy control): {draft}")
+        return 0
+
+    if args.command == "freeze-themes":
+        from .classify.config import ThemeSettings
+        from .themes import freeze_theme_set, parse_theme_table
+
+        set_version = args.set_version or ThemeSettings(_env_file=args.env_file).classifier_theme_set_version
+        entries = parse_theme_table(args.draft.read_text())
+        n = freeze_theme_set(open_corpus(args.corpus), entries, set_version, now=datetime.now(timezone.utc))
+        print(f"froze {n} themes as {set_version} (reviewed_at stamped)")
+        return 0
+
+    if args.command == "assign-themes":
+        from .classify import step as classify_step
+
+        n = classify_step.run_theme_assignment(open_corpus(args.corpus), env_file=args.env_file)
+        print(f"assigned emergent themes for {n} messages")
         return 0
 
     if args.command == "import-bergmann":

@@ -465,13 +465,19 @@ conflation caveat (model **and** consolidated-prompt differences from their pipe
 - **Assignment:** reuse Task 6's `build_theme_prompt` + Task 9's runner with the frozen
   generated list, writing `domain='emergent_theme'`; provenance carries model tag +
   theme-set version.
-- [ ] Failing tests (stub client, synthetic data): generation writes candidates
+- [x] Failing tests (stub client, synthetic data): generation writes candidates
       idempotently; parse rejects malformed candidate output; synthesis input contains
       codes only (no message text — asserted); an unreviewed theme set cannot be used for
       assignment (raises); assignment against a reviewed synthetic set writes
       `emergent_theme` rows.
-- [ ] Implement; full suite green.
-- [ ] Commit: `Add two-stage emergent-theme generation with reviewed, versioned theme sets`
+- [x] Implement; full suite green.
+- [x] Commit: `Add two-stage emergent-theme generation with reviewed, versioned theme sets`
+
+**Done 2026-07-19 via the Stage 2 execution plan**
+(`2026-07-19-phase-b-stage-2-emergent-themes.md`). One deviation: the emergent
+assignment writes **explicit 0/1 rows** per theme per message (the aggregator only
+reads `value = 1`) so the standalone pass has an exact done-ness anti-join — the
+piggybacked method/software passes get that from the deductive rows instead.
 
 ### Task 13: Contract extension — topics section (schema 1.1.0)
 

@@ -9,9 +9,17 @@ from __future__ import annotations
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class ClassifierSettings(BaseSettings):
+class ThemeSettings(BaseSettings):
+    """The one classifier setting the offline path also needs: which reviewed
+    theme set `run-weekly` should assign/aggregate. Split out so an offline
+    `--skip-classify` run never requires the Azure endpoint fields."""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    classifier_theme_set_version: str = "statsboteval-themes-v1"
+
+
+class ClassifierSettings(ThemeSettings):
     azure_openai_endpoint: str
     azure_openai_deployment: str = "gpt-5-mini"
     azure_openai_api_version: str = "2025-04-01-preview"
