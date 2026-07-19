@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
   "generated_at": "2026-07-06T05:12:33Z",
   "data_through_week": "2026-W27",
   "data_through_date": "2026-07-05",
@@ -11882,35 +11882,40 @@
                 "cell": {
                   "status": "ok",
                   "value": 2183
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic exam-preparation theme."
               },
               {
                 "label": "Synthetic homework-help theme",
                 "cell": {
                   "status": "ok",
                   "value": 1231
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic homework-help theme."
               },
               {
                 "label": "Synthetic conceptual-confusion theme",
                 "cell": {
                   "status": "ok",
                   "value": 440
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
               },
               {
                 "label": "Synthetic tool-how-to theme",
                 "cell": {
                   "status": "ok",
                   "value": 294
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic tool-how-to theme."
               },
               {
                 "label": "Synthetic study-design theme",
                 "cell": {
                   "status": "ok",
                   "value": 270
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic study-design theme."
               }
             ],
             "n_total": {
@@ -12131,35 +12136,40 @@
                     "cell": {
                       "status": "ok",
                       "value": 305
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "ok",
                       "value": 338
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "ok",
                       "value": 132
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "ok",
                       "value": 208
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "ok",
                       "value": 111
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -12381,35 +12391,40 @@
                     "cell": {
                       "status": "ok",
                       "value": 894
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "ok",
                       "value": 241
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "ok",
                       "value": 391
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "ok",
                       "value": 237
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "ok",
                       "value": 152
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -12614,31 +12629,36 @@
                     "cell": {
                       "status": "ok",
                       "value": 137
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -12845,31 +12865,36 @@
                     "cell": {
                       "status": "ok",
                       "value": 66
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -13871,35 +13896,40 @@
                 "cell": {
                   "status": "ok",
                   "value": 454
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic exam-preparation theme."
               },
               {
                 "label": "Synthetic homework-help theme",
                 "cell": {
                   "status": "ok",
                   "value": 445
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic homework-help theme."
               },
               {
                 "label": "Synthetic conceptual-confusion theme",
                 "cell": {
                   "status": "ok",
                   "value": 307
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
               },
               {
                 "label": "Synthetic tool-how-to theme",
                 "cell": {
                   "status": "ok",
                   "value": 264
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic tool-how-to theme."
               },
               {
                 "label": "Synthetic study-design theme",
                 "cell": {
                   "status": "ok",
                   "value": 143
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic study-design theme."
               }
             ],
             "n_total": {
@@ -14117,35 +14147,40 @@
                     "cell": {
                       "status": "ok",
                       "value": 238
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "ok",
                       "value": 81
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "ok",
                       "value": 54
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "ok",
                       "value": 33
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "ok",
                       "value": 30
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -14365,35 +14400,40 @@
                     "cell": {
                       "status": "ok",
                       "value": 383
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "ok",
                       "value": 86
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "ok",
                       "value": 166
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "ok",
                       "value": 63
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "ok",
                       "value": 60
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -14601,32 +14641,37 @@
                     "label": "Synthetic exam-preparation theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "ok",
                       "value": 0
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -14847,35 +14892,40 @@
                 "cell": {
                   "status": "ok",
                   "value": 706
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic exam-preparation theme."
               },
               {
                 "label": "Synthetic homework-help theme",
                 "cell": {
                   "status": "ok",
                   "value": 239
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic homework-help theme."
               },
               {
                 "label": "Synthetic conceptual-confusion theme",
                 "cell": {
                   "status": "ok",
                   "value": 199
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
               },
               {
                 "label": "Synthetic tool-how-to theme",
                 "cell": {
                   "status": "ok",
                   "value": 176
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic tool-how-to theme."
               },
               {
                 "label": "Synthetic study-design theme",
                 "cell": {
                   "status": "ok",
                   "value": 185
-                }
+                },
+                "description": "Synthetic one-line description of the synthetic study-design theme."
               }
             ],
             "n_total": {
@@ -15089,35 +15139,40 @@
                     "cell": {
                       "status": "ok",
                       "value": 142
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "ok",
                       "value": 70
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "ok",
                       "value": 84
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "ok",
                       "value": 34
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "ok",
                       "value": 59
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -15336,35 +15391,40 @@
                     "cell": {
                       "status": "ok",
                       "value": 345
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "ok",
                       "value": 80
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "ok",
                       "value": 49
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "ok",
                       "value": 59
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "ok",
                       "value": 56
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {
@@ -15572,31 +15632,36 @@
                     "cell": {
                       "status": "ok",
                       "value": 26
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic exam-preparation theme."
                   },
                   {
                     "label": "Synthetic homework-help theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic homework-help theme."
                   },
                   {
                     "label": "Synthetic conceptual-confusion theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic conceptual-confusion theme."
                   },
                   {
                     "label": "Synthetic tool-how-to theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic tool-how-to theme."
                   },
                   {
                     "label": "Synthetic study-design theme",
                     "cell": {
                       "status": "suppressed"
-                    }
+                    },
+                    "description": "Synthetic one-line description of the synthetic study-design theme."
                   }
                 ],
                 "n_total": {

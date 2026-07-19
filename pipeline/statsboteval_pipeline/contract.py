@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 FootnoteId = str
 
@@ -296,6 +296,9 @@ class LanguageSection(BaseModel):
 class TopicItem(BaseModel):
     label: str
     cell: CountCell
+    # 1.2.0: reviewed one-line definition of the label (emergent themes only for
+    # now — Bergmann category definitions stay unpublished per D-16).
+    description: str | None = None
 
 
 class TopicDistribution(BaseModel):

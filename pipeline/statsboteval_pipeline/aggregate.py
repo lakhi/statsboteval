@@ -448,6 +448,17 @@ def build_aggregates(
         ).fetchall():
             positives[domain][code].add(history_id)
 
+        # 1.2.0: emergent items carry their reviewed one-line definition from the
+        # frozen theme set. Other domains publish no description — Bergmann
+        # category definitions are unpublished research material (D-16).
+        theme_descriptions: dict[str, str] = {}
+        if theme_set_version is not None:
+            theme_descriptions = dict(
+                con.execute(
+                    "SELECT code, description FROM theme_sets WHERE set_version = ?", [theme_set_version]
+                ).fetchall()
+            )
+
         def topic_distribution(domain: str, subset: list[_Message], with_status_rule: bool) -> TopicDistribution:
             def display(code: str) -> str:
                 return _DEDUCTIVE_LABELS.get(code, code) if domain == "deductive" else code
@@ -459,6 +470,7 @@ def build_aggregates(
                     TopicItem(
                         label=display(code),
                         cell=floored_count(len(hits), len({m.pseudonym for m in hits}), floor_n),
+                        description=theme_descriptions.get(code) if domain == "emergent_theme" else None,
                     )
                 )
             footnote_ids = ["multi_label", "label_provenance"] + (["status_rule"] if with_status_rule else [])

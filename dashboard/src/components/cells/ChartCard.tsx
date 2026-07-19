@@ -12,6 +12,7 @@ export function ChartCard({
   markers,
   footnotes = [],
   suppressionKey,
+  note,
   floorN,
   children,
   table,
@@ -22,11 +23,13 @@ export function ChartCard({
   footnotes?: ResolvedFootnote[];
   /** What a suppressed mark looks like in this figure, if any are shown. */
   suppressionKey?: string | null;
+  /** Card-specific prose appended to the Note (e.g. a method explanation). */
+  note?: ReactNode;
   floorN: number;
   children: ReactNode;
   table?: ReactNode;
 }) {
-  const hasNotes = footnotes.length > 0 || suppressionKey;
+  const hasNotes = footnotes.length > 0 || suppressionKey || note;
   return (
     <section className="rounded-lg border border-edge bg-card p-5">
       <h3 className="text-sm font-semibold text-ink">
@@ -47,6 +50,7 @@ export function ChartCard({
               <sup className="text-accent-deep">{f.symbol}</sup> {f.text}{" "}
             </span>
           ))}
+          {note ? <span>{note}</span> : null}
         </p>
       ) : null}
       {table}

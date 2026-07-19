@@ -143,6 +143,15 @@ def seed_synthetic_labels(con: duckdb.DuckDBPyConnection, *, seed: int = 42) -> 
                 if rng.random() < p:
                     rows.append(LabelRow(history_id, "statsboteval-v1", domain, theme, 1, "synthetic-fixture"))
     write_labels(con, rows)
+    # Reviewed synthetic theme set: aggregation publishes each emergent item's
+    # description (1.2.0) from here, mirroring the real freeze-themes output.
+    con.executemany(
+        "INSERT OR REPLACE INTO theme_sets VALUES (?, ?, ?, now(), now())",
+        [
+            (SYNTHETIC_THEME_SET_VERSION, theme, f"Synthetic one-line description of {theme}.")
+            for theme in _EMERGENT_THEMES
+        ],
+    )
     statuses: list[tuple[str, str, str | None, str]] = []
     for (pseudonym,) in con.execute("SELECT pseudonym FROM students ORDER BY pseudonym").fetchall():
         roll = rng.random()

@@ -52,6 +52,7 @@ export type ByStatus = {
 } | null;
 export type FootnoteIds4 = string[] | null;
 export type Cell3 = OkCell | SuppressedCell;
+export type Description = string | null;
 export type Label = string;
 export type Items = TopicItem[];
 export type NTotal1 = OkCell | SuppressedCell;
@@ -281,6 +282,7 @@ export interface TopicDistribution {
 }
 export interface TopicItem {
   cell: Cell3;
+  description?: Description;
   label: Label;
   [k: string]: unknown;
 }

@@ -287,8 +287,9 @@ document still validates and 1.0.0 readers ignore this section (invariant 5).*
   "theme_set_version": "statsboteval-themes-v1" }             // OPTIONAL, with emergent_themes
 ```
 
-- `TopicDistribution` = `{ items: [{label, cell: CountCell}], n_total: CountCell,
-  footnote_ids? }` — a categorical distribution, **not** the numeric `Histogram`.
+- `TopicDistribution` = `{ items: [{label, cell: CountCell, description?}], n_total:
+  CountCell, footnote_ids? }` — a categorical distribution, **not** the numeric
+  `Histogram`.
   Cells are multi-label counts (a message may be several categories/themes) and do
   **not** sum to `n_total` (`multi_label` footnote); `n_total` is the floored message
   count of the (window × status) slice. The floor tests distinct contributing
@@ -302,6 +303,11 @@ document still validates and 1.0.0 readers ignore this section (invariant 5).*
   emergent labels entering this file).
 - `label_versions.classification` names the one configured version (`statsboteval-v1`
   or `bergmann-v1`, D-07); `theme_set_version` documents the reviewed emergent set.
+- `description` (schema 1.2.0, additive minor bump — D-44): optional one-line
+  definition of the item's label, published **only** for `emergent_themes` items,
+  sourced from the frozen theme set (the same D-33-reviewed table as the labels).
+  Deductive/method/software items never carry it — Bergmann category definitions are
+  unpublished research material (D-16). A 1.1.0 document (no descriptions) stays valid.
 
 No existing key changed meaning.
 

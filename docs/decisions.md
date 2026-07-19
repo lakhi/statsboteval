@@ -661,3 +661,33 @@ adds Phase B Task 21.)
   and "Reporting, writing, and presentation" — help-seeking beyond method/tool
   mentions. A future regeneration (new data or prompt change) mints
   `statsboteval-themes-v2` with its own review; published sets are immutable.
+
+## D-44 — 2026-07-19: Topics tab presentation revision; schema 1.2.0 adds emergent-theme descriptions
+
+- **Owner-directed Topics tab redesign** (same day as D-42/D-43 go-live): emergent
+  themes promoted to the top-left card and the deductive card renamed
+  **"Bergmann-style Deductive Categories (for validation)"**, moved last — the tab
+  now leads with the data-driven answer to its question. Rows show the full
+  label on its own line over a full-width bar carrying the share of the view's
+  messages (multi-label, so shares don't sum to 100%); each card caps at 7 rows
+  ("+ N more" points at the data table, which gains a Share column); the emergent
+  card's Note explains the generate→synthesize→operator-review→freeze method
+  (D-33/D-43); the per-card †/‡ registry footnotes de-duplicate into one
+  tab-level "Notes (all cards)" block; every row gets a hover/focus tooltip
+  stating how the number was arrived at (count, window/status slice, classifier
+  version, theme set, multi-label caveat, or the privacy-floor explanation for
+  suppressed cells).
+- **Schema 1.2.0 (additive minor bump, contract §8/§10):** optional
+  `TopicItem.description`, published only for `emergent_themes` items and sourced
+  from the frozen `theme_sets` table, so tooltips can show each theme's reviewed
+  one-line definition. 1.1.0 documents stay valid; until the next publish the
+  live document simply renders tooltips without definitions.
+- **Deductive definitions are deliberately NOT published** although the owner
+  asked for definitions in tooltips: the codebook definition texts are
+  unpublished Bergmann research material (D-16 — names public, definitions
+  local-only until their paper is formally recommended). The deductive tooltip
+  cites the codebook as source instead; revisit when D-16's condition lifts.
+  Method/software theme names are treated as self-describing.
+- Rollout: FE redeploy (D-26 image rebuild) + re-aggregate/republish from the
+  existing corpus; before that publish, the operator glances over the 15 emergent
+  descriptions as now-public text (same D-33 review discipline as the labels).

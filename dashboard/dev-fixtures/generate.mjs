@@ -160,7 +160,7 @@ const perWindow = (f, ids = Object.keys(windowStudents)) =>
 
 const langSplit = { de: 0.55, en: 0.35, other: 0.04, undetermined: 0.06 };
 
-// ---- topics (schema 1.1.0) -------------------------------------------------
+// ---- topics (schema 1.2.0) -------------------------------------------------
 // Deductive labels are the PUBLIC manuscript category names; every theme label
 // below is invented ("Synthetic …") — the real frozen/generated lists are
 // git-ignored local materials (D-16/D-33) and never enter the repo.
@@ -183,14 +183,22 @@ const EMERGENT_THEMES = [
   "Synthetic conceptual-confusion theme", "Synthetic tool-how-to theme",
   "Synthetic study-design theme",
 ];
+// 1.2.0: emergent items carry their reviewed one-line definitions (tooltips).
+const EMERGENT_DESCRIPTIONS = Object.fromEntries(
+  EMERGENT_THEMES.map((label) => [label, `Synthetic one-line description of the ${label.toLowerCase()}.`]),
+);
 
-function topicDistribution(id, labels, statusShare, footnote_ids) {
+function topicDistribution(id, labels, statusShare, footnote_ids, descriptions) {
   const n = Math.round(windowStudents[id] * statusShare);
   const msgs = Math.round(rowsFor(id).reduce((a, r) => a + r.messages, 0) * statusShare);
   const items = labels.map((label, i) => {
     const share = Math.min(0.85, 0.9 / (i + 1.4)); // long tail; guarantees zeros late
     const st = Math.round(n * share * (0.55 + rnd() * 0.7));
-    return { label, cell: cell(st, st === 0 ? 0 : Math.max(1, Math.round(msgs * share * (0.2 + rnd() * 0.5)))) };
+    return {
+      label,
+      cell: cell(st, st === 0 ? 0 : Math.max(1, Math.round(msgs * share * (0.2 + rnd() * 0.5)))),
+      ...(descriptions?.[label] && { description: descriptions[label] }),
+    };
   });
   return { items, n_total: cell(n, msgs), ...(footnote_ids && { footnote_ids }) };
 }
@@ -203,7 +211,9 @@ function topicGroup(id, statusShare, { withStatusRule = false, withEmergent = tr
     deductive: topicDistribution(id, DEDUCTIVE, statusShare, notes),
     method_themes: topicDistribution(id, METHOD_THEMES, statusShare, notes),
     software_themes: topicDistribution(id, SOFTWARE_THEMES, statusShare, notes),
-    ...(withEmergent && { emergent_themes: topicDistribution(id, EMERGENT_THEMES, statusShare, notes) }),
+    ...(withEmergent && {
+      emergent_themes: topicDistribution(id, EMERGENT_THEMES, statusShare, notes, EMERGENT_DESCRIPTIONS),
+    }),
   };
 }
 
@@ -241,7 +251,7 @@ const topics = {
 };
 
 const doc = {
-  schema_version: "1.1.0",
+  schema_version: "1.2.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),

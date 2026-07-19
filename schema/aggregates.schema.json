@@ -866,6 +866,18 @@
           ],
           "title": "Cell"
         },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
         "label": {
           "title": "Label",
           "type": "string"

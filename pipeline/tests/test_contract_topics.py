@@ -1,4 +1,7 @@
-"""Phase B Task 13: topics section (schema 1.1.0, additive; by_status per D-39)."""
+"""Phase B Task 13: topics section (schema 1.1.0, additive; by_status per D-39).
+
+1.2.0 addition: optional TopicItem.description (emergent themes' reviewed
+one-line definitions; absent everywhere else)."""
 
 import json
 
@@ -24,7 +27,10 @@ from tests.factories import make_synthetic_aggregates
 
 def distribution(footnotes: list[str] | None = None) -> TopicDistribution:
     return TopicDistribution(
-        items=[TopicItem(label="Synthetic Alpha", cell=ok(12)), TopicItem(label="Synthetic Beta", cell=suppressed())],
+        items=[
+            TopicItem(label="Synthetic Alpha", cell=ok(12), description="Synthetic one-line description."),
+            TopicItem(label="Synthetic Beta", cell=suppressed()),
+        ],
         n_total=ok(40),
         footnote_ids=footnotes,
     )
@@ -47,7 +53,16 @@ def topics_for(doc: Aggregates, *, by_status: dict[str, TopicGroup] | None = Non
 
 
 def test_schema_version_bumped_minor() -> None:
-    assert SCHEMA_VERSION == "1.1.0"
+    assert SCHEMA_VERSION == "1.2.0"
+
+
+def test_description_optional_and_absent_not_null() -> None:
+    # Additive proof for 1.2.0: items without a description dump without the key
+    # (a 1.1.0-shaped document stays valid), and a set description round-trips.
+    dumped = dump_doc(distribution())
+    assert dumped["items"][0]["description"] == "Synthetic one-line description."
+    assert "description" not in dumped["items"][1]
+    assert TopicDistribution.model_validate(dumped) == distribution()
 
 
 def test_topics_document_round_trips_and_validates() -> None:

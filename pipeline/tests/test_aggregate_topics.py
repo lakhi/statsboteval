@@ -163,3 +163,21 @@ def test_emergent_and_theme_set_version(con: duckdb.DuckDBPyConnection) -> None:
     emergent = {i["label"]: i["cell"] for i in all_time_topics(doc)["emergent_themes"]["items"]}
     assert emergent["synthetic emergent theme"] == {"status": "ok", "value": 1}
     jsonschema.validate(dumped, SCHEMA)
+
+
+def test_emergent_descriptions_published_from_theme_set(con: duckdb.DuckDBPyConnection) -> None:
+    # 1.2.0: emergent items carry the frozen set's reviewed description; every
+    # other domain publishes none (Bergmann definitions stay unpublished, D-16).
+    seed_labeled_corpus(con)
+    label(con, 1, "emergent_theme", "synthetic emergent theme")
+    con.execute(
+        "INSERT INTO theme_sets VALUES ('statsboteval-themes-v1', 'synthetic emergent theme', "
+        "'Synthetic description.', now(), now())"
+    )
+    doc = build(con, floor_n=1, classification_version=VERSION, theme_set_version="statsboteval-themes-v1")
+    entry = all_time_topics(doc)
+    emergent_items = entry["emergent_themes"]["items"]
+    assert [i["description"] for i in emergent_items] == ["Synthetic description."]
+    for domain in ("deductive", "method_themes", "software_themes"):
+        assert all("description" not in item for item in entry[domain]["items"])
+    jsonschema.validate(dump_doc(doc), SCHEMA)
