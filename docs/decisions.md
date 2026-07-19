@@ -585,12 +585,16 @@ adds Phase B Task 21.)
   Central, West Europe, France Central, Germany West Central all list only
   GlobalStandard / provisioned tiers). There is no consent-compliant pay-as-you-go
   path for gpt-5.4-mini today.
-- **Decision:** classification uses the resource's existing `statsbot_gpt-5-mini`
-  deployment — **DataZoneStandard**, gpt-5-mini `2025-08-07`, ~1M TPM — which is
-  exactly the model+version D-30 pinned (`classifier_model_tag =
+- **Decision:** classification uses a **DataZoneStandard gpt-5-mini `2025-08-07`**
+  deployment — exactly the model+version D-30 pinned (`classifier_model_tag =
   gpt-5-mini@2025-08-07`, label version `statsboteval-v1`). The gs- deployment
   stays untouched (owner may delete it or keep it for non-chat-text use); only
   synthetic connectivity probes were ever sent through it.
+- **Amendment (same day, owner):** the run started on the resource's existing
+  `statsbot_gpt-5-mini` deployment; the owner then created the dedicated
+  **`statsboteval-5-mini`** deployment (same model+version+SKU) so the eval never
+  competes with the production app's quota, and the pipeline switched mid-run.
+  Identical model+version ⇒ the label version and provenance tag are unaffected.
 - **Revisit:** if Azure later ships a DZS SKU for gpt-5.4-mini (or the Task 19
   validation argues for a stronger model), re-run under a **new** label version —
   never mix models within one (see `docs/runbooks/classification.md`).
