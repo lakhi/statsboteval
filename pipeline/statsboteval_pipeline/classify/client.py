@@ -39,6 +39,7 @@ class ClassifierClient:
             api_key=api_key,
             azure_ad_token_provider=token_provider,
             max_retries=settings.classifier_max_retries,
+            timeout=settings.classifier_timeout_seconds,
             http_client=http_client,
         )
 

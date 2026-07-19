@@ -60,6 +60,12 @@ def test_complete_returns_canned_content_and_pins_settings() -> None:
     assert body["messages"] == [{"role": "user", "content": "prompt text"}]
 
 
+def test_request_timeout_is_pinned_from_settings() -> None:
+    # The SDK default of 600s once let a dead connection stall a run for ~50 min.
+    client = ClassifierClient(make_settings(classifier_timeout_seconds=42.0))
+    assert client._client.timeout == 42.0
+
+
 def test_reasoning_effort_override_propagates() -> None:
     seen: dict[str, Any] = {}
 

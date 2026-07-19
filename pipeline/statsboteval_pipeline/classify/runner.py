@@ -107,4 +107,7 @@ def classify_corpus(
             con.execute("ROLLBACK")
             raise
         labeled += len(chunk)
+        # Heartbeat for the operator log: runs take tens of minutes and a silent
+        # stall is otherwise indistinguishable from slow progress.
+        print(f"classified {labeled}/{len(pending)} pending messages", flush=True)
     return labeled

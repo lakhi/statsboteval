@@ -22,6 +22,9 @@ class ClassifierSettings(BaseSettings):
     # reasoning_effort are pinned; the exact model/version goes into provenance.
     classifier_seed: int = 20260718
     classifier_max_retries: int = 5
+    # Per-request timeout. The SDK default (600s) let one dead connection stall a
+    # run for max_retries x 10 min; a 50-message batch normally answers in <2 min.
+    classifier_timeout_seconds: float = 120.0
     # Codebook materials directory (git-ignored local files, D-16) and the label
     # bookkeeping: which version this pipeline writes, and the provenance tag
     # recorded per row (update at the Task 19 model decision).
