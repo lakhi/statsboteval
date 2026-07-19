@@ -18,7 +18,7 @@ from statsboteval_pipeline.classify.config import ClassifierSettings
 _TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
 
 # The effort ladder the runner may climb on format-deviation retries.
-Effort = Literal["minimal", "low", "medium"]
+Effort = Literal["minimal", "low", "medium", "high"]
 
 
 class ClassifierClient:

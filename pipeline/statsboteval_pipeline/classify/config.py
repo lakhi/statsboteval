@@ -22,6 +22,10 @@ class ClassifierSettings(BaseSettings):
     # reasoning_effort are pinned; the exact model/version goes into provenance.
     classifier_seed: int = 20260718
     classifier_max_retries: int = 5
+    # Base reasoning effort. "low" adopted at the Task-19 model decision (D-41):
+    # on the 300 consensus messages it lifted average MCC .57 -> .72 over
+    # "minimal", while Bergmann-shaped per-category prompts did not help.
+    classifier_reasoning_effort: str = "low"
     # Per-request timeout. The SDK default (600s) let one dead connection stall a
     # run for max_retries x 10 min; a 50-message batch normally answers in <2 min.
     classifier_timeout_seconds: float = 120.0

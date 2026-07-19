@@ -653,15 +653,20 @@ D-30-pinned model.
 
 Not a code task; a recorded operator step once Tasks 4–12 and 18 land.
 
-- [ ] Import `bergmann-v1` from the local copy of the public `full_dataset.csv`; run
+- [x] Import `bergmann-v1` from the local copy of the public `full_dataset.csv`; run
       `statsboteval-v1` (gpt-5-mini) over the public 1,400 messages; run `validate`.
-- [ ] Record per-category MCCs in the **local** validation report (git-ignored, per
+- [x] Record per-category MCCs in the **local** validation report (git-ignored, per
       D-16). If any category falls well below the Bergmann reference, decide per D-30's
       escalation: bump that category (or the whole run) to **gpt-5.1**, and/or split the
       fragile category into its own prompt call (config change, no rewrite). Re-run,
       re-record.
-- [ ] Note the chosen production model + version in `docs/decisions.md` (amend D-30) and
+- [x] Note the chosen production model + version in `docs/decisions.md` (amend D-30) and
       in `label_versions.classification` for real publishes.
+
+**Done 2026-07-19 (D-41):** gpt-5-mini `2025-08-07` at reasoning effort "low",
+consolidated prompt (average MCC .72 vs .57 at minimal; per-category prompts did
+not help). Full clean re-run under the adopted settings; report at
+`pipeline/data/validation-report-2026-07-19.txt` (git-ignored).
 
 ### Task 20a (operator, real data): Stage 1 — real-corpus run & first topics publish
 

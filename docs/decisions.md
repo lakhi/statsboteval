@@ -598,3 +598,28 @@ adds Phase B Task 21.)
 - **Revisit:** if Azure later ships a DZS SKU for gpt-5.4-mini (or the Task 19
   validation argues for a stronger model), re-run under a **new** label version —
   never mix models within one (see `docs/runbooks/classification.md`).
+
+## D-41 — 2026-07-19: Task-19 model decision — gpt-5-mini at reasoning effort "low", consolidated prompt
+
+- **Validation (minimal effort, consolidated prompt):** average MCC **.57** on the
+  300 human-consensus messages — well under the Bergmann GPT-5 reference (.79),
+  with heavy under-detection on Specific Method (.26), Reference to Prior
+  Content (.38), Instruction Given (.44), Question Posed (.47).
+- **Attribution trial** (read-only, consensus subset only): effort "low" with the
+  consolidated prompt lifted the average to **.72**; Bergmann-shaped
+  per-category prompts at minimal effort did **not** help (average .57,
+  Instruction Given collapsing to .18 on 183 false positives). The gap was
+  effort, not prompt shape.
+- **Decision:** production classification runs gpt-5-mini `2025-08-07` at
+  **reasoning effort "low"** with the consolidated multi-label prompt
+  (`CLASSIFIER_REASONING_EFFORT`, default "low"); format-deviation retries
+  climb low→medium→high. The earlier minimal-effort `statsboteval-v1` labels
+  were **deleted and the corpus fully re-classified** under the new setting —
+  one label version never mixes inference settings.
+- **Recorded caveats:** residual gap vs the reference (.72 vs .79) reflects the
+  smaller model plus the consolidated prompt; weakest categories are Reference
+  to Prior Content (.21 — isolated-message coding is inherently hard for it),
+  Specific Method (.53), Declarative Statement (.60 — its codebook block is the
+  interim Table-1 reconstruction, flagged for Leonardo). Escalation options if
+  these matter downstream: bigger model (gpt-5.1-mini+ if a DZS SKU exists) as
+  `statsboteval-v2`, or per-category calls at low effort for fragile categories.

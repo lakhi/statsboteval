@@ -31,24 +31,32 @@ THEME_PASSES: tuple[tuple[str, str], ...] = (
 # stays — a deviation is never written — but we re-ask with the parser's
 # complaint appended AND escalating reasoning effort before giving up. With the
 # pinned seed a same-prompt retry is near-deterministic, so the escalation is
-# what actually changes the outcome.
-RETRY_EFFORTS: tuple[Effort, ...] = ("minimal", "low", "medium")
+# what actually changes the outcome. The ladder starts at the configured base
+# effort and climbs from there (3 attempts max).
+_EFFORT_LADDER: tuple[Effort, ...] = ("minimal", "low", "medium", "high")
 
 _T = TypeVar("_T")
+
+
+def _retry_efforts(base: Effort) -> tuple[Effort, ...]:
+    return _EFFORT_LADDER[_EFFORT_LADDER.index(base) :][:3]
 
 
 class CompletionClient(Protocol):
     def complete(self, prompt: str, *, reasoning_effort: Effort = "minimal") -> str: ...
 
 
-def _complete_parsed(client: CompletionClient, prompt: str, parse: Callable[[str], _T]) -> _T:
+def _complete_parsed(
+    client: CompletionClient, prompt: str, parse: Callable[[str], _T], *, base_effort: Effort
+) -> _T:
     """Call the model and parse strictly; on deviation re-ask with the parse error + more effort."""
+    efforts = _retry_efforts(base_effort)
     attempt_prompt = prompt
-    for attempt, effort in enumerate(RETRY_EFFORTS, start=1):
+    for attempt, effort in enumerate(efforts, start=1):
         try:
             return parse(client.complete(attempt_prompt, reasoning_effort=effort))
         except ClassifierParseError as error:
-            if attempt == len(RETRY_EFFORTS):
+            if attempt == len(efforts):
                 raise
             attempt_prompt = (
                 f"{prompt}\n\nYour previous response was rejected by a strict parser with this error:\n"
@@ -67,6 +75,7 @@ def classify_corpus(
     model_tag: str,
     batch_size: int = BATCH_LIMIT,
     category_groups: Sequence[Sequence[Category]] | None = None,
+    reasoning_effort: Effort = "minimal",
 ) -> int:
     """Label every not-yet-labeled message under `label_version`; returns how many."""
     groups: list[Sequence[Category]] = list(category_groups) if category_groups else [codebook.categories]
@@ -85,7 +94,9 @@ def classify_corpus(
         for group in groups:
             prompt = build_deductive_prompt(codebook, texts, categories=group)
             names = [c.name for c in group]
-            matrix = _complete_parsed(client, prompt, lambda out: parse_deductive(out, names, len(texts)))
+            matrix = _complete_parsed(
+                client, prompt, lambda out: parse_deductive(out, names, len(texts)), base_effort=reasoning_effort
+            )
             for history_id, coded in zip(ids, matrix, strict=True):
                 rows.extend(
                     LabelRow(history_id, label_version, "deductive", cat.code, coded[cat.name], model_tag)
@@ -94,7 +105,10 @@ def classify_corpus(
         for domain, noun in THEME_PASSES:
             themes = codebook.method_themes if domain == "method_theme" else codebook.software_themes
             assigned = _complete_parsed(
-                client, build_theme_prompt(themes, texts, noun), lambda out: parse_themes(out, themes, len(texts))
+                client,
+                build_theme_prompt(themes, texts, noun),
+                lambda out: parse_themes(out, themes, len(texts)),
+                base_effort=reasoning_effort,
             )
             for history_id, labels in zip(ids, assigned, strict=True):
                 rows.extend(LabelRow(history_id, label_version, domain, theme, 1, model_tag) for theme in labels)

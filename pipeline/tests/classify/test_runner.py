@@ -114,6 +114,15 @@ def test_parse_error_triggers_corrective_retry(tmp_path: Path) -> None:
     assert client.bad_calls == 2  # both theme passes misbehaved once, then recovered
     # Retries escalate reasoning effort: each theme pass ran minimal then low.
     assert client.efforts == ["minimal", "minimal", "low", "minimal", "low"]
+
+
+def test_base_effort_shifts_the_retry_ladder(tmp_path: Path) -> None:
+    cb = synthetic_codebook()
+    con = seed_corpus(tmp_path / "corpus.duckdb", 2)
+    client = OffListOnceClient(cb)
+    assert classify_corpus(con, client, cb, label_version=VERSION, model_tag=MODEL_TAG, reasoning_effort="low") == 2
+    # D-41: base effort "low"; deviation retries climb to medium.
+    assert client.efforts == ["low", "low", "medium", "low", "medium"]
     rows = read_labels(con, VERSION)
     assert not [r for r in rows if "not-a-real-theme" in r.code]  # bad label never written
     assert [(r.history_id, r.code) for r in rows if r.domain == "method_theme"] == [(1, cb.method_themes[0])]

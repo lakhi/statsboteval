@@ -27,10 +27,14 @@ def run_classification(con: duckdb.DuckDBPyConnection, *, env_file: Path) -> int
         )
     codebook = load_codebook(Path(settings.bergmann_prompts_dir), expected_categories=DEDUCTIVE_CATEGORY_NAMES)
     client = ClassifierClient(settings)
+    effort = settings.classifier_reasoning_effort
+    if effort not in ("minimal", "low", "medium", "high"):
+        raise ValueError(f"CLASSIFIER_REASONING_EFFORT must be minimal/low/medium/high, got {effort!r}")
     return classify_corpus(
         con,
         client,
         codebook,
         label_version=settings.classifier_label_version,
         model_tag=settings.classifier_model_tag,
+        reasoning_effort=effort,  # type: ignore[arg-type]  # narrowed by the check above
     )
