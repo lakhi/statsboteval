@@ -57,24 +57,31 @@ def build_deductive_prompt(
 
 
 def build_theme_prompt(themes: Sequence[str], batch: Sequence[str], domain: str) -> str:
-    """Assign each message zero-or-more labels from a fixed list (frozen or generated set)."""
+    """Assign each message zero-or-more labels from a fixed numbered list.
+
+    The model answers with label NUMBERS, not names — exact-string echoes of long
+    labels proved fragile in practice (the model paraphrases or annotates them);
+    numbers keep the frozen list authoritative on our side.
+    """
     if not themes:
         raise ValueError("no themes to assign")
     _check_batch(batch)
     n = len(batch)
-    listing = "\n".join(f"- {t}" for t in themes)
+    listing = "\n".join(f"{i}. {t}" for i, t in enumerate(themes, start=1))
+    example_cell = "1" if len(themes) == 1 else f"1; {len(themes)}"
     return (
         "You are an experienced qualitative coder. Read the chat messages below and assign each "
-        f"message to zero or more {domain} from the given list. Use ONLY labels from the list, "
-        "spelled exactly as given; assign a label only when the message clearly matches it.\n\n"
-        f"The list of {domain}:\n{listing}\n\n"
+        f"message to zero or more {domain} from the given numbered list; assign a label only "
+        "when the message clearly matches it.\n\n"
+        f"The numbered list of {domain}:\n{listing}\n\n"
         "Output exactly one Markdown table with one row per message. The first column is the "
-        f"message number (1..{n}); the second column is a semicolon-separated list of assigned "
-        'labels, or the single word "none" if no label applies. No other text.\n'
+        f"message number (1..{n}); the second column is a semicolon-separated list of the "
+        f"NUMBERS of the assigned labels (1..{len(themes)}), or the single word \"none\" if no "
+        "label applies. Output numbers only — never label names, never commentary.\n"
         "Example:\n"
         "| Message | Labels |\n"
         "|---|---|\n"
-        f"| 1 | {themes[0]} |\n"
+        f"| 1 | {example_cell} |\n"
         "| 2 | none |\n\n"
         f"Here are the {n} chat messages:\n\n"
         f"{_render_messages(batch)}"

@@ -71,11 +71,11 @@ def test_empty_batch_raises() -> None:
         build_theme_prompt(cb.method_themes, [], "statistics methods")
 
 
-def test_theme_prompt_embeds_list_verbatim_and_domain() -> None:
+def test_theme_prompt_embeds_numbered_list_and_domain() -> None:
     cb = synthetic_codebook()
     prompt = build_theme_prompt(cb.software_themes, BATCH, "data analysis software")
-    for theme in cb.software_themes:
-        assert f"- {theme}" in prompt
+    for i, theme in enumerate(cb.software_themes, start=1):
+        assert f"{i}. {theme}" in prompt
     assert "data analysis software" in prompt
     assert "Message 1:" in prompt
 

@@ -34,9 +34,12 @@ def parse_deductive(text: str, categories: Sequence[str], n: int) -> list[dict[s
 
 
 def parse_themes(text: str, allowed: Sequence[str], n: int) -> list[set[str]]:
-    """Parse a label-assignment table into one set of allowed labels per message, ordered 1..n."""
+    """Parse a numeric label-assignment table into one set of allowed labels per message.
+
+    Cells carry semicolon-separated label numbers (1-based into `allowed`) or "none";
+    anything else — names, commentary, out-of-range numbers — raises.
+    """
     rows = _table_rows(text, expected_columns=["Labels"], n=n)
-    allowed_set = set(allowed)
     result: list[set[str]] = []
     for number in range(1, n + 1):
         cells, raw = rows[number]
@@ -44,12 +47,16 @@ def parse_themes(text: str, allowed: Sequence[str], n: int) -> list[set[str]]:
         if cell.lower() == "none":
             result.append(set())
             continue
-        labels = {part.strip() for part in cell.split(";")}
-        if not labels or "" in labels:
+        tokens = [part.strip() for part in cell.split(";")]
+        if not tokens or "" in tokens:
             raise ClassifierParseError(f"empty label in row: {raw}")
-        unknown = labels - allowed_set
-        if unknown:
-            raise ClassifierParseError(f"label(s) not in the allowed list {sorted(unknown)} in row: {raw}")
+        labels: set[str] = set()
+        for token in tokens:
+            if not token.isdigit() or not 1 <= int(token) <= len(allowed):
+                raise ClassifierParseError(
+                    f"label token {token!r} is not a number from the list (1..{len(allowed)}) in row: {raw}"
+                )
+            labels.add(allowed[int(token) - 1])
         result.append(labels)
     return result
 

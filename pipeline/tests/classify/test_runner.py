@@ -44,8 +44,7 @@ class StubClient:
             header = f"| Message | {' | '.join(names)} |\n|{'---|' * (len(names) + 1)}\n"
             rows = "\n".join(f"| {i} | {' | '.join('1' for _ in names)} |" for i in range(1, n + 1))
             return header + rows
-        themes = self.codebook.method_themes if "statistics methods" in prompt else self.codebook.software_themes
-        rows = "\n".join(f"| {i} | {themes[0] if i == 1 else 'none'} |" for i in range(1, n + 1))
+        rows = "\n".join(f"| {i} | {'1' if i == 1 else 'none'} |" for i in range(1, n + 1))
         return f"| Message | Labels |\n|---|---|\n{rows}"
 
 

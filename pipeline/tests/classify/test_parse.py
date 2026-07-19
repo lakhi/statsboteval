@@ -95,9 +95,9 @@ THEMES = ["synthetic method one", "synthetic method two"]
 GOOD_THEMES = """\
 | Message | Labels |
 |---|---|
-| 1 | synthetic method one |
+| 1 | 1 |
 | 2 | none |
-| 3 | synthetic method one; synthetic method two |
+| 3 | 1; 2 |
 """
 
 
@@ -109,9 +109,16 @@ def test_good_theme_table_parses() -> None:
     ]
 
 
-def test_out_of_list_theme_raises() -> None:
-    text = GOOD_THEMES.replace("| 2 | none |", "| 2 | invented theme |")
-    with pytest.raises(ClassifierParseError, match="invented theme"):
+def test_out_of_range_theme_number_raises() -> None:
+    text = GOOD_THEMES.replace("| 2 | none |", "| 2 | 3 |")
+    with pytest.raises(ClassifierParseError, match=r"'3'"):
+        parse_themes(text, THEMES, 3)
+
+
+def test_theme_name_instead_of_number_raises() -> None:
+    # The model must answer with list numbers; names (or commentary) are rejected.
+    text = GOOD_THEMES.replace("| 2 | none |", "| 2 | synthetic method one |")
+    with pytest.raises(ClassifierParseError, match="synthetic method one"):
         parse_themes(text, THEMES, 3)
 
 
