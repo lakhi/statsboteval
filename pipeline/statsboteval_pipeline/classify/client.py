@@ -8,12 +8,17 @@ deployment name as `model`.
 
 from __future__ import annotations
 
+from typing import Literal
+
 import httpx
 import openai
 
 from statsboteval_pipeline.classify.config import ClassifierSettings
 
 _TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
+
+# The effort ladder the runner may climb on format-deviation retries.
+Effort = Literal["minimal", "low", "medium"]
 
 
 class ClassifierClient:
@@ -37,11 +42,14 @@ class ClassifierClient:
             http_client=http_client,
         )
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, *, reasoning_effort: Effort = "minimal") -> str:
+        # "minimal" is the pinned default (D-30); the runner escalates it on
+        # format-deviation retries, where more reasoning reliably restores the
+        # table contract (the deviation is recorded via the retry, not hidden).
         response = self._client.chat.completions.create(
             model=self._deployment,
             messages=[{"role": "user", "content": prompt}],
-            reasoning_effort="minimal",
+            reasoning_effort=reasoning_effort,
             seed=self._seed,
         )
         content = response.choices[0].message.content

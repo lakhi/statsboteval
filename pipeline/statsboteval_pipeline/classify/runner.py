@@ -15,6 +15,7 @@ from typing import Protocol, TypeVar
 
 import duckdb
 
+from statsboteval_pipeline.classify.client import Effort
 from statsboteval_pipeline.classify.codebook import Category, Codebook
 from statsboteval_pipeline.classify.parse import ClassifierParseError, parse_deductive, parse_themes
 from statsboteval_pipeline.classify.prompts import BATCH_LIMIT, build_deductive_prompt, build_theme_prompt
@@ -26,25 +27,28 @@ THEME_PASSES: tuple[tuple[str, str], ...] = (
 )
 
 # The model occasionally deviates from the table contract (off-list labels,
-# commentary cells) despite the prompt; strictness stays — a deviation is never
-# written — but we re-ask with the parser's complaint appended before giving up.
-PARSE_ATTEMPTS = 3
+# commentary cells, a '2' in a binary column) despite the prompt; strictness
+# stays — a deviation is never written — but we re-ask with the parser's
+# complaint appended AND escalating reasoning effort before giving up. With the
+# pinned seed a same-prompt retry is near-deterministic, so the escalation is
+# what actually changes the outcome.
+RETRY_EFFORTS: tuple[Effort, ...] = ("minimal", "low", "medium")
 
 _T = TypeVar("_T")
 
 
 class CompletionClient(Protocol):
-    def complete(self, prompt: str) -> str: ...
+    def complete(self, prompt: str, *, reasoning_effort: Effort = "minimal") -> str: ...
 
 
 def _complete_parsed(client: CompletionClient, prompt: str, parse: Callable[[str], _T]) -> _T:
-    """Call the model and parse strictly, re-asking with the parse error on deviation."""
+    """Call the model and parse strictly; on deviation re-ask with the parse error + more effort."""
     attempt_prompt = prompt
-    for attempt in range(1, PARSE_ATTEMPTS + 1):
+    for attempt, effort in enumerate(RETRY_EFFORTS, start=1):
         try:
-            return parse(client.complete(attempt_prompt))
+            return parse(client.complete(attempt_prompt, reasoning_effort=effort))
         except ClassifierParseError as error:
-            if attempt == PARSE_ATTEMPTS:
+            if attempt == len(RETRY_EFFORTS):
                 raise
             attempt_prompt = (
                 f"{prompt}\n\nYour previous response was rejected by a strict parser with this error:\n"

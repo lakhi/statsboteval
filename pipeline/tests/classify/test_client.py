@@ -60,6 +60,17 @@ def test_complete_returns_canned_content_and_pins_settings() -> None:
     assert body["messages"] == [{"role": "user", "content": "prompt text"}]
 
 
+def test_reasoning_effort_override_propagates() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=completion_body("ok"))
+
+    assert client_with(handler).complete("p", reasoning_effort="medium") == "ok"
+    assert seen["body"]["reasoning_effort"] == "medium"
+
+
 def test_429_then_200_retries_once_and_succeeds() -> None:
     calls: list[int] = []
 

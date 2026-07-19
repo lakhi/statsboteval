@@ -33,9 +33,11 @@ class StubClient:
         self.codebook = codebook
         self.fail_on_call = fail_on_call
         self.calls = 0
+        self.efforts: list[str] = []
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, *, reasoning_effort: str = "minimal") -> str:
         self.calls += 1
+        self.efforts.append(reasoning_effort)
         if self.fail_on_call is not None and self.calls == self.fail_on_call:
             raise RuntimeError("boom (stubbed transport failure)")
         n = len(re.findall(r"^Message \d+:$", prompt, re.MULTILINE))
@@ -90,8 +92,8 @@ def test_mid_run_failure_keeps_prior_batches_and_resume_completes(tmp_path: Path
 class OffListOnceClient(StubClient):
     """First theme call emits an off-list label; the corrective retry then behaves."""
 
-    def complete(self, prompt: str) -> str:
-        out = super().complete(prompt)
+    def complete(self, prompt: str, *, reasoning_effort: str = "minimal") -> str:
+        out = super().complete(prompt, reasoning_effort=reasoning_effort)
         if "Labels |" in out and "rejected by a strict parser" not in prompt:
             self.bad_calls = getattr(self, "bad_calls", 0) + 1
             return out.replace("| 1 |", "| 1 | not-a-real-theme;", 1)
@@ -99,8 +101,8 @@ class OffListOnceClient(StubClient):
 
 
 class AlwaysOffListClient(StubClient):
-    def complete(self, prompt: str) -> str:
-        out = super().complete(prompt)
+    def complete(self, prompt: str, *, reasoning_effort: str = "minimal") -> str:
+        out = super().complete(prompt, reasoning_effort=reasoning_effort)
         return out.replace("| 1 |", "| 1 | not-a-real-theme;", 1) if "Labels |" in out else out
 
 
@@ -110,6 +112,8 @@ def test_parse_error_triggers_corrective_retry(tmp_path: Path) -> None:
     client = OffListOnceClient(cb)
     assert classify_corpus(con, client, cb, label_version=VERSION, model_tag=MODEL_TAG) == 2
     assert client.bad_calls == 2  # both theme passes misbehaved once, then recovered
+    # Retries escalate reasoning effort: each theme pass ran minimal then low.
+    assert client.efforts == ["minimal", "minimal", "low", "minimal", "low"]
     rows = read_labels(con, VERSION)
     assert not [r for r in rows if "not-a-real-theme" in r.code]  # bad label never written
     assert [(r.history_id, r.code) for r in rows if r.domain == "method_theme"] == [(1, cb.method_themes[0])]
