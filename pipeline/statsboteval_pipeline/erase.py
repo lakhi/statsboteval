@@ -37,6 +37,11 @@ def erase_student(con: duckdb.DuckDBPyConnection, uid: str, *, pepper: str, log_
     deleted = {}
     for table, sql in (
         ("labels", "DELETE FROM labels WHERE history_id IN (SELECT history_id FROM messages WHERE pseudonym = ?)"),
+        (
+            "theme_candidates",
+            "DELETE FROM theme_candidates "
+            "WHERE history_id IN (SELECT history_id FROM messages WHERE pseudonym = ?)",
+        ),
         ("messages", "DELETE FROM messages WHERE pseudonym = ?"),
         ("student_status", "DELETE FROM student_status WHERE pseudonym = ?"),
         ("students", "DELETE FROM students WHERE pseudonym = ?"),

@@ -33,6 +33,7 @@ def test_migration_003_applies_on_existing_corpus(tmp_path: Path) -> None:
         "002_extract_meta.sql",
         "003_labels.sql",
         "004_student_status.sql",
+        "005_theme_sets.sql",
     ]
     assert con.execute("SELECT count(*) FROM students").fetchone()[0] == 1  # data survived
     assert con.execute("SELECT count(*) FROM labels").fetchone()[0] == 0

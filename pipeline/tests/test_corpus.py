@@ -16,6 +16,7 @@ def test_fresh_corpus_has_schema(tmp_path: Path) -> None:
         "002_extract_meta.sql",
         "003_labels.sql",
         "004_student_status.sql",
+        "005_theme_sets.sql",
     ]
 
 
@@ -23,7 +24,7 @@ def test_reopen_is_idempotent(tmp_path: Path) -> None:
     path = tmp_path / "corpus.duckdb"
     open_corpus(path).close()
     con = open_corpus(path)
-    assert con.execute("SELECT count(*) FROM _migrations").fetchone()[0] == 4
+    assert con.execute("SELECT count(*) FROM _migrations").fetchone()[0] == 5
 
 
 def test_migrations_apply_in_order(tmp_path: Path) -> None:

@@ -41,20 +41,25 @@ def con(tmp_path: Path) -> duckdb.DuckDBPyConnection:
             LabelRow(3, "lang-heuristic-v1", "language", "de", 1, "lingua-py"),
         ],
     )
+    c.executemany(
+        "INSERT INTO theme_candidates VALUES (?, 'themes-test', ?)",
+        [(1, "synthetic code"), (2, ""), (3, "synthetic code")],
+    )
     return c
 
 
-def counts(con: duckdb.DuckDBPyConnection) -> tuple[int, int, int]:
+def counts(con: duckdb.DuckDBPyConnection) -> tuple[int, int, int, int]:
     return tuple(  # type: ignore[return-value]
-        con.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in ("students", "messages", "labels")
+        con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
+        for t in ("students", "messages", "labels", "theme_candidates")
     )
 
 
 def test_erasure_removes_exactly_the_target(con: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
     log = tmp_path / "erasure.log"
     deleted = erase_student(con, "A1234567 ", pepper=PEPPER, log_path=log)  # normalization applies
-    assert deleted == {"labels": 2, "messages": 2, "student_status": 0, "students": 1}
-    assert counts(con) == (1, 1, 1)  # the other student is untouched
+    assert deleted == {"labels": 2, "theme_candidates": 2, "messages": 2, "student_status": 0, "students": 1}
+    assert counts(con) == (1, 1, 1, 1)  # the other student is untouched
     other = pseudonymize("b7654321", PEPPER)
     assert con.execute("SELECT pseudonym FROM students").fetchone()[0] == other
 
@@ -72,7 +77,7 @@ def test_reaggregation_no_longer_reflects_erased_student(con: duckdb.DuckDBPyCon
 def test_unknown_uid_is_warned_noop(con: duckdb.DuckDBPyConnection, tmp_path: Path, capsys) -> None:
     log = tmp_path / "erasure.log"
     assert erase_student(con, "nobody999", pepper=PEPPER, log_path=log) is None
-    assert counts(con) == (2, 3, 3)
+    assert counts(con) == (2, 3, 3, 3)
     assert "no rows" in capsys.readouterr().err
     assert not log.exists()  # nothing erased -> nothing logged
 
