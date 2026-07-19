@@ -10,13 +10,13 @@ assignment pass (Task 12) reuses the same batching with a different domain.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Protocol
+from collections.abc import Callable, Sequence
+from typing import Protocol, TypeVar
 
 import duckdb
 
 from statsboteval_pipeline.classify.codebook import Category, Codebook
-from statsboteval_pipeline.classify.parse import parse_deductive, parse_themes
+from statsboteval_pipeline.classify.parse import ClassifierParseError, parse_deductive, parse_themes
 from statsboteval_pipeline.classify.prompts import BATCH_LIMIT, build_deductive_prompt, build_theme_prompt
 from statsboteval_pipeline.labels import LabelRow, write_labels
 
@@ -25,9 +25,33 @@ THEME_PASSES: tuple[tuple[str, str], ...] = (
     ("software_theme", "data analysis software"),
 )
 
+# The model occasionally deviates from the table contract (off-list labels,
+# commentary cells) despite the prompt; strictness stays — a deviation is never
+# written — but we re-ask with the parser's complaint appended before giving up.
+PARSE_ATTEMPTS = 3
+
+_T = TypeVar("_T")
+
 
 class CompletionClient(Protocol):
     def complete(self, prompt: str) -> str: ...
+
+
+def _complete_parsed(client: CompletionClient, prompt: str, parse: Callable[[str], _T]) -> _T:
+    """Call the model and parse strictly, re-asking with the parse error on deviation."""
+    attempt_prompt = prompt
+    for attempt in range(1, PARSE_ATTEMPTS + 1):
+        try:
+            return parse(client.complete(attempt_prompt))
+        except ClassifierParseError as error:
+            if attempt == PARSE_ATTEMPTS:
+                raise
+            attempt_prompt = (
+                f"{prompt}\n\nYour previous response was rejected by a strict parser with this error:\n"
+                f"{error}\n"
+                "Output ONLY the requested Markdown table, following the format rules above exactly."
+            )
+    raise AssertionError("unreachable")
 
 
 def classify_corpus(
@@ -56,7 +80,8 @@ def classify_corpus(
         rows: list[LabelRow] = []
         for group in groups:
             prompt = build_deductive_prompt(codebook, texts, categories=group)
-            matrix = parse_deductive(client.complete(prompt), [c.name for c in group], len(texts))
+            names = [c.name for c in group]
+            matrix = _complete_parsed(client, prompt, lambda out: parse_deductive(out, names, len(texts)))
             for history_id, coded in zip(ids, matrix, strict=True):
                 rows.extend(
                     LabelRow(history_id, label_version, "deductive", cat.code, coded[cat.name], model_tag)
@@ -64,7 +89,9 @@ def classify_corpus(
                 )
         for domain, noun in THEME_PASSES:
             themes = codebook.method_themes if domain == "method_theme" else codebook.software_themes
-            assigned = parse_themes(client.complete(build_theme_prompt(themes, texts, noun)), themes, len(texts))
+            assigned = _complete_parsed(
+                client, build_theme_prompt(themes, texts, noun), lambda out: parse_themes(out, themes, len(texts))
+            )
             for history_id, labels in zip(ids, assigned, strict=True):
                 rows.extend(LabelRow(history_id, label_version, domain, theme, 1, model_tag) for theme in labels)
         # One transaction per batch: the idempotency query sees a batch entirely or not at all.

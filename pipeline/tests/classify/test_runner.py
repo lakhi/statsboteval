@@ -88,6 +88,44 @@ def test_mid_run_failure_keeps_prior_batches_and_resume_completes(tmp_path: Path
     assert {r.history_id for r in read_labels(con, VERSION)} == {1, 2, 3, 4}
 
 
+class OffListOnceClient(StubClient):
+    """First theme call emits an off-list label; the corrective retry then behaves."""
+
+    def complete(self, prompt: str) -> str:
+        out = super().complete(prompt)
+        if "Labels |" in out and "rejected by a strict parser" not in prompt:
+            self.bad_calls = getattr(self, "bad_calls", 0) + 1
+            return out.replace("| 1 |", "| 1 | not-a-real-theme;", 1)
+        return out
+
+
+class AlwaysOffListClient(StubClient):
+    def complete(self, prompt: str) -> str:
+        out = super().complete(prompt)
+        return out.replace("| 1 |", "| 1 | not-a-real-theme;", 1) if "Labels |" in out else out
+
+
+def test_parse_error_triggers_corrective_retry(tmp_path: Path) -> None:
+    cb = synthetic_codebook()
+    con = seed_corpus(tmp_path / "corpus.duckdb", 2)
+    client = OffListOnceClient(cb)
+    assert classify_corpus(con, client, cb, label_version=VERSION, model_tag=MODEL_TAG) == 2
+    assert client.bad_calls == 2  # both theme passes misbehaved once, then recovered
+    rows = read_labels(con, VERSION)
+    assert not [r for r in rows if "not-a-real-theme" in r.code]  # bad label never written
+    assert [(r.history_id, r.code) for r in rows if r.domain == "method_theme"] == [(1, cb.method_themes[0])]
+
+
+def test_persistent_parse_error_still_raises(tmp_path: Path) -> None:
+    from statsboteval_pipeline.classify.parse import ClassifierParseError
+
+    cb = synthetic_codebook()
+    con = seed_corpus(tmp_path / "corpus.duckdb", 2)
+    with pytest.raises(ClassifierParseError, match="not-a-real-theme"):
+        classify_corpus(con, AlwaysOffListClient(cb), cb, label_version=VERSION, model_tag=MODEL_TAG)
+    assert read_labels(con, VERSION) == []  # nothing persisted from the failing batch
+
+
 def test_other_versions_do_not_mark_messages_done(tmp_path: Path) -> None:
     cb = synthetic_codebook()
     con = seed_corpus(tmp_path / "corpus.duckdb", 2)
