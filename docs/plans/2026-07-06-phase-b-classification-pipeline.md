@@ -675,14 +675,19 @@ not help). Full clean re-run under the adopted settings; report at
 publish guard green (the former recon/extract/erasure preconditions closed via D-35
 and GL6).
 
-- [ ] Fresh extract; `import-status` with the roster-session CSV; `classify` (deductive
+- [x] Fresh extract; `import-status` with the roster-session CSV; `classify` (deductive
       + frozen method/software themes) over the corpus with the Task-19 model — via
-      `run-weekly` with classification enabled or stepwise.
-- [ ] Aggregate (floor N=3, D-34) → publish guard → publish to Blob. `topics` goes live
+      `run-weekly` with classification enabled or stepwise. *(Extract skipped —
+      VPN down, 14-Jul corpus current, same call as D-37; import-status matched
+      550/550 students; full clean classify at the D-41 settings.)*
+- [x] Aggregate (floor N=3, D-34) → publish guard → publish to Blob. `topics` goes live
       on tab #1 with three distributions; the `emergent_themes` card renders its
       designed absent state (invariant 5).
-- [ ] Record in `docs/decisions.md` (date, model, corpus snapshot size); update `README`
+- [x] Record in `docs/decisions.md` (date, model, corpus snapshot size); update `README`
       demo notes if needed.
+
+**Done 2026-07-19 (D-42):** `v1/aggregates_2026-W28_20260719T110150Z.json` + `latest.json`;
+dashboard bundle redeployed with the Topics tab.
 
 ### Task 20b (operator, real data): Stage 2 — emergent themes & republish
 

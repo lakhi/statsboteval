@@ -623,3 +623,20 @@ adds Phase B Task 21.)
   interim Table-1 reconstruction, flagged for Leonardo). Escalation options if
   these matter downstream: bigger model (gpt-5.1-mini+ if a DZS SKU exists) as
   `statsboteval-v2`, or per-category calls at low effort for fragile categories.
+
+## D-42 — 2026-07-19: First topics publish (Phase B Stage 1 live)
+
+- Published `v1/aggregates_2026-W28_20260719T110150Z.json` (+ `latest.json`), schema
+  **1.1.0**, provenance `production`, data through 2026-W28 (extract skipped — VPN
+  down; 14-Jul corpus, same call as D-37). Corpus snapshot: 550 students / 4,419
+  messages; 3,521 messages inside the published axis.
+- Topics content: 13 deductive categories + 21 frozen method themes + 9 software
+  themes across all five windows; `emergent_themes` intentionally absent until
+  Stage 2 (D-38); `by_status` = bachelor/master/staff (550/550 roster match, no
+  `unknown`), 131 sub-floor cells suppressed at N=3.
+- Classifier: `statsboteval-v1` = gpt-5-mini `2025-08-07`, DZS deployment
+  `statsboteval-5-mini`, reasoning effort "low" (D-41); final validation average
+  MCC **.71** on the 300 human-consensus messages (report: git-ignored
+  `pipeline/data/validation-report-2026-07-19.txt`).
+- Dashboard bundle redeployed (Topics tab live) at
+  <https://statsboteval.azurewebsites.net>.
