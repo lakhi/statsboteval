@@ -640,3 +640,24 @@ adds Phase B Task 21.)
   `pipeline/data/validation-report-2026-07-19.txt`).
 - Dashboard bundle redeployed (Topics tab live) at
   <https://statsboteval.azurewebsites.net>.
+
+## D-43 — 2026-07-19: Emergent themes published (Phase B Stage 2 complete)
+
+- Ran the two-stage inductive pass over the full corpus (4,419 messages): stage 1
+  produced 7,459 candidate codes (5,347 distinct; 29 messages uncodable), stage 2
+  synthesized a 15-theme draft — **operator-reviewed and approved unchanged**
+  (D-33 privacy control; no identifying content found) and frozen as
+  **`statsboteval-themes-v1`** (`reviewed_at` stamped, set immutable).
+- Assignment wrote explicit 0/1 `emergent_theme` rows for all 4,419 messages
+  under `statsboteval-v1`, provenance `gpt-5-mini@2025-08-07#statsboteval-themes-v1`
+  (same model + settings as D-41 — one label version, one configuration).
+  Most-assigned: regression modeling (695), test selection (689), model
+  specification (630); least: multiple comparisons (99).
+- Republished `v1/aggregates_2026-W28_20260719T131356Z.json` (+ `latest.json`):
+  `emergent_themes` now renders on the Topics tab with `theme_set_version`
+  stamped; 250 emergent cells published, 50 suppressed at N=3. No dashboard
+  redeploy needed — the card shipped in Task 15 and lit up on data alone.
+- Novel signals vs Bergmann's frozen lists: "Study design and analysis planning"
+  and "Reporting, writing, and presentation" — help-seeking beyond method/tool
+  mentions. A future regeneration (new data or prompt change) mints
+  `statsboteval-themes-v2` with its own review; published sets are immutable.

@@ -697,12 +697,15 @@ dashboard bundle redeployed with the Topics tab.
 
 ### Task 20b (operator, real data): Stage 2 — emergent themes & republish
 
-- [ ] `generate-themes` over the real corpus → **operator reviews the draft theme list**
+- [x] `generate-themes` over the real corpus → **operator reviews the draft theme list**
       (short, generic, non-identifying — the D-33 control) → `freeze-themes` as
       `statsboteval-themes-v1` → `assign-themes`.
-- [ ] Re-aggregate → publish guard → republish; `emergent_themes` and
+- [x] Re-aggregate → publish guard → republish; `emergent_themes` and
       `theme_set_version` appear on the Topics tab.
-- [ ] Record completion in `docs/decisions.md` (theme-set version).
+- [x] Record completion in `docs/decisions.md` (theme-set version).
+
+**Done 2026-07-19 (D-43)** — 15 approved themes, all 4,419 messages assigned,
+`v1/aggregates_2026-W28_20260719T131356Z.json` live. **Phase B complete.**
 
 ### Task 21: Student-status dimension (migration 004, `import-status`) — NEW (D-39)
 

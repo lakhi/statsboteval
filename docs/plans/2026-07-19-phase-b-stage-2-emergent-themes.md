@@ -1,6 +1,6 @@
 # Phase B Stage 2 — emergent themes (Tasks 12 + 20b execution plan)
 
-**Date:** 2026-07-19 · **Status:** proposed
+**Date:** 2026-07-19 · **Status:** complete (D-43)
 **Parent plan:** `2026-07-06-phase-b-classification-pipeline.md` (Task 12 spec, Task 20b
 operator run) · **Decisions:** D-33 (reviewed emergent pass), D-38 (staging), D-41
 (model + settings), D-42 (Stage 1 live)
@@ -130,13 +130,13 @@ asserts emergent items via fixtures — verify unchanged),
 
 ### S2-5 (operator, real data): Task 20b — generate, review, freeze, assign, republish
 
-- [ ] `generate-themes` over the real corpus (~4.4k messages ≈ 90 Stage-1 calls +
+- [x] `generate-themes` over the real corpus (~4.4k messages ≈ 90 Stage-1 calls +
       1 synthesis call; minutes of wall time at Stage-1's observed pace).
-- [ ] **Akshay reviews the draft list** — short, generic, non-identifying labels only.
-- [ ] `freeze-themes` → `statsboteval-themes-v1` · `assign-themes` (~90 calls).
-- [ ] Re-aggregate → publish guard → republish → redeploy check: `emergent_themes` +
+- [x] **Akshay reviews the draft list** — short, generic, non-identifying labels only.
+- [x] `freeze-themes` → `statsboteval-themes-v1` · `assign-themes` (~90 calls).
+- [x] Re-aggregate → publish guard → republish → redeploy check: `emergent_themes` +
       `theme_set_version` live on the Topics tab.
-- [ ] Record D-43 in `docs/decisions.md` (set version, size, model, date); tick
+- [x] Record D-43 in `docs/decisions.md` (set version, size, model, date); tick
       Tasks 12/20b in the parent plan; mark Phase B complete.
 
 ## Out of scope
