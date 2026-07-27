@@ -10,12 +10,14 @@ from importlib.metadata import version
 from pathlib import Path
 
 from .aggregate import build_aggregates
+from .contract import Aggregates
 from .corpus import open_corpus
 from .fixtures import SYNTHETIC_THEME_SET_VERSION, seed_synthetic, seed_synthetic_labels
 from .publish import publish, render
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Every subcommand and flag, kept out of main() so dispatch reads as dispatch."""
     parser = argparse.ArgumentParser(prog="statsboteval-pipeline")
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run-synthetic", help="seed a fresh synthetic corpus, aggregate, guard, write/upload")
@@ -25,9 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--floor-n", type=int, default=3)
     run.add_argument("--out", type=Path, help="write the guarded document to this file")
     run.add_argument("--upload", action="store_true", help="publish via $AZURE_STORAGE_CONNECTION_STRING")
-    run.add_argument(
-        "--with-labels", action="store_true", help="seed synthetic labels + statuses so topics publishes"
-    )
+    run.add_argument("--with-labels", action="store_true", help="seed synthetic labels + statuses so topics publishes")
     ext = sub.add_parser("extract", help="ingest new production rows into the local corpus (read-only source)")
     ext.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file (created if missing)")
     ext.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
@@ -87,6 +87,31 @@ def main(argv: list[str] | None = None) -> int:
     er.add_argument("--log", type=Path, default=Path("data/erasure.log"), help="git-ignored local erasure log")
     er.add_argument("--out", type=Path, help="write the re-aggregated document to this file")
     er.add_argument("--upload", action="store_true", help="republish via $AZURE_STORAGE_CONNECTION_STRING")
+    return parser
+
+
+def _write_and_upload(
+    payload: bytes,
+    doc: Aggregates,
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+    *,
+    verb: str,
+) -> None:
+    """Honor --out/--upload for an already-guarded payload (render() ran the guard)."""
+    if args.out:
+        args.out.write_bytes(payload)
+        print(f"wrote {args.out}")
+    if args.upload:
+        connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+        if not connection_string:
+            parser.error("--upload requires AZURE_STORAGE_CONNECTION_STRING in the environment")
+        immutable, latest = publish(doc, connection_string=connection_string)
+        print(f"{verb} {immutable} and {latest}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command == "erase-student":
@@ -107,16 +132,7 @@ def main(argv: list[str] | None = None) -> int:
             pipeline_version=version("statsboteval-pipeline"),
             axis_start=args.axis_start,
         )
-        payload = render(doc)
-        if args.out:
-            args.out.write_bytes(payload)
-            print(f"wrote {args.out}")
-        if args.upload:
-            connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-            if not connection_string:
-                parser.error("--upload requires AZURE_STORAGE_CONNECTION_STRING in the environment")
-            immutable, latest = publish(doc, connection_string=connection_string)
-            print(f"republished {immutable} and {latest}")
+        _write_and_upload(render(doc), doc, args, parser, verb="republished")
         if not args.upload:
             print("NOTE: the erased student may still be reflected in the published blob until you republish")
         return 0
@@ -173,15 +189,7 @@ def main(argv: list[str] | None = None) -> int:
             f"extracted {n_new} new messages; language-labeled {n_labeled}; classified {n_classified}; "
             f"assigned emergent themes for {n_assigned}; data through {doc.data_through_week}"
         )
-        if args.out:
-            args.out.write_bytes(payload)
-            print(f"wrote {args.out}")
-        if args.upload:
-            connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-            if not connection_string:
-                parser.error("--upload requires AZURE_STORAGE_CONNECTION_STRING in the environment")
-            immutable, latest = publish(doc, connection_string=connection_string)
-            print(f"uploaded {immutable} and {latest}")
+        _write_and_upload(payload, doc, args, parser, verb="uploaded")
         if not args.out and not args.upload:
             print("guard OK; pass --out and/or --upload to emit the document")
         return 0
@@ -191,7 +199,9 @@ def main(argv: list[str] | None = None) -> int:
         from .status import import_status_csv
 
         status_settings = StatusSettings(_env_file=args.env_file)
-        csv_path = args.csv or (Path(status_settings.student_status_csv) if status_settings.student_status_csv else None)
+        csv_path = args.csv or (
+            Path(status_settings.student_status_csv) if status_settings.student_status_csv else None
+        )
         if csv_path is None:
             parser.error("no CSV given: pass --csv or set STUDENT_STATUS_CSV in the env file")
         result = import_status_csv(open_corpus(args.corpus), csv_path, pepper=status_settings.pseudonym_pepper)
@@ -287,15 +297,7 @@ def main(argv: list[str] | None = None) -> int:
         theme_set_version=SYNTHETIC_THEME_SET_VERSION if args.with_labels else None,
     )
     payload = render(doc)
-    if args.out:
-        args.out.write_bytes(payload)
-        print(f"wrote {args.out}")
-    if args.upload:
-        connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-        if not connection_string:
-            parser.error("--upload requires AZURE_STORAGE_CONNECTION_STRING in the environment")
-        immutable, latest = publish(doc, connection_string=connection_string)
-        print(f"uploaded {immutable} and {latest}")
+    _write_and_upload(payload, doc, args, parser, verb="uploaded")
     if not args.out and not args.upload:
         sys.stdout.write(payload.decode())
     return 0
