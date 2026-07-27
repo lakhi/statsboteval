@@ -13,11 +13,15 @@ insights to educators.
 Three milestones: (1) educator-facing dashboard, (2) exploratory ML analysis (GBDT + SHAP vs
 course performance), (3) master's thesis. See `docs/research-context.md`.
 
-**Current status: planning stage, milestone 1 plan approved.** No application code exists
-yet. The M1 Phase A plan lives at `docs/plans/2026-06-12-milestone-1-phase-a.md` (walking
-skeleton, synthetic fixtures first). Nothing in `docs/open-questions.md` blocks Phase A
-development; the items there gate real-data go-live (Daniel), thesis interpretation
-(Wolfgang), and Phase B (Leonardo handover).
+**Current status: milestone 1 live on real data** at <https://statsboteval.azurewebsites.net>
+since 2026-07-17 (D-37); Phase B classification complete (D-42/D-43/D-44). The weekly
+pipeline extracts from the production DB, classifies, aggregates under the N=3 floor, and
+publishes; the dashboard serves five educator-question tabs plus Topics. Corpus scale:
+550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
+items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
+
+`run-weekly` is **not yet scheduled** — every publish is a manual operator run
+(`docs/plans/2026-07-27-weekly-run-automation.md` drafts the launchd wrapper).
 
 ## Binding constraints — read before any data-touching work
 
@@ -38,7 +42,7 @@ From the informed-consent addendum (`docs/ethics/informed-consent-addendum.pdf`,
    `SET SESSION TRANSACTION READ ONLY` at connect time and issues only `SELECT`/`SHOW`;
    no INSERT/UPDATE/DELETE/DDL under any circumstances.
 
-## Planned architecture (agreed 2026-06-10, amended 2026-06-12 and 2026-07-03, see docs/decisions.md)
+## Architecture (agreed 2026-06-10, amended 2026-06-12 and 2026-07-03, see docs/decisions.md)
 
 ```
 LOCAL (password-protected machine)                 AZURE (dashboard public by URL)
@@ -58,6 +62,31 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
 - A "conversation" = one `started` session, keyed by (`student_id`, `started`) (StatsBot's
   app-native grouping; see `docs/source-data-dictionary.md` for `started` semantics and
   other source-schema gotchas).
+
+## Non-obvious invariants — breaking these silently corrupts data
+
+- **Timestamps: never set the MySQL session timezone.** `extract.py` reads `created_at`
+  with the server-default session tz on purpose. Laravel wrote UTC wall-clock strings that
+  MySQL reinterprets as Vienna local; forcing `time_zone='+00:00'` skews every timestamp
+  1–2 h. The correct code is code that *isn't there*.
+- **`normalize_uid` (trim + lowercase) must run before the HMAC**, or casing variants fork
+  one student into two pseudonyms. Same function in `extract.py` and `status.py` — that
+  shared call is what makes the roster join line up.
+- **The pepper interlock is load-bearing** (D-34): the corpus stores `sha256(pepper)` in
+  `meta`; a mismatch aborts before any source query. Never bypass `verify_pepper`.
+- **`floored_count()` is the only path from a corpus number to a published cell.** The
+  floor tests *distinct contributing students*, never the value. `n_students == 0` publishes
+  `ok(0)` — a measured zero is not identifying, and suppressing it would destroy meaning.
+- **`prompt_tokens` counts the entire re-sent conversation context**, growing within a
+  session. It is not a message-size metric; use `completion_tokens`.
+- **`created_at` is THE temporal axis** (weeks, windows, heatmap). `session_started` is a
+  client clock — a session *key*, plus status-at-usage-time resolution, never an axis.
+- **One label version never mixes models or inference settings** (D-41). Changing either
+  means a new version and a full re-classify.
+- **cli.py's function-local imports are deliberate** — they keep `run-synthetic` working
+  without pymysql/openai/azure installed. Do not hoist them to module scope.
+- **Emergent theme sets are immutable.** `freeze-themes` refuses to overwrite; regeneration
+  mints `…-v2` with its own operator review (the D-33 privacy control).
 
 ## Conventions
 

@@ -620,7 +620,11 @@ adds Phase B Task 21.)
   smaller model plus the consolidated prompt; weakest categories are Reference
   to Prior Content (.21 — isolated-message coding is inherently hard for it),
   Specific Method (.53), Declarative Statement (.60 — its codebook block is the
-  interim Table-1 reconstruction, flagged for Leonardo). Escalation options if
+  interim Table-1 reconstruction, flagged for Leonardo). **Note (2026-07-27):
+  these three per-category figures are from the attribution trial, not from the
+  shipped classifier.** The full re-classification's final report
+  (`pipeline/data/validation-report-2026-07-19.txt`, average .71 per D-42) scores
+  them .344 / .567 / .574 — this list understates the shipped labels. Escalation options if
   these matter downstream: bigger model (gpt-5.1-mini+ if a DZS SKU exists) as
   `statsboteval-v2`, or per-category calls at low effort for fragile categories.
 
