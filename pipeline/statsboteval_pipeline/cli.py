@@ -13,6 +13,7 @@ from .aggregate import build_aggregates
 from .contract import Aggregates
 from .corpus import open_corpus
 from .fixtures import SYNTHETIC_THEME_SET_VERSION, seed_synthetic, seed_synthetic_labels
+from .labels import CURRENT_LABEL_VERSION
 from .publish import publish, render
 
 
@@ -51,8 +52,9 @@ def build_parser() -> argparse.ArgumentParser:
     wk.add_argument("--skip-classify", action="store_true", help="skip the classification pass (no Azure OpenAI)")
     wk.add_argument(
         "--classification-version",
-        default="statsboteval-v1",
-        help="label version aggregated into topics (topics omitted while no such labels exist)",
+        default=CURRENT_LABEL_VERSION,
+        help=f"label version aggregated into topics (default: {CURRENT_LABEL_VERSION}; topics omitted "
+        "while no such labels exist). Point at an older version to roll the dashboard back.",
     )
     cf = sub.add_parser("classify", help="run the LLM classification pass (deductive + frozen themes)")
     cf.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
@@ -72,8 +74,14 @@ def build_parser() -> argparse.ArgumentParser:
     ib = sub.add_parser("import-bergmann", help="import the public Stage-2 coded dataset as bergmann-v1")
     ib.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     ib.add_argument("--csv", type=Path, required=True, help="git-ignored local full_dataset.csv")
-    va = sub.add_parser("validate", help="per-category MCC of statsboteval-v1 vs bergmann-v1 (human consensus)")
+    va = sub.add_parser("validate", help="per-category MCC of one of our label versions vs bergmann-v1")
     va.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    va.add_argument(
+        "--label-version",
+        default=CURRENT_LABEL_VERSION,
+        help=f"which of our label versions to score (default: {CURRENT_LABEL_VERSION}); versions coexist, "
+        "so run once per version to compare them on the same 300 consensus messages",
+    )
     st = sub.add_parser("import-status", help="import the roster-derived status CSV (uids HMAC'd in flight)")
     st.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     st.add_argument("--csv", type=Path, help="override $STUDENT_STATUS_CSV")
@@ -264,7 +272,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "validate":
         from .validate import format_validation_report, validate_against_bergmann
 
-        print(format_validation_report(validate_against_bergmann(open_corpus(args.corpus))))
+        report = validate_against_bergmann(open_corpus(args.corpus), label_version=args.label_version)
+        print(format_validation_report(report))
         return 0
 
     if args.command == "extract":
@@ -293,7 +302,7 @@ def main(argv: list[str] | None = None) -> int:
         now=datetime.now(timezone.utc),
         provenance="synthetic",
         pipeline_version=version("statsboteval-pipeline"),
-        classification_version="statsboteval-v1" if args.with_labels else None,
+        classification_version=CURRENT_LABEL_VERSION if args.with_labels else None,
         theme_set_version=SYNTHETIC_THEME_SET_VERSION if args.with_labels else None,
     )
     payload = render(doc)

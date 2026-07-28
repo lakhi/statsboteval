@@ -11,6 +11,7 @@ import statsboteval_pipeline.extract as extract_module
 import statsboteval_pipeline.language as language_module
 from statsboteval_pipeline.corpus import open_corpus
 from statsboteval_pipeline.fixtures import seed_synthetic
+from statsboteval_pipeline.labels import CURRENT_LABEL_VERSION
 from statsboteval_pipeline.publish import PublishGuardError
 
 
@@ -121,7 +122,7 @@ def test_run_synthetic_with_labels_publishes_topics(tmp_path: Path) -> None:
     assert cli.main(["run-synthetic", "--corpus", str(corpus), "--with-labels", "--out", str(out)]) == 0
     doc = json.loads(out.read_text())
     assert doc["data_provenance"] == "synthetic"
-    assert doc["label_versions"]["classification"] == "statsboteval-v1"
+    assert doc["label_versions"]["classification"] == CURRENT_LABEL_VERSION
     topics = doc["sections"]["topics"]
     assert topics["theme_set_version"] == "statsboteval-themes-v1"
     entry = topics["per_window"]["all_time"]
@@ -140,13 +141,22 @@ def test_validate_subcommand_prints_report(tmp_path: Path, capsys: pytest.Captur
         [
             LabelRow(1, "bergmann-v1", "deductive", "synthetic_alpha", 1, "human_consensus"),
             LabelRow(1, "statsboteval-v1", "deductive", "synthetic_alpha", 1, "stub@x"),
+            LabelRow(1, "statsboteval-v2", "deductive", "synthetic_alpha", 1, "stub@y"),
         ],
     )
     con.close()
+    # No flag -> scores the current production version (statsboteval-v2 today).
     assert cli.main(["validate", "--corpus", str(corpus)]) == 0
     printed = capsys.readouterr().out
-    assert "Validation vs bergmann-v1" in printed
+    assert f"Validation of {CURRENT_LABEL_VERSION} vs bergmann-v1" in printed
     assert "synthetic_alpha" in printed
+
+    # --label-version selects which coexisting version is scored (D-45) — here the
+    # superseded one, which is how a rollback comparison is run.
+    assert cli.main(["validate", "--corpus", str(corpus), "--label-version", "statsboteval-v1"]) == 0
+    printed = capsys.readouterr().out
+    assert "Validation of statsboteval-v1 vs bergmann-v1" in printed
+    assert "stub@x" in printed
 
 
 def test_run_weekly_axis_start_is_forwarded(
@@ -216,7 +226,7 @@ def test_run_weekly_aggregates_carry_theme_set_version_with_emergent_labels(
     ids = [row[0] for row in con.execute("SELECT history_id FROM messages LIMIT 5").fetchall()]
     write_labels(
         con,
-        [LabelRow(i, "statsboteval-v1", "emergent_theme", "synthetic theme 0", 1, "stub@x#set") for i in ids],
+        [LabelRow(i, CURRENT_LABEL_VERSION, "emergent_theme", "synthetic theme 0", 1, "stub@x#set") for i in ids],
     )
     con.close()
     monkeypatch.setattr(classify_step_module, "run_theme_assignment", lambda con, *, env_file: 0)

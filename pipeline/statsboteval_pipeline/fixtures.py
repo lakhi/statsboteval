@@ -14,7 +14,7 @@ import duckdb
 
 from .classify.codebook import DEDUCTIVE_CATEGORY_NAMES, category_code
 from .contract import date_to_week, week_monday
-from .labels import LabelRow, write_labels
+from .labels import CURRENT_LABEL_VERSION, LabelRow, write_labels
 
 # Synthetic theme labels only — the real frozen/generated lists are git-ignored
 # local materials (D-16/D-33) and never enter the repo.
@@ -133,7 +133,7 @@ def seed_synthetic_labels(con: duckdb.DuckDBPyConnection, *, seed: int = 42) -> 
     for (history_id,) in con.execute("SELECT history_id FROM messages ORDER BY history_id").fetchall():
         for i, code in enumerate(codes):
             value = 1 if rng.random() < 0.75 / (i + 1.3) else 0
-            rows.append(LabelRow(history_id, "statsboteval-v1", "deductive", code, value, "synthetic-fixture"))
+            rows.append(LabelRow(history_id, CURRENT_LABEL_VERSION, "deductive", code, value, "synthetic-fixture"))
         for domain, themes, p in (
             ("method_theme", _METHOD_THEMES, 0.35),
             ("software_theme", _SOFTWARE_THEMES, 0.2),
@@ -141,7 +141,7 @@ def seed_synthetic_labels(con: duckdb.DuckDBPyConnection, *, seed: int = 42) -> 
         ):
             for theme in themes:
                 if rng.random() < p:
-                    rows.append(LabelRow(history_id, "statsboteval-v1", domain, theme, 1, "synthetic-fixture"))
+                    rows.append(LabelRow(history_id, CURRENT_LABEL_VERSION, domain, theme, 1, "synthetic-fixture"))
     write_labels(con, rows)
     # Reviewed synthetic theme set: aggregation publishes each emergent item's
     # description (1.2.0) from here, mirroring the real freeze-themes output.

@@ -7,8 +7,12 @@ import duckdb
 import pytest
 
 from statsboteval_pipeline.corpus import open_corpus
-from statsboteval_pipeline.labels import LabelRow, write_labels
+from statsboteval_pipeline.labels import CURRENT_LABEL_VERSION, LabelRow, write_labels
 from statsboteval_pipeline.validate import format_validation_report, validate_against_bergmann
+
+# A deliberately fictional superseded version, so these tests keep testing "some other
+# version" rather than silently becoming a test of whichever real version is current.
+SUPERSEDED = "statsboteval-v0"
 
 
 def seed(
@@ -21,7 +25,7 @@ def seed(
     rows = []
     for history_id, theirs, ours in pairs:
         rows.append(LabelRow(history_id, "bergmann-v1", "deductive", code, theirs, provenance))
-        rows.append(LabelRow(history_id, "statsboteval-v1", "deductive", code, ours, "gpt-5-mini@2025-08-07"))
+        rows.append(LabelRow(history_id, CURRENT_LABEL_VERSION, "deductive", code, ours, "gpt-5-mini@2025-08-07"))
     write_labels(con, rows)
 
 
@@ -70,7 +74,7 @@ def test_report_carries_model_tag_and_caveat(tmp_path: Path) -> None:
 def test_no_overlap_raises_clearly(tmp_path: Path) -> None:
     con = open_corpus(tmp_path / "corpus.duckdb")
     write_labels(con, [LabelRow(1, "bergmann-v1", "deductive", "synthetic_alpha", 1, "human_consensus")])
-    with pytest.raises(ValueError, match="statsboteval-v1"):
+    with pytest.raises(ValueError, match=CURRENT_LABEL_VERSION):
         validate_against_bergmann(con)
 
 
@@ -79,3 +83,36 @@ def test_na_rendered_in_report(tmp_path: Path) -> None:
     seed(con, "synthetic_beta", [(1, 0, 0)])
     text = format_validation_report(validate_against_bergmann(con))
     assert "NA" in text
+
+
+def test_scores_the_requested_version_and_names_it(tmp_path: Path) -> None:
+    """Versions coexist (D-07), so the report must say which one it scored (D-45)."""
+    con = open_corpus(tmp_path / "corpus.duckdb")
+    seed(con, "synthetic_alpha", [(1, 1, 1), (2, 0, 0)])  # current version agrees with the humans
+    write_labels(
+        con,
+        [  # the superseded version disagrees on both, over the same ground truth
+            LabelRow(1, SUPERSEDED, "deductive", "synthetic_alpha", 0, "old-model@x"),
+            LabelRow(2, SUPERSEDED, "deductive", "synthetic_alpha", 1, "old-model@x"),
+        ],
+    )
+    current = validate_against_bergmann(con)  # no flag -> the current version
+    old = validate_against_bergmann(con, label_version=SUPERSEDED)
+    assert current.per_category["synthetic_alpha"].mcc == pytest.approx(1.0)
+    assert old.per_category["synthetic_alpha"].mcc == pytest.approx(-1.0)
+    assert (current.label_version, old.label_version) == (CURRENT_LABEL_VERSION, SUPERSEDED)
+    assert SUPERSEDED in format_validation_report(old)
+
+    with pytest.raises(ValueError, match="statsboteval-vX"):
+        validate_against_bergmann(con, label_version="statsboteval-vX")
+
+
+def test_average_excludes_na_categories_rather_than_zeroing_them(tmp_path: Path) -> None:
+    """Reproduces D-42's headline .71: the mean over scoreable categories only."""
+    con = open_corpus(tmp_path / "corpus.duckdb")
+    seed(con, "synthetic_alpha", [(1, 1, 1), (2, 0, 0)])  # MCC 1.0
+    seed(con, "synthetic_beta", [(1, 0, 0), (2, 0, 0)])  # zero-variance -> NA
+    report = validate_against_bergmann(con)
+    # Counting the NA as 0.0 would give .5; dropping it gives 1.0.
+    assert report.average_mcc == pytest.approx(1.0)
+    assert "AVERAGE (1 scoreable)" in format_validation_report(report)
