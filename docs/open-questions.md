@@ -133,9 +133,15 @@ items below are still open; each open item is chased in parallel, not waited on.
       (c) **the linkage is in line with the ethics approval** (Leonardo, in writing).
       Program-level segmentation is unblocked; corpus storage + import = Phase B plan
       Task 21.
-- [ ] **Declarative Statement production prompt** (Leonardo): the public deductive prompt
-      file contains only 12 of 13 codebook blocks — Declarative Statement is missing
-      (interim: manuscript Table 1 definition).
+- [ ] **Declarative Statement codebook provenance** (Leonardo) — *narrowed 2026-07-28
+      (D-45)*. The public deductive prompt file still contains only 12 of 13 blocks, but
+      the missing block was **found** in the Stage-1 OSF folder
+      (`/Human Rating/Coding Instruction/Coding Instruction.ods`, osf.io/download/dg5ca/)
+      and adopted verbatim in `statsboteval-v2`, replacing our interim paraphrase. What
+      remains open is narrower: that `.ods` is the **pilot** codebook (2025-01-25) while
+      our other 12 categories come from the **production** prompts (2025-04-22). The
+      `Full` line is identical across both, suggesting the category was not revised — but
+      confirm, rather than infer.
 - [ ] **Production repetition protocol** (Leonardo): the Stage-2 manuscript documents
       repetition/majority voting only for the pilot (3×); nothing stated for the production
       GPT-5 runs — confirm single-run vs repeated before exact `bergmann-v1` replication.

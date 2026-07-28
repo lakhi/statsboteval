@@ -3,8 +3,9 @@
 The category *definitions* are unpublished research material and stay out of git
 (D-16); only their *names* are public (Stage-2 manuscript) and may appear in code
 and in published aggregates. The operator materializes `BERGMANN_PROMPTS_DIR` from
-the local Bergmann docs (Declarative Statement from manuscript Table 1 — its block
-is missing from the public prompt file) and the public Stage-2 theme lists.
+the local Bergmann docs and the public Stage-2 theme lists. (Declarative Statement
+is absent from the public *prompt* file but not from the public materials — it is
+in the Stage-1 OSF `Coding Instruction.ods`, adopted verbatim in D-45.)
 
 Expected directory layout:
 
