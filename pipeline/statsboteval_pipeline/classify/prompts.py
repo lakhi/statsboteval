@@ -1,8 +1,10 @@
 """Prompt builders: consolidated multi-label deductive + theme assignment (D-30).
 
-One deductive call covers a whole category group (all 13 by default) over a batch
-of ≤50 messages — departing from Bergmann's one-category-per-prompt (recorded as a
-validation caveat). The category→call grouping is a parameter so a fragile
+One deductive call covers a whole category group (all 13 by default) over a small
+batch of messages — departing from Bergmann's one-category-per-prompt (recorded as
+a validation caveat). That departure is what makes the batch size a tuned
+parameter rather than an inherited constant (D-45); see BATCH_LIMIT below.
+The category→call grouping is a parameter so a fragile
 category can later be split into its own call without a rewrite. Static codebook
 content renders first and the messages last (prompt-cache friendly).
 """
@@ -13,8 +15,18 @@ from collections.abc import Sequence
 
 from statsboteval_pipeline.classify.codebook import Category, Codebook
 
-# Bergmann's validation fixed 50 messages/prompt (50 beat 100 for GPT-4o, kept for GPT-5).
+# Hard ceiling, NOT the size we run at — `_check_batch` refuses anything larger
+# because no prompt here was ever validated above it. Bergmann's validation fixed
+# 50 messages/prompt (50 beat 100 for GPT-4o, kept for GPT-5).
 BATCH_LIMIT = 50
+
+# Messages per call in production (D-45). The two numbers were one constant until
+# then, which is how 50 survived unexamined: Bergmann fixed it under a
+# one-category-per-prompt design where a 50-message call asked for 50 decisions,
+# and D-30's consolidated prompt made the same call ask for 650 while inheriting
+# the size. Re-tuning this one number lifts average MCC .71 -> ~.82 on the 300
+# consensus messages. Overridable per run via CLASSIFIER_BATCH_SIZE.
+DEFAULT_BATCH_SIZE = 10
 
 
 def build_deductive_prompt(

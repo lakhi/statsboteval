@@ -1,8 +1,9 @@
 """Stage 1 of the emergent-theme pass (D-33): candidate codes per message.
 
-Mirrors the runner's discipline — ≤50-message batches, strict parse with the
-corrective-retry/effort ladder, one transaction per batch, heartbeat — but
-writes to `theme_candidates` (local forever, never published). Idempotent per
+Mirrors the runner's discipline — batching, strict parse with the corrective-
+retry/effort ladder, one transaction per batch, heartbeat — but writes to
+`theme_candidates` (local forever, never published) and keeps the 50-message
+batch the runner moved off in D-45 (why: step.run_theme_generation). Idempotent per
 (history_id, run_id): a message with zero codes gets a code='' marker row so
 the anti-join resume never re-processes it.
 """

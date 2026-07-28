@@ -1,7 +1,7 @@
 """Batch classification runner — the `statsboteval-v1` producer (D-30/D-33).
 
-Selects messages lacking labels for the target version, batches them (≤50,
-Bergmann's validated size), runs the deductive pass plus the method/software
+Selects messages lacking labels for the target version, batches them (10 by
+default, tuned in D-45), runs the deductive pass plus the method/software
 theme passes per batch, and writes each batch's labels in one transaction.
 Idempotent by `(history_id, label_version)`: a mid-run failure leaves completed
 batches persisted and a re-run labels only the remainder. The emergent-theme
@@ -18,7 +18,7 @@ import duckdb
 from statsboteval_pipeline.classify.client import Effort
 from statsboteval_pipeline.classify.codebook import Category, Codebook
 from statsboteval_pipeline.classify.parse import ClassifierParseError, parse_deductive, parse_themes
-from statsboteval_pipeline.classify.prompts import BATCH_LIMIT, build_deductive_prompt, build_theme_prompt
+from statsboteval_pipeline.classify.prompts import DEFAULT_BATCH_SIZE, build_deductive_prompt, build_theme_prompt
 from statsboteval_pipeline.labels import LabelRow, write_labels
 
 THEME_PASSES: tuple[tuple[str, str], ...] = (
@@ -73,7 +73,7 @@ def classify_corpus(
     *,
     label_version: str,
     model_tag: str,
-    batch_size: int = BATCH_LIMIT,
+    batch_size: int = DEFAULT_BATCH_SIZE,
     category_groups: Sequence[Sequence[Category]] | None = None,
     reasoning_effort: Effort = "minimal",
 ) -> int:
@@ -135,7 +135,7 @@ def assign_emergent_themes(
     label_version: str,
     model_tag: str,
     theme_set_version: str,
-    batch_size: int = BATCH_LIMIT,
+    batch_size: int = DEFAULT_BATCH_SIZE,
     reasoning_effort: Effort = "minimal",
 ) -> int:
     """Assign the frozen emergent list (Task 12); returns how many messages were labeled.

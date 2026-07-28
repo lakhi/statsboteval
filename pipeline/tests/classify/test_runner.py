@@ -7,6 +7,7 @@ import duckdb
 import pytest
 
 from statsboteval_pipeline.classify.codebook import Codebook, synthetic_codebook
+from statsboteval_pipeline.classify.prompts import DEFAULT_BATCH_SIZE
 from statsboteval_pipeline.classify.runner import classify_corpus
 from statsboteval_pipeline.corpus import open_corpus
 from statsboteval_pipeline.labels import read_labels
@@ -34,6 +35,7 @@ class StubClient:
         self.fail_on_call = fail_on_call
         self.calls = 0
         self.efforts: list[str] = []
+        self.batch_sizes: list[int] = []
 
     def complete(self, prompt: str, *, reasoning_effort: str = "minimal") -> str:
         self.calls += 1
@@ -41,6 +43,7 @@ class StubClient:
         if self.fail_on_call is not None and self.calls == self.fail_on_call:
             raise RuntimeError("boom (stubbed transport failure)")
         n = len(re.findall(r"^Message \d+:$", prompt, re.MULTILINE))
+        self.batch_sizes.append(n)
         if "Codebook:" in prompt:
             names = [c.name for c in self.codebook.categories]
             header = f"| Message | {' | '.join(names)} |\n|{'---|' * (len(names) + 1)}\n"
@@ -104,6 +107,22 @@ class AlwaysOffListClient(StubClient):
     def complete(self, prompt: str, *, reasoning_effort: str = "minimal") -> str:
         out = super().complete(prompt, reasoning_effort=reasoning_effort)
         return out.replace("| 1 |", "| 1 | not-a-real-theme;", 1) if "Labels |" in out else out
+
+
+def test_batch_size_is_honoured_and_defaults_to_the_tuned_ten(tmp_path: Path) -> None:
+    """The D-45 knob: how many messages actually reach one model call."""
+    cb = synthetic_codebook()
+    con = seed_corpus(tmp_path / "corpus.duckdb", 5)
+    client = StubClient(cb)
+    assert classify_corpus(con, client, cb, label_version=VERSION, model_tag=MODEL_TAG, batch_size=2) == 5
+    # Batches of 2, 2, 1 — each costing 1 deductive + 2 theme calls at that batch's size.
+    assert client.batch_sizes == [2, 2, 2, 2, 2, 2, 1, 1, 1]
+
+    # And with no explicit size the runner batches at DEFAULT_BATCH_SIZE, not the ceiling.
+    other = seed_corpus(tmp_path / "other.duckdb", DEFAULT_BATCH_SIZE + 1)
+    fresh = StubClient(cb)
+    assert classify_corpus(other, fresh, cb, label_version=VERSION, model_tag=MODEL_TAG) == DEFAULT_BATCH_SIZE + 1
+    assert fresh.batch_sizes == [DEFAULT_BATCH_SIZE] * 3 + [1] * 3
 
 
 def test_parse_error_triggers_corrective_retry(tmp_path: Path) -> None:

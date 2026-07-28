@@ -12,6 +12,14 @@ from typing import NamedTuple
 
 import duckdb
 
+# The label version this pipeline currently produces and publishes — the single
+# source of truth for every default (settings, CLI flags, synthetic fixtures), so
+# minting the next version is one edit rather than a hunt through string literals.
+# `statsboteval-v2` since 2026-07-28 (D-45): avg MCC .823 vs v1's .714. Older
+# versions stay in the table by design; bumping this never deletes them, and the
+# rollback is to point the settings/flags back at the previous string.
+CURRENT_LABEL_VERSION = "statsboteval-v2"
+
 
 class LabelRow(NamedTuple):
     history_id: int

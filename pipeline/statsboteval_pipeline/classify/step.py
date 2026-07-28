@@ -42,6 +42,7 @@ def run_classification(con: duckdb.DuckDBPyConnection, *, env_file: Path) -> int
         codebook,
         label_version=settings.classifier_label_version,
         model_tag=settings.classifier_model_tag,
+        batch_size=settings.classifier_batch_size,
         reasoning_effort=_effort(settings),
     )
 
@@ -54,6 +55,11 @@ def run_theme_generation(
     set_version = settings.classifier_theme_set_version
     client = ClassifierClient(settings)
     effort = _effort(settings)
+    # Deliberately NOT `settings.classifier_batch_size`: D-45's finding is about the
+    # deductive pass's 650-decisions-per-call overload, and D-47 measured that it does
+    # not transfer to candidate generation (~85 short codes per call — never in that
+    # regime; batch 10 mostly just emits 29% more codes per message). Keeping the
+    # default also keeps a regeneration comparable to how themes-v1 was generated.
     processed = generate_candidates(con, client, run_id=set_version, reasoning_effort=effort)
     entries = synthesize_to_draft(
         con, client, run_id=set_version, draft_path=draft_path, set_version=set_version, reasoning_effort=effort
@@ -75,5 +81,6 @@ def run_theme_assignment(con: duckdb.DuckDBPyConnection, *, env_file: Path) -> i
         label_version=settings.classifier_label_version,
         model_tag=settings.classifier_model_tag,
         theme_set_version=set_version,
+        batch_size=settings.classifier_batch_size,
         reasoning_effort=_effort(settings),
     )

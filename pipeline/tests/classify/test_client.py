@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from statsboteval_pipeline.classify.client import ClassifierClient
 from statsboteval_pipeline.classify.config import ClassifierSettings
+from statsboteval_pipeline.classify.prompts import BATCH_LIMIT, DEFAULT_BATCH_SIZE
 
 
 def make_settings(**overrides: Any) -> ClassifierSettings:
@@ -39,6 +40,17 @@ def client_with(handler: Any, settings: ClassifierSettings | None = None) -> Cla
 def test_missing_endpoint_raises_clear_config_error() -> None:
     with pytest.raises(ValidationError, match="azure_openai_endpoint"):
         ClassifierSettings(_env_file=None, azure_openai_api_key="k")
+
+
+def test_batch_size_defaults_to_the_tuned_size_within_the_ceiling() -> None:
+    # D-45 split the two roles: 10 is what we run at, BATCH_LIMIT is what no config may cross.
+    assert DEFAULT_BATCH_SIZE == 10
+    assert make_settings().classifier_batch_size == DEFAULT_BATCH_SIZE
+    assert make_settings(classifier_batch_size=BATCH_LIMIT).classifier_batch_size == BATCH_LIMIT
+    # Rejected at construction, not on the first prompt build several minutes into a run.
+    for bad in (0, BATCH_LIMIT + 1):
+        with pytest.raises(ValidationError, match="classifier_batch_size"):
+            make_settings(classifier_batch_size=bad)
 
 
 def test_complete_returns_canned_content_and_pins_settings() -> None:
