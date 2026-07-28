@@ -20,6 +20,19 @@ publishes; the dashboard serves five educator-question tabs plus Topics. Corpus 
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 
+**Published labels are `statsboteval-v2`** since 2026-07-28 (D-45): same model, deployment,
+effort and seed as v1, with `CLASSIFIER_BATCH_SIZE` 50 → 10 and Bergmann's actual
+Declarative Statement block. Average MCC **.823** on the 300 human-consensus messages
+(v1: .714), above the Bergmann GPT-5 reference of .79; no category regressed.
+`statsboteval-v1` is kept in the corpus as the comparison baseline and rollback path —
+reverting means pointing `CLASSIFIER_LABEL_VERSION` and `--classification-version` back
+at it and re-aggregating, no re-classification.
+
+`labels.CURRENT_LABEL_VERSION` is the **single source of truth** for that default (settings,
+both CLI flags, synthetic fixtures). Minting the next version is one edit there; never
+reintroduce a bare `"statsboteval-vN"` literal in production code. The API and dashboard hold
+no label version at all — they render whatever the published document declares.
+
 `run-weekly` is **not yet scheduled** — every publish is a manual operator run
 (`docs/plans/2026-07-27-weekly-run-automation.md` drafts the launchd wrapper).
 
@@ -82,7 +95,11 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
 - **`created_at` is THE temporal axis** (weeks, windows, heatmap). `session_started` is a
   client clock — a session *key*, plus status-at-usage-time resolution, never an axis.
 - **One label version never mixes models or inference settings** (D-41). Changing either
-  means a new version and a full re-classify.
+  means a new version and a full re-classify. **`CLASSIFIER_BATCH_SIZE` is an inference
+  setting, not a throughput knob** (D-45): it sets how many decisions one call is asked
+  for, and re-tuning it alone moved average MCC .71 → .82. `BATCH_LIMIT` in
+  `classify/prompts.py` is the *ceiling*; `DEFAULT_BATCH_SIZE` is what we run at — the two
+  were one constant until D-45, which is exactly how 50 survived unexamined.
 - **cli.py's function-local imports are deliberate** — they keep `run-synthetic` working
   without pymysql/openai/azure installed. Do not hoist them to module scope.
 - **Emergent theme sets are immutable.** `freeze-themes` refuses to overwrite; regeneration

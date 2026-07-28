@@ -773,6 +773,50 @@ adds Phase B Task 21.)
   independent human coders agree with each other, and the residual gap to Bergmann's .71
   is substantially the difference between one isolated judgement and two coders who
   discussed it.
+- **SHIPPED 2026-07-28 — outcome on the full corpus.** All 4,419 messages re-classified
+  under `statsboteval-v2`; `statsboteval-v1` retained as baseline and rollback path.
+  Measured average MCC **.823** (v1: .714, **+.109**), inside the predicted .82–.84 and
+  above the Bergmann GPT-5 reference of .79. **No category regressed.** Largest gains:
+  `declarative_statement` .574→.801, `greeting_expression` .681→.892,
+  `reference_to_a_prior_content` .344→**.551** (vs the .543 the grid predicted and the
+  .56 independent-human alpha — at the human ceiling, as anticipated). Report:
+  `pipeline/data/validation-report-v2-2026-07-28.txt` (git-ignored).
+  **Attribution caveat:** batch size and codebook changed together in v2, so
+  `declarative_statement`'s +.227 cannot be split between them from this run. The
+  isolated A/B (finding 4) measured the codebook effect as a null disagreeing in sign,
+  so the gain is attributed principally to batch size; the codebook remains adopted on
+  provenance grounds, with no performance claim, exactly as recorded above.
+- **Published 2026-07-28 19:53Z** as `v1/aggregates_2026-W30_20260728T195307Z.json` +
+  `v1/latest.json`; the live API serves `label_versions.classification = statsboteval-v2`,
+  schema 1.2.0 unchanged, no dashboard redeploy. `statsboteval-v1` retained in the corpus.
+- **Topics effect of v2, and the one finding that needs stating.** Compared against a v1
+  document regenerated *the same day* (comparing to the 2026-07-19 published doc would
+  have confounded the label version with the calendar: `data_through_week` advanced W28 →
+  W30, moving the emergent cell count 300 → 270 on its own). Holding the calendar
+  constant: theme-set membership identical, **mean rank movement 0.9, 8/15 themes
+  unchanged, max movement 5**, and suppressed emergent cells improve **43/270 → 39/270**
+  — v2 makes the Topics tab slightly richer, consistent with D-47's floor reasoning.
+  v2 assigns **21% more** emergent labels corpus-wide (6,664 → 8,064), with per-theme
+  growth clustering +3.8%..+37.7% (median +16.5%) — **except `Hypothesis formulation and
+  testing`, which grew +76.5% (328 → 579) and rose from rank 10 to 5**, double the
+  next-highest rate.
+  **This is unresolvable with the evidence available and is published as a caveat, not as
+  a validated improvement.** The batch-size change is measured only against the deductive
+  categories, where the 300 human-consensus messages give ground truth; the emergent pass
+  has none (Bergmann validated themes by expert similarity, not MCC — D-30), so the change
+  was applied there blind by design. A +76.5% shift is equally consistent with v2 correctly
+  recognising hypothesis-framing that v1 missed and with batch-size noise in an unvalidated
+  pass. Sampling the newly-labelled messages would be the natural check but requires reading
+  chat text, which is consented for transient processing on Azure OpenAI EU only. **Revisit
+  if** an expert-similarity validation of the theme pass is ever run (it would also close
+  D-30's open comparison), or if the next semester's data reproduces the same outlier.
+- **Correction to the cost/duration estimate in this decision and its plan.** Both said
+  "442 calls, ~1.6 h" for a full corpus pass. That counted the **deductive call only**.
+  `classify_corpus` piggybacks the method- and software-theme passes onto every batch
+  (`THEME_PASSES`), so 442 batches issue **~1,326 calls**. Measured: ~34 s/batch,
+  **~4.2 h** wall clock. The separate emergent `assign-themes` pass is one call per batch
+  and runs at ~6 s/batch (~45 min). Budget future re-classifications by batches × 3, and
+  read the grid's `$/corpus` column as a deductive-only figure likewise.
 
 ## D-46 — 2026-07-28: gpt-5.4-mini rejected on evidence (supersedes D-40's residency grounds)
 

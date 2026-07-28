@@ -1,6 +1,6 @@
 # `statsboteval-v2` adoption — re-classify under the tuned configuration
 
-**Date:** 2026-07-28 · **Status:** planned, not started
+**Date:** 2026-07-28 · **Status:** COMPLETE — v2 published 2026-07-28 19:53Z, avg MCC .823
 **Decisions recorded:** D-45 (grid + v2 configuration) · D-46 (gpt-5.4-mini rejected on evidence)
 · D-47 (theme set reviewed, left unchanged)
 **Evidence:** `pipeline/data/classifier-grid-2026-07-28.txt` (git-ignored, 20-arm grid)
@@ -123,15 +123,50 @@ publish note.
 ### 6. Record decisions
 D-45 and D-46 are written into `docs/decisions.md` as part of this work (see below).
 
+## Progress (2026-07-28 evening)
+
+1. **Done.** `classifier_batch_size` added to `ClassifierSettings` (default 10,
+   range-checked 1..`BATCH_LIMIT`), threaded into `run_classification` and
+   `run_theme_assignment`. `BATCH_LIMIT` stays the ceiling; new `DEFAULT_BATCH_SIZE`
+   is the operating size. Candidate generation deliberately keeps 50 (D-47).
+2. **Done.** Bergmann's Declarative Statement block adopted verbatim; the "missing from
+   the public materials" claim corrected in `bergmann-materials/README.md`,
+   `codebook.py`, and `docs/open-questions.md` (narrowed, not closed — pilot-vs-production
+   still open for Leonardo).
+3. **Done.** 4,419/4,419 re-classified under `statsboteval-v2`. **Average MCC .823**
+   (v1 .714). ~4.2 h wall clock, interrupted once by a stopped parent shell and resumed
+   with zero loss (per-batch transactions + anti-join resume).
+4. **Done.** `assign-themes` against the unchanged frozen `statsboteval-themes-v1`;
+   ~6 s/batch, ~45 min. v2 now mirrors v1's structure exactly (66,285 emergent rows
+   = 4,419 × 15).
+5. **Done.** Published 19:53Z; live API serves `statsboteval-v2`, live blob byte-identical
+   to the local document. Topics reviewed before upload (see D-45): broadly stable, one
+   outlier recorded as a caveat.
+6. **Done.** D-45 carries the shipped outcome, the Topics finding, and the cost-model
+   correction; the classification runbook gained a "Full re-classification" section.
+
+**Unplanned work this surfaced:** `validate.py` hardcoded `statsboteval-v1` in four
+places, so Task 5 was impossible as written. Parameterized with a `--label-version` flag;
+the report now also names the version it scored and prints the average MCC (the number
+the gate is stated in). Verified it reproduces D-42's .71 for v1 before trusting it on v2.
+
 ## Verification
 
-- [ ] `pytest`, `ruff`, `mypy` clean before and after
-- [ ] validation report under v2 shows average MCC ≥ .80 on the 300 consensus messages
-- [ ] `labels` holds both `statsboteval-v1` and `statsboteval-v2` for all 4,419 messages
-- [ ] published document's `label_versions.classification` reads `statsboteval-v2`
-- [ ] spot-check the Topics tab: emergent theme ordering should be broadly stable; large
-      reordering is a signal worth investigating, not accepting
-- [ ] `erase-student` still covers every table touched (no new tables, so expected pass)
+- [x] `pytest`, `ruff`, `mypy` clean before and after — 256 passed, ruff clean, mypy clean
+      on the package (the 29 test-file mypy errors are pre-existing and unchanged)
+- [x] validation report under v2 shows average MCC ≥ .80 — **.823**, no category regressed
+- [x] `labels` holds both `statsboteval-v1` and `statsboteval-v2` for all 4,419 messages
+- [x] published document's `label_versions.classification` reads `statsboteval-v2` —
+      verified on the live blob AND through the public API, byte-identical to local
+- [x] spot-check the Topics tab — mean rank movement 0.9, 8/15 unchanged, max 5;
+      suppression improves 43/270 → 39/270. **One outlier** (`Hypothesis formulation and
+      testing` +76.5%, rank 10→5) recorded in D-45 as an unresolvable caveat, since the
+      emergent pass has no ground truth to arbitrate it. Compared against a *same-day*
+      v1 document — the published 2026-07-19 one would have confounded label version
+      with calendar drift (W28→W30 moved the cell count 300→270 by itself)
+- [x] `erase-student` still covers every table touched — confirmed by construction: it
+      deletes from `labels` by `history_id` with no `label_version` filter, so it clears
+      every version for a student; v2 adds no table
 
 ## Deliberately out of scope
 
