@@ -1,7 +1,8 @@
 # Trends tab — pipeline-computed period comparisons (design + execution plan)
 
 **Date:** 2026-07-19 · **Status:** planned (owner-approved design choices folded in)
-**Decisions to record at implementation:** D-45 (this design) · **Contract:** additive
+**Decisions to record at implementation:** next free number at implementation time
+(D-45/D-46 were taken by the 2026-07-28 classifier grid) · **Contract:** additive
 minor bump → schema **1.3.0**, same `v1/` blob prefix
 
 ## Goal

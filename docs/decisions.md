@@ -695,3 +695,112 @@ adds Phase B Task 21.)
 - Rollout: FE redeploy (D-26 image rebuild) + re-aggregate/republish from the
   existing corpus; before that publish, the operator glances over the 15 emergent
   descriptions as now-public text (same D-33 review discipline as the labels).
+
+## D-45 — 2026-07-28: Classifier configuration re-tuned; `statsboteval-v2` at batch_size 5
+
+- **Problem.** `statsboteval-v1` scores average MCC **.71** on the 300 Bergmann
+  human-consensus messages (D-42), below the Bergmann GPT-5 reference (.79). A 20-arm
+  grid (2 models x batch_size {50,25,10,5} x reasoning_effort {low,medium}, plus
+  replicates and a codebook A/B) located the cause: **`batch_size = 50` was inherited,
+  never validated for our prompt.** Bergmann fixed 50 under a one-category-per-prompt
+  design where a 50-message call asked for 50 decisions; D-30's consolidated prompt made
+  each call ask for **650** while keeping the batch size. Evidence:
+  `pipeline/data/classifier-grid-2026-07-28.txt` (git-ignored per D-16).
+- **Method.** Every arm classified all 300 messages through the production
+  `build_deductive_prompt` / `parse_deductive` / `_complete_parsed` path. The *scoring*
+  was split (seed 2026) into tune-150 / holdout-150 — selection read the tune half only
+  and the holdout was unsealed once, after the configuration was fixed. Splitting scoring
+  rather than messages preserves n=300 per-category resolution. This also repairs the
+  methodological gap in D-41, whose effort choice was selected on the same 300 messages it
+  reported. Harness validated: the incumbent arm reproduces the shipped .71 (scores .717).
+- **Finding 1 — batch size and reasoning effort are one resource.** Re-expressed as
+  reasoning tokens per message, the grid collapses onto a single curve: b10/low
+  (135 tok/msg → .795) and b50/medium (145 → .787) share no settings, only a budget.
+  The interaction is sub-additive (independent effects would predict .873; observed .824).
+- **Finding 2 — the curve saturates near 210 tok/msg and then decays.** Past saturation
+  more reasoning makes both models *worse* (5-mini .824→.813, 5.4-mini .783→.772).
+  On fixed-codebook annotation, over-reasoning is an active harm: the model deliberates
+  into defensible-but-wrong labels where a literal codebook reading would have scored.
+  This is why the answer is a *budget*, not "the most capable model".
+- **Finding 3 — grouping noise is configuration-dependent.** b25/medium moved **.030**
+  between two orderings of the same 300 messages; b5/medium moved .005. "Batch 25 is
+  stable" (measured .005 at *low* effort on 2026-07-27) does **not** hold at medium. Every
+  contender was therefore replicated; Stage 1's apparent winner did not survive its own
+  replicate and was dropped.
+- **Finding 4 — the codebook correction is a null.** The Declarative Statement block in
+  v1 is our paraphrase (only its `Full` line is Bergmann's). Bergmann's actual text was
+  located in the Stage-1 OSF folder, `/Human Rating/Coding Instruction/Coding
+  Instruction.ods` — never missing, only unlooked-for; the README's "missing from the
+  public prompt file" is true of the *prompt* file only. Predicted to fix
+  declarative_statement's 63-FN-vs-8-FP under-detection; measured effect **disagreed in
+  sign across two configurations** (-.039 and +.019 on that category). **Adopted on
+  provenance grounds only** — Bergmann's text over text we invented — with no performance
+  claim. Caveat: it is the *pilot* codebook while our other 12 categories match the
+  *production* prompts; the `Full` line is identical across both, suggesting no revision,
+  but that is inference (flagged for Leonardo).
+- **Finding 5 — batch 5 and batch 10 are statistically indistinguishable at low effort.**
+  b10/low replicated at .824 against its original .795 (spread .029); b5/low is .825/.813
+  (mean .819, spread .013). The selection-criterion gap is **+.009**, inside both spreads.
+  Since no accuracy difference is measurable, the choice falls to operational robustness:
+  **`batch_size = 10` adopted** (owner, 2026-07-28) — 442 calls instead of 884 and ~1.6 h
+  instead of ~3.1 h for a full corpus pass, halving the exposure of a multi-hour unattended
+  run to the transient failures that interrupted this work twice (an overnight laptop-sleep
+  stall and two network drops). Batch 5's only edge is a slightly tighter spread
+  (.013 vs .029), which does not justify doubling the failure surface.
+- **Decision.** `statsboteval-v2` = gpt-5-mini `2025-08-07`, DataZoneStandard deployment
+  `statsboteval-5-mini`, reasoning effort **`low`**, seed 20260718 — all unchanged — with
+  **`batch_size` reduced from 50 to 10**, and Bergmann's Declarative Statement block. Expected
+  average MCC ~**.82–.84** (holdout-150: .841 vs the incumbent's .755). Adoption plan:
+  `docs/plans/2026-07-28-statsboteval-v2-adoption.md`. `batch_size` is not currently
+  configurable (`step.run_classification` takes the `BATCH_LIMIT` default) — that is task 1.
+- **Recorded caveats.** The holdout half proved systematically easier (higher in 16/20
+  arms, mean +.024), so its absolute value is optimistic for this split and tune/holdout
+  numbers must never be compared across arms. n=2 per replicated configuration — enough to
+  reject unstable configurations, not enough for a confidence interval. Wall-clock times
+  from arms run overnight are invalid (the laptop cycled into Maintenance Sleep on
+  battery). The batch-size finding is validated for the **deductive** pass only; theme
+  assignment shares the batching but has no MCC ground truth (D-30), so the change applies
+  there unmeasured.
+- **Human ceiling, for interpreting all of the above.** Bergmann Stage-2 Table E1 reports
+  each human coder's MCC against the 300-message consensus; where both read 1.00 the
+  category was single-coded and the figure is tautological. Only five categories were
+  genuinely double-coded, mean **.84** — but inflated, since each coder is scored against
+  a consensus they helped produce. The un-inflated estimate is Table 1's pilot
+  Krippendorff alpha from seven independent coders, mean **.48** on those five. The true
+  human-human ceiling lies in **[.48, .84]**. Notably
+  `reference_to_a_prior_content` reaches .543 under v2 against an independent-human alpha
+  of **.56** — the pipeline's worst category is now at approximately the level at which
+  independent human coders agree with each other, and the residual gap to Bergmann's .71
+  is substantially the difference between one isolated judgement and two coders who
+  discussed it.
+
+## D-46 — 2026-07-28: gpt-5.4-mini rejected on evidence (supersedes D-40's residency grounds)
+
+- **Context.** D-40 rejected gpt-5.4-mini because it offered **no DataZoneStandard SKU in
+  any EU region**, making it consent-incompatible, and named the revisit condition: "if
+  Azure later ships a DZS SKU for gpt-5.4-mini... re-run under a new label version."
+- **The condition is now met.** Verified 2026-07-27 via `az cognitiveservices model list`:
+  `gpt-5.4-mini 2026-03-17` lists `DataZoneStandard` in Sweden Central. The operator
+  deployed `statsboteval-5.4-mini` (DZS, capacity 1005) on the shared `statistics-tutor`
+  resource. **The residency objection is obsolete.**
+- **Rejected anyway, on measured performance.** In the D-45 grid gpt-5.4-mini lost **all
+  six** matched (batch, effort) comparisons to gpt-5-mini: +.165, +.054, +.058 at low and
+  +.004, +.052, +.045 at medium. Its ceiling is ~**.78** against gpt-5-mini's ~**.82**, and
+  below the Bergmann GPT-5 reference (.79). It is **not budget-starved** — adding reasoning
+  past 230 tok/msg made it *worse* (.783 → .772), the same saturation-and-decay seen in
+  gpt-5-mini. It also costs 2.5–3x more per corpus.
+- **Methodological note that made the comparison valid.** Reasoning-effort labels are
+  **not comparable across models**: at `low`, gpt-5.4-mini spends 4.5 reasoning tokens per
+  message where gpt-5-mini spends 39. Comparing the two at equal effort *label* compares
+  them at unequal thinking budgets and would have produced a meaningless 17-point gap.
+  Capturing `response.usage` per call is what made the comparison interpretable — the
+  production `ClassifierClient.complete()` discards it, which is fine for production but
+  means any future model comparison must re-instrument.
+- **Interpretation.** This is short-text multi-label annotation against a fixed codebook,
+  where the winning behaviour is faithful instruction-following, not reasoning. Newer
+  reasoning-optimised models are tuned for the opposite. **Do not assume a newer or larger
+  model improves this task** — measure it, at matched token spend.
+- **Decision.** Classification stays on gpt-5-mini `2025-08-07`. The
+  `statsboteval-5.4-mini` deployment may be deleted; only the 300 public Bergmann
+  consensus messages were ever sent through it (consented practice, DZS/EU). Revisit only
+  if a future model is measured to beat gpt-5-mini at matched reasoning-token spend.
