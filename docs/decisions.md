@@ -804,3 +804,58 @@ adds Phase B Task 21.)
   `statsboteval-5.4-mini` deployment may be deleted; only the 300 public Bergmann
   consensus messages were ever sent through it (consented practice, DZS/EU). Revisit only
   if a future model is measured to beat gpt-5-mini at matched reasoning-token spend.
+
+## D-47 — 2026-07-28: Emergent theme set reviewed in depth; `statsboteval-themes-v1` stays frozen unchanged
+
+- **Why revisited.** D-43 records the 15-theme set as "operator-reviewed and approved
+  unchanged", but that approval was made under time pressure. Ahead of the v2
+  re-classification (D-45) the owner asked for a proper review, since regenerating themes
+  is cheapest to do *before* a re-classification (one pass, one republish). Evidence:
+  `pipeline/data/theme-regeneration-trial-2026-07-28.md` (git-ignored).
+- **Two hypotheses tested and both refuted** (useful negative results):
+  - *Stage-1 `batch_size = 10` would produce a less fragmented candidate vocabulary.*
+    **No.** On 500 messages, batch 10 vs 50: uniqueness 79.4% vs 87.0%, hapax 86.8% vs
+    89.9% — marginally *better*, not worse, and the apparent collapse in cross-call
+    vocabulary overlap (0.28 vs 1.20 per call pair) is an artefact of vocabulary size per
+    call (1.3% vs 1.5% as a share). The D-45 batch-size finding does **not** transfer to
+    candidate generation, whose per-call load is ~85 short codes against the deductive
+    pass's 650 binary decisions — it was never in the overloaded regime. The one real
+    difference: batch 10 emits 29% more codes per message (2.08 vs 1.61).
+  - *The 85%-hapax candidate vocabulary is lexically fragmented and can be consolidated by
+    normalising word order and stopwords.* **No.** 5,347 → 5,176 distinct codes (**-3%**).
+    The fragmentation is **semantic**, not lexical; consolidating it would need embeddings
+    or an LLM canonicalisation pass. Side benefit: because normalisation was nearly a
+    no-op, the chunked-synthesis arm's difference is attributable to chunking alone.
+- **The current method is reproducible.** Re-synthesising from the raw 5,347 codes produced
+  17 themes of which **13 map one-to-one onto the frozen 15** — `statsboteval-themes-v1`
+  was not an unlucky draw, which matters for what is already published.
+- **Coverage audit.** A targeted gap analysis over all 5,347 candidate codes (16 chunks,
+  each proposal required to name the codes it covers, so support is counted rather than
+  asserted) yielded 12 candidate additions. **The strongest carries 82 code instances =
+  1.10%; all twelve together 6.6% — so the frozen 15 cover ~93% of coded content.**
+  Rejections were principled, not arbitrary: *Conversational and logistical messages* (58)
+  is interaction style, not topic, and is already measured by the deductive categories
+  (`greeting_expression`, `politeness_expression`, `english_input`/`german_input`,
+  `capability_request`); *T-distribution and t-test concepts* (36) and *Correlation
+  specifics* (32) sit at specific-method granularity where the set is deliberately at
+  method-family level; *Post-hoc analyses* (28) is explicitly inside theme 9.
+- **The privacy floor is what settles it.** A theme's dashboard value is not its corpus
+  share but whether its cells survive `floored_count()` at N=3, and cells are published per
+  window x status. A 0.4%-support theme is ~24 messages corpus-wide, ~1.6 per cell across
+  5 windows x 3 status groups — suppressed essentially everywhere (D-43 already reports 50
+  of 300 emergent cells suppressed). **Under a privacy floor each additional low-support
+  theme makes the Topics tab emptier, not richer.** Only the top candidate
+  (*Psychometrics and measurement*, 82, ~112 merged with *Dimension reduction*) had any
+  prospect of publishing outside `all_time`.
+- **Decision: no change.** `statsboteval-themes-v1` remains frozen and published as-is; no
+  `statsboteval-themes-v2` is minted. D-43's approval is now backed by a substantive review
+  rather than a time-constrained one. Also avoided: a Topics-tab comparability break, and
+  mixed theme-set provenance (15 from the D-33 generate→synthesize method plus N from a
+  coverage audit) that the thesis would have had to explain.
+- **Consequence for D-45.** Candidate regeneration is **not** a prerequisite for the v2
+  adoption; the two are independent. v2 re-runs `assign-themes` against the unchanged
+  frozen set, exactly as its plan already specifies.
+- **Revisit when** new data plausibly shifts the distribution — a new semester's corpus, per
+  D-38's per-semester question — or if *Psychometrics and measurement* grows enough to clear
+  the floor. The gap analysis is cheap to re-run (~16 calls, minutes) and its script is the
+  reusable artefact.

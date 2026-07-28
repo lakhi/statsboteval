@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-28 · **Status:** planned, not started
 **Decisions recorded:** D-45 (grid + v2 configuration) · D-46 (gpt-5.4-mini rejected on evidence)
+· D-47 (theme set reviewed, left unchanged)
 **Evidence:** `pipeline/data/classifier-grid-2026-07-28.txt` (git-ignored, 20-arm grid)
 
 ## Why
@@ -42,6 +43,13 @@ because it scores better.
 > twice (a laptop sleep stall and two network drops). Trading at most ~.02 of unmeasurable
 > MCC for halving the failure surface of a multi-hour unattended run is the right call on
 > this hardware.
+
+## Sequencing
+
+Tasks run **1 → 6 in order**. The theme question that once sat in front of this plan is
+closed (D-47), so there is no longer any pre-step: no candidate regeneration, no pending
+operator review. Task 1 is the only prerequisite for Task 3, and Tasks 3–5 must stay in
+order so that one classification pass feeds one aggregate and one publish.
 
 ## Tasks
 
@@ -93,8 +101,13 @@ revised, but that is inference. Still worth confirming with Leonardo.
 label version, so v2 needs its own pass against the **unchanged, still-frozen**
 `statsboteval-themes-v1`.
 
-**Theme sets are NOT regenerated** (D-33/D-43: published sets are immutable; regeneration
-mints `…-v2` with its own operator review, scoped out by D-38 as a per-semester question).
+**Theme sets are NOT regenerated — settled by D-47, not merely deferred.** The set was
+reviewed in depth on 2026-07-28: a coverage audit over all 5,347 candidate codes found the
+frozen 15 cover ~93% of coded content, and every candidate addition (strongest: 1.10%) sits
+below the N=3 publication floor once cells are split by window x status. Re-synthesis also
+reproduced 13 of the 15, so the set is not an artefact. `statsboteval-themes-v1` therefore
+stays frozen and this task is a straight re-assignment against it — no operator review is
+pending and nothing here blocks on one.
 Caveat to record: the batch-size finding is validated only for the *deductive* pass. Theme
 assignment shares the consolidated-prompt dynamics and plausibly shares the effect, but
 Bergmann validated themes by expert similarity rather than MCC (D-30), so there is **no
@@ -122,7 +135,9 @@ D-45 and D-46 are written into `docs/decisions.md` as part of this work (see bel
 
 ## Deliberately out of scope
 
-- Regenerating emergent themes (`statsboteval-themes-v2`) — separate operator-review cycle.
+- Regenerating emergent themes — **closed by D-47**, not deferred: reviewed, audited, and
+  deliberately left unchanged. Revisit only when a new semester's data could shift the
+  distribution (D-38), using the reusable gap-analysis script (~16 calls, minutes).
 - Per-category call splitting for `reference_to_a_prior_content` — the grid brings it to
   .543 against an independent-human alpha of .56; it is at the human ceiling, and further
   work there needs conversation context, not tuning.
