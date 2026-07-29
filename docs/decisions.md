@@ -903,3 +903,52 @@ adds Phase B Task 21.)
   D-38's per-semester question — or if *Psychometrics and measurement* grows enough to clear
   the floor. The gap analysis is cheap to re-run (~16 calls, minutes) and its script is the
   reusable artefact.
+
+## D-48 — 2026-07-29: Dashboard header speaks educator vocabulary; the date range follows the window filter
+
+- **Why.** The header line was written in pipeline vocabulary and was **document-scoped**
+  (`Data through 2026-07-26 (2026-W30), from week 2025-W09`) while the window picker two
+  inches to its right is **window-scoped**. Selecting "Summer semester 2026" therefore drew
+  charts ending 28 Jun 26 underneath a line claiming data through 26 Jul 26. ISO week ids
+  and RFC-3339 timestamps are pipeline identifiers; the audience for this page is educators.
+- **New copy.** Eyebrow `StatsBotEval · University of Vienna` (was `University of Vienna ·
+  StatsBot`); `<h1>` `Educator Dashboard`; subtitle `Based on student–GenAI interactions
+  data from StatsBot (between 02 Mar 26 – 28 Jun 26)`; footer `generated 28 Jul 2026` (was
+  the raw `2026-07-28T19:53:07.135948Z`). Year width differs on purpose: `YY` in the inline
+  range, `YYYY` for the standalone footer date.
+- **Range dates come from `coverage`, not from `start_date`/`end_date`.** Semester windows
+  publish nominal boundaries (Mar 1 – Jun 30 / Oct 1 – Jan 31, `windows.py:40–44`), but
+  `all_time` and `trailing_4` publish **no dates at all**, and nominal dates would *lie for
+  an in-progress semester* — Winter 2026/27 opened in November would advertise "through
+  31 Jan 27", months before that data exists. `coverage` is the one date source every window
+  kind has, and `build_windows` has already clipped it to `[first_week, data_through_week]`,
+  so a window's end date can never run past the data. It is also the range that matches what
+  is actually plotted, since every series is week-bucketed.
+- **Week→date math is dashboard-side, and this partly supersedes an aggregates-contract
+  stance.** `docs/aggregates-contract.md` justified `data_through_date` as existing "for
+  display without ISO-week math in TS". A window-scoped range cannot be served that way
+  without new contract fields, a schema bump, a full manual operator run and a republish —
+  disproportionate for a copy change, and it would couple two deploys. So `isoWeekMonday`
+  now lives in `dashboard/src/lib/format.ts`, in UTC throughout, mirroring `week_monday` in
+  `contract.py`. The duplication is pinned by a checkable identity on real data:
+  `isoWeekSunday(data_through_week)` must equal `data_through_date`, which the Python side
+  already validates. Rejected alternative kept on record: publish `from_date`/`through_date`
+  on `Coverage` — the right move if a *second* consumer ever needs window dates.
+- **`Intl` cannot express the requested format.** Verified across locales: every English
+  locale rendering a 3-letter month reorders it month-first (`Sep 29, 25` — en-US, en-CA,
+  en), and every day-first English locale spells September `"Sept"` (`29 Sept 25` — en-GB,
+  en-IE, en-AU). Day-first + 3-letter month is not an English CLDR pattern, so the month
+  table is hardcoded — which also makes output identical across browsers rather than
+  dependent on the viewer's ICU data. `formatGeneratedDate` still uses `Intl`, but only via
+  `formatToParts` to read calendar fields in `doc.timezone`.
+- **`generated_at` is rendered Vienna-local, not UTC.** The document buckets everything
+  Vienna-local and `data_through_date` is a Vienna-local Sunday. Since `run-weekly` is a
+  manual operator run (often evening), a UTC render would print the wrong day for anything
+  after ~22:00 UTC — checked: `2026-01-31T23:30:00Z` → `01 Feb 2026`.
+- **The privacy floor moved rather than being deleted.** The request replaced the subtitle
+  *and* the `privacy floor N ≥ 3` chip. N=3 is a consent-driven control (D-24), so it was
+  relocated into the footer beside the other provenance metadata, tooltip text unchanged and
+  still driven by `doc.privacy_floor_n` — never hardcoded, per the field's own contract note.
+- **Scope.** Dashboard-only: `Dashboard.tsx` and `format.ts`. No API, pipeline, contract,
+  schema or republish. `data_through_date`, `data_through_week` and `first_week` are no
+  longer rendered anywhere; the picker still marks unfinished windows via `isInProgress`.

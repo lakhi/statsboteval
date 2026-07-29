@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Aggregates } from "@/lib/aggregates.gen";
 import { fetchAggregates } from "@/lib/api";
+import { formatGeneratedDate, formatWindowRange } from "@/lib/format";
 import { defaultWindowId, findWindow } from "@/lib/windows";
 import { SyntheticBanner } from "./SyntheticBanner";
 import { WindowPicker } from "./WindowPicker";
@@ -94,18 +95,14 @@ export function Dashboard() {
       <header className="mt-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-3">
-            University of Vienna · StatsBot
+            StatsBotEval · University of Vienna
           </p>
-          <h1 className="mt-1 font-display text-3xl text-ink">Educator dashboard</h1>
+          <h1 className="mt-1 font-display text-3xl text-ink">Educator Dashboard</h1>
+          {/* Window-scoped, like the picker beside it: the range follows the
+              filter rather than describing the whole published axis. */}
           <p className="mt-2 text-sm text-ink-2">
-            Data through {doc.data_through_date} ({doc.data_through_week}), from week{" "}
-            {doc.first_week} ·{" "}
-            <span
-              className="inline-flex cursor-help items-center gap-1 rounded-full border border-edge bg-card px-2 py-0.5 text-xs"
-              title={`Aggregate cells covering fewer than ${doc.privacy_floor_n} students are withheld at aggregation time — shown as gray marks or "suppressed", never as zeros.`}
-            >
-              privacy floor N ≥ {doc.privacy_floor_n}
-            </span>
+            Based on student–GenAI interactions data from StatsBot (between{" "}
+            {formatWindowRange(win)})
           </p>
         </div>
         {/* Above the tab row and outside every panel: this filter scopes all tabs. */}
@@ -125,7 +122,14 @@ export function Dashboard() {
         {Object.entries(doc.label_versions)
           .map(([domain, version]) => `${domain}=${version}`)
           .join(", ") || "none"}{" "}
-        · generated {doc.generated_at}
+        ·{" "}
+        <span
+          className="cursor-help"
+          title={`Aggregate cells covering fewer than ${doc.privacy_floor_n} students are withheld at aggregation time — shown as gray marks or "suppressed", never as zeros.`}
+        >
+          privacy floor N ≥ {doc.privacy_floor_n}
+        </span>{" "}
+        · generated {formatGeneratedDate(doc.generated_at, doc.timezone)}
       </footer>
     </div>
   );

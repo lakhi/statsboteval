@@ -83,7 +83,7 @@ All keys snake_case. Week ids are ISO 8601 `"YYYY-Www"` (e.g. `"2025-W11"`); dat
 |---|---|
 | `schema_version` | Semver. Minor/patch = additive only; **major = breaking** and moves to a new blob prefix (§9), so old readers never fetch a shape they can't parse. |
 | `generated_at` | Publish timestamp (UTC). |
-| `data_through_week` / `data_through_date` | Last complete ISO week in the file / its Sunday as a plain date (for display without ISO-week math in TS). |
+| `data_through_week` / `data_through_date` | Last complete ISO week in the file / its Sunday as a plain date. Originally published so no reader would need ISO-week math in TS; **partly superseded by D-48** — the dashboard header shows a *window-scoped* range, and only `coverage` (week ids) exists for every window kind, so `isoWeekMonday` in `dashboard/src/lib/format.ts` now does the conversion client-side. It mirrors `week_monday` in `contract.py`; keep the two in step. `data_through_date` remains the pinning check: Sunday of `data_through_week` must equal it. |
 | `first_week` | Start of the dense weekly axis. With `data_through_week` it makes "absent" exact: weekly series contain one entry per week in `[first_week, data_through_week]`, nothing else. |
 | `privacy_floor_n` | The N in force for this file (D-24: 3). Declared so no reader hardcodes it; a change is config + republish, not a schema change. |
 | `label_versions` | Map **label domain → active version**, one active version per domain (D-07). Phase A: `language` (`lang-heuristic-v1`). Phase B adds `classification` (`statsboteval-v1` \| `bergmann-v1`). Metrics that involve no labels appear in no domain. |
