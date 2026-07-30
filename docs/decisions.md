@@ -1182,3 +1182,51 @@ precondition the operator may not have met (VPN to the production DB) or a real 
 browser — the API sets no CORS headers, because same-origin (API serves the built bundle,
 D-26) is the only shape it ships in. `curl` against the API works, which is how the stale
 recipe survived. Corrected to the build-and-serve recipe, which was verified end to end.
+
+## D-52 — 2026-07-30: Trailing window anchors on the real extraction watermark, not wall-clock `now`
+
+**The bug.** `read_corpus_view`'s axis boundary (`data_through_week`, and therefore
+`trailing_4`/`all_time`/current-semester coverage) was derived from `datetime.now()` at
+aggregate time, not from when data was actually last extracted. Reported by owner from the
+live dashboard: the "Last 4 weeks" filter showed 29 Jun – 26 Jul, but the corpus's last real
+message is 2026-07-14. Any aggregate run without a fresh extract immediately beforehand —
+today's Adoption-tab iteration, `erase-student` — silently advanced the axis to whatever week
+preceded wall-clock `now`, publishing the intervening weeks as `ok(0)` "measured zero" cells
+that were never actually measured (invariant 2's reasoning assumes extraction just ran; that
+assumption held for `run-weekly` alone).
+
+**First attempt rejected by the test suite, which is exactly what it's for.** Capping
+`through` at `min(now-derived week, last message's week)` looked like the fix, but it breaks
+the legitimate case invariant 2 exists for: `test_hand_computed_document` extracts a corpus
+that really is empty in its trailing week (extraction covered it, found nothing), and that
+week must still publish as `ok(0)`. From message rows alone, "extraction covered this week and
+found zero" and "extraction never reached this week" are indistinguishable — `now` was the
+only signal telling them apart, and only `run-weekly` (extract immediately followed by
+aggregate) earns the right to use wall-clock `now` for that.
+
+**The real fix:** persist a `last_extracted_at` watermark in corpus `meta`, written by
+`extract_new_rows` even on a quiet run (a quiet run is what proves the week was actually
+checked). `read_corpus_view` now anchors the axis on that watermark, falling back to the
+passed `now` only when a corpus has never been through a real extract (every synthetic
+fixture and test corpus). `generated_at` (the publish instant) is untouched — only the
+data-boundary calculation moved. `extract_new_rows` gained an optional `now` parameter so
+`run-weekly` can pass one shared timestamp into both the extraction watermark and
+`build_aggregates`.
+
+**Renamed** the `trailing_4` window's label from "Last 4 weeks" to "Last Avl. 4 weeks" (owner)
+— it tracks the last 4 weeks *for which data is available*, not the last 4 calendar weeks,
+and the old label read as a promise the axis didn't keep whenever extraction lagged.
+
+**Publish record.** Republished the corpus unchanged: blob
+`v1/aggregates_2026-W30_20260730T135726Z.json` (+ `latest.json`), schema 1.4.0,
+`data_provenance: "production"`, axis 2025-W09 → 2026-W30, floor N=3. Mode: **re-aggregate
+only** (`--skip-extract --skip-classify`) — this fix moves no numbers today, since the real
+corpus has no watermark yet (this run is what will eventually get one) and so still falls
+back to `now`. Diffed the reviewed document against the prior publish before uploading:
+the only field that changed anywhere in the document was `trailing_4.label`. No code deploy —
+the label is entirely data-driven (`WindowPicker.tsx` renders whatever `label` the API
+returns), so no dashboard/API bundle needed rebuilding.
+
+Filed as an idea-level follow-up (issue #3): once a real extraction records the first
+watermark, revisit whether extraction lag should be surfaced more visibly in the UI, rather
+than only silently capping the axis.
