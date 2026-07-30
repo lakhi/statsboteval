@@ -14,15 +14,20 @@ import { AdoptionTab } from "./tabs/AdoptionTab";
 import { EngagementTab } from "./tabs/EngagementTab";
 import { TimingTab } from "./tabs/TimingTab";
 import { LanguageTab } from "./tabs/LanguageTab";
+import { TrendsTab } from "./tabs/TrendsTab";
 
 // Tab order is an editorial decision (2026-07-07): Topics first — the question
 // the project exists to answer — then Adoption, Engagement, Timing, Language.
+// Trends appended last (2026-07-30, D-49): it draws on the measures behind all five
+// tabs, so it only makes sense once the reader has met them. Its cards link back to
+// whichever tab a finding came from, which is the other reason it sits after them.
 const TABS: TabDef[] = [
   { id: "topics", label: "Topics" },
   { id: "adoption", label: "Adoption" },
   { id: "engagement", label: "Engagement" },
   { id: "timing", label: "Timing" },
   { id: "language", label: "Language" },
+  { id: "trends", label: "Trends" },
 ];
 
 type State =
@@ -86,6 +91,10 @@ export function Dashboard() {
     engagement: <EngagementTab doc={doc} win={win} />,
     timing: <TimingTab doc={doc} win={win} />,
     language: <LanguageTab doc={doc} win={win} />,
+    // setTab as a prop is fine here and below: this file is the "use client" entry
+    // point, so nothing under it crosses the server/client boundary where function
+    // props would have to be serializable.
+    trends: <TrendsTab doc={doc} win={win} onJumpToTab={setTab} />,
   };
 
   return (

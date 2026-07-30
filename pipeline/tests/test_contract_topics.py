@@ -53,7 +53,9 @@ def topics_for(doc: Aggregates, *, by_status: dict[str, TopicGroup] | None = Non
 
 
 def test_schema_version_bumped_minor() -> None:
-    assert SCHEMA_VERSION == "1.2.0"
+    # Deliberate tripwire: every additive section bump edits this line, which forces the
+    # bump to be a decision rather than a side effect. 1.3.0 adds trends (D-49).
+    assert SCHEMA_VERSION == "1.3.0"
 
 
 def test_description_optional_and_absent_not_null() -> None:

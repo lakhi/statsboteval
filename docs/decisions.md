@@ -696,7 +696,7 @@ adds Phase B Task 21.)
   existing corpus; before that publish, the operator glances over the 15 emergent
   descriptions as now-public text (same D-33 review discipline as the labels).
 
-## D-45 — 2026-07-28: Classifier configuration re-tuned; `statsboteval-v2` at batch_size 5
+## D-45 — 2026-07-28: Classifier configuration re-tuned; `statsboteval-v2` at batch_size 10
 
 - **Problem.** `statsboteval-v1` scores average MCC **.71** on the 300 Bergmann
   human-consensus messages (D-42), below the Bergmann GPT-5 reference (.79). A 20-arm
@@ -952,3 +952,80 @@ adds Phase B Task 21.)
 - **Scope.** Dashboard-only: `Dashboard.tsx` and `format.ts`. No API, pipeline, contract,
   schema or republish. `data_through_date`, `data_through_week` and `first_week` are no
   longer rendered anywhere; the picker still marks unfinished windows via `isInProgress`.
+
+## D-49 — 2026-07-30: Trends tab — pipeline-selected period comparisons, ranked by usefulness rather than significance
+
+- **What shipped.** A sixth dashboard tab answering *"how is usage changing over time?"*
+  with at most five pipeline-selected findings per window, drawn from the measures behind
+  all five existing tabs. Schema **1.2.0 → 1.3.0**, additive (the regenerated schema is
+  +285 / −0 lines), same `v1/` blob prefix — a 1.2.0 reader ignores the section
+  (invariant 5) and an old document under the new dashboard renders `SectionPending`, so
+  deployment is safe in both directions.
+- **The pipeline selects; the dashboard renders.** Invariant 4 decides most of this, but
+  the binding reason is that real hypothesis tests need per-student observations, and
+  those exist **only locally** (constraint 1). Floored aggregates cannot be tested. The
+  relevance tier that drives the ordering is deliberately not published — publishing it
+  would invite the client to re-sort.
+- **Ranking is usefulness-first; significance is a gate, not an ordering** (owner,
+  2026-07-29). The audience is a statistics educator or a StatsBot evaluator, so the tab
+  surfaces what could change a teaching or tooling decision, not what has the smallest
+  p-value. Findings sort by a pinned relevance tier with effect size only as the
+  tie-break *within* a tier. This reversed the original plan's exclusion of method and
+  software themes: *which statistical methods students ask about* is the most actionable
+  signal this dashboard carries, and excluding it while ranking `Politeness Expression`
+  inverted the stated priority. Topics accordingly gets 3 of the 5 slots.
+- **Census framing, settled in-house.** These are all StatsBot users, not a sample, so
+  the tests are framed as a guard against over-reading noise rather than inference to a
+  population. No external sign-off is sought or required for any StatsBotEval decision.
+- **Benjamini–Hochberg over one family per window**, chosen for simplicity: per-tab
+  families would hold a topic finding and a language finding to different standards in
+  the same list. The two-tier evidence marker (`robust` = BH-adjusted p < .05,
+  `indicative` = unadjusted only) is the release valve, so a strict family cannot starve
+  the tab — it changes how confidently findings are labelled.
+- **Pinning discipline, split deliberately.** Relevance tiers were pinned *before* any
+  dry run — they are a judgment about pedagogy, and nothing in the data informs them.
+  Magnitude thresholds were pinned from **one** recorded dry run against the real corpus
+  (2026-07-30, `preview-trends`), per measure family, not iteratively tuned. Families are
+  separate because a shares threshold sized for language (40–60%, where 5 pp is ordinary)
+  is unreachable for an individual topic theme (2–8%); a single threshold would have
+  gated out exactly the tier-1 measures the ranking promotes.
+- **`volume_rate` and `people_rate` are separate families**, found by the first dry run:
+  a single `rate` family with `min_n = 30` conflated event counts (thousands per semester)
+  with people counts (tens), which permanently gated `active-students-per-week` — a
+  measure that never has 30 "observations" by construction.
+- **Three empty states, not one.** "No earlier period", "nothing was testable"
+  (`insufficient_data`) and "tested and flat" are different claims. Roughly a third of
+  the year is break weeks and `trailing_4` sits in them for months, so without the
+  distinction the tab would assert all summer that a comparison ran and came back flat.
+  The calibration run confirmed this empirically: 62 of 69 `trailing_4` candidates fail
+  the privacy floor in the July break. Stability is never published as a positive
+  finding — absence of evidence through a noise gate is a weaker statement than it looks.
+  A window where no candidate is even *defined* (every measure undefined on a side, e.g.
+  a current period with no messages) reports `insufficient_data` too, not "flat" — caught
+  in review, unreachable on today's corpus, and pinned by a test so the two paths for
+  "nothing was testable" cannot diverge.
+- **The floor is satisfied by absence here, not by a marker.** Findings publish derived
+  floats and have no suppressed state; sub-floor candidates are dropped before
+  publication. Legitimate because a rendered "we found a shift but cannot say what"
+  carries no information, unlike a suppressed count whose position and neighbours do. A
+  publish-time walk asserts no `n_students` anywhere in the outgoing bytes is below the
+  floor, and a property test asserts no generated corpus yields a sub-floor finding side.
+  Consequence, accepted: a measure falling to exactly zero publishes nothing.
+- **No operator review gates a publish.** Titles are template-generated from pinned
+  measure names, so no finding text derives from chat content and D-33's review
+  discipline does not apply.
+- **The delta is not colored by valence.** Almost nothing here has a good direction — a
+  rising German share is neither better nor worse — so direction is carried by an arrow
+  and a sign rather than by green/red, which would editorialize a measurement.
+- **Known limitation, deferred.** Emergent and method themes are independent taxonomies
+  over the same messages, so one real shift can occupy two of the three topics slots (the
+  calibration run showed exactly this for assumption-checking in 2026S). Not a
+  correctness fault — two taxonomies agreeing is corroboration — but it costs slot
+  diversity. A per-label-family sub-cap is the fix if it proves annoying in practice.
+- **Also deferred:** Cochran–Armitage trend test for trajectories (endpoint test in v1),
+  same-elapsed-weeks clipping for in-progress semesters (per-week rates chosen instead),
+  and `by_status` trend splits (suppression-heavy at this corpus size).
+- **Incidental fix, recorded because it changed published output:** `seed_synthetic` never
+  ran language detection, so every synthetic corpus was 100% `undetermined` and the
+  dev-fixture Language tab was empty. It now runs the real local heuristic, as the real
+  pipeline does before aggregation.

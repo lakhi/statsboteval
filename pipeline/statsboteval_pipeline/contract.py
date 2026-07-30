@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 
 FootnoteId = str
 
@@ -338,6 +338,128 @@ class TopicsSection(BaseModel):
     theme_set_version: str | None = None  # reviewed set behind emergent_themes (D-33)
 
 
+# --- trends (contract §7.6, schema 1.3.0 — D-49) ---
+
+TREND_TABS = ("topics", "adoption", "engagement", "timing", "language")
+TREND_MAX_FINDINGS = 5
+# Topics carries most of tier 1 (method + emergent themes); capping it at 2 like the
+# rest would push lower-tier findings onto the page by construction (D-49 choice 9).
+TREND_TAB_CAPS = {"topics": 3}
+TREND_DEFAULT_TAB_CAP = 2
+
+
+class MeasureValue(BaseModel):
+    # Deliberately NOT CountCell: a finding's sides are derived floats (rates, shares,
+    # medians), and a sub-floor candidate is dropped before publication rather than
+    # marked suppressed — so there is no suppressed state to represent (invariant 2 is
+    # satisfied by absence, not by a marker). n_students rides along so every number
+    # stays citable and the publish guard can re-check the floor.
+    value: float
+    n_students: int = Field(ge=1)
+
+
+class TrajectoryPoint(BaseModel):
+    window_id: str
+    value: float
+    n_students: int = Field(ge=1)
+
+
+class WindowBaseline(BaseModel):
+    kind: Literal["window"]
+    window_id: str
+
+
+class WeeksBaseline(BaseModel):
+    # trailing_4's baseline: the 4 complete weeks before it. Embedded here rather than
+    # added to the window registry — it is a comparison, not something to select.
+    model_config = ConfigDict(populate_by_name=True)
+
+    kind: Literal["weeks"]
+    from_: WeekId = Field(alias="from")
+    through: WeekId
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "WeeksBaseline":
+        if week_monday(self.from_) > week_monday(self.through):
+            raise ValueError("baseline.from must not be after baseline.through")
+        return self
+
+
+class TrajectoryBaseline(BaseModel):
+    # all_time: every finding carries its per-semester trajectory instead of one baseline.
+    kind: Literal["trajectory"]
+
+
+BaselineRef = Annotated[Union[WindowBaseline, WeeksBaseline, TrajectoryBaseline], Field(discriminator="kind")]
+
+
+class Finding(BaseModel):
+    id: str  # stable slug, e.g. "language-de-share"
+    tab: Literal["topics", "adoption", "engagement", "timing", "language"]
+    title: str  # template-generated from pinned measure names — never chat-derived (D-49)
+    measure: str
+    kind: Literal["rate", "share", "median"]
+    unit: str
+    current: MeasureValue
+    baseline: MeasureValue
+    delta: float  # in unit terms (pp, per-week, minutes…)
+    evidence: Literal["robust", "indicative"]  # BH-adjusted p<.05 vs unadjusted only
+    method: str
+    trajectory: list[TrajectoryPoint] | None = None  # only under a trajectory baseline
+    footnote_ids: list[FootnoteId] | None = None
+
+
+class TrendsWindow(BaseModel):
+    baseline: BaselineRef | None = None  # null = no predecessor to compare against
+    # True when a baseline exists but no candidate was even testable (every one fell
+    # below the floor or the minimum n). Distinct from an empty findings list, which
+    # means tested and flat — break weeks must not read as "nothing changed" (D-49).
+    insufficient_data: bool = False
+    findings: list[Finding] = Field(default_factory=list, max_length=TREND_MAX_FINDINGS)
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: Any) -> dict[str, Any]:
+        # dump_doc uses exclude_none, which would drop baseline=None — but null IS the
+        # "no predecessor" marker the dashboard branches on (contract §7.6), so
+        # reinstate it. Same reasoning as HistogramBin.hi.
+        data = handler(self)
+        if self.baseline is None:
+            data["baseline"] = None
+        return data
+
+    @model_validator(mode="after")
+    def _coherent(self) -> "TrendsWindow":
+        if self.baseline is None:
+            if self.findings:
+                raise ValueError("findings require a baseline to compare against")
+            if self.insufficient_data:
+                raise ValueError("insufficient_data is meaningless without a baseline")
+        if self.insufficient_data and self.findings:
+            raise ValueError("insufficient_data must be false when findings are published")
+
+        by_tab: dict[str, int] = {}
+        for finding in self.findings:
+            by_tab[finding.tab] = by_tab.get(finding.tab, 0) + 1
+        for tab, count in by_tab.items():
+            cap = TREND_TAB_CAPS.get(tab, TREND_DEFAULT_TAB_CAP)
+            if count > cap:
+                raise ValueError(f"at most {cap} findings from tab {tab!r}: got {count}")
+
+        # The tagged union already says whether this window is a trajectory comparison;
+        # per-finding trajectories must agree with it.
+        wants_trajectory = self.baseline is not None and self.baseline.kind == "trajectory"
+        for finding in self.findings:
+            if finding.trajectory is not None and not wants_trajectory:
+                raise ValueError(f"finding {finding.id!r} carries a trajectory without a trajectory baseline")
+            if finding.trajectory is None and wants_trajectory:
+                raise ValueError(f"finding {finding.id!r} must carry a trajectory under a trajectory baseline")
+        return self
+
+
+class TrendsSection(BaseModel):
+    per_window: dict[str, TrendsWindow]
+
+
 class Sections(BaseModel):
     # Every section optional: readers tolerate absence (invariant 5).
     temporal_usage: TemporalUsage | None = None
@@ -346,6 +468,7 @@ class Sections(BaseModel):
     tokens: TokensSection | None = None
     language: LanguageSection | None = None
     topics: TopicsSection | None = None  # Phase B (schema 1.1.0); 1.0.0 readers ignore it
+    trends: TrendsSection | None = None  # schema 1.3.0 (D-49); 1.2.0 readers ignore it
 
 
 class Footnote(BaseModel):
@@ -397,10 +520,48 @@ class Aggregates(BaseModel):
 
     def _per_window_maps(self) -> Iterator[tuple[str, dict[str, Any]]]:
         s = self.sections
-        for name in ("temporal_usage", "usage_context", "sessions", "tokens", "language", "topics"):
+        # Every per_window-shaped section must be listed, or its window ids go unchecked.
+        for name in ("temporal_usage", "usage_context", "sessions", "tokens", "language", "topics", "trends"):
             section = getattr(s, name)
             if section is not None:
                 yield name, section.per_window
+
+    def _check_trends(self, window_ids: set[str]) -> None:
+        """Floor and registry checks for findings (contract §7.6).
+
+        Findings publish derived floats with no suppressed state, so the floor cannot be
+        re-read off the cell the way floored_count() guarantees elsewhere — every side
+        is checked explicitly here instead.
+        """
+        trends = self.sections.trends
+        if trends is None:
+            return
+        all_time_ids = {w.id for w in self.windows if w.kind == "all_time"}
+        for window_id, entry in trends.per_window.items():
+            baseline = entry.baseline
+            if isinstance(baseline, WindowBaseline) and baseline.window_id not in window_ids:
+                raise ValueError(
+                    f"trends.per_window.{window_id}.baseline references unknown window {baseline.window_id!r}"
+                )
+            if isinstance(baseline, TrajectoryBaseline) and window_id not in all_time_ids:
+                raise ValueError(
+                    f"trends.per_window.{window_id}: a trajectory baseline belongs only to the all_time window"
+                )
+            for finding in entry.findings:
+                sides = [("current", finding.current.n_students), ("baseline", finding.baseline.n_students)]
+                sides += [(f"trajectory[{p.window_id}]", p.n_students) for p in finding.trajectory or ()]
+                for side, n_students in sides:
+                    if n_students < self.privacy_floor_n:
+                        raise ValueError(
+                            f"trends.per_window.{window_id} finding {finding.id!r} side {side} has "
+                            f"n_students={n_students} below the floor of {self.privacy_floor_n}"
+                        )
+                for point in finding.trajectory or ():
+                    if point.window_id not in window_ids:
+                        raise ValueError(
+                            f"trends.per_window.{window_id} finding {finding.id!r} trajectory "
+                            f"references unknown window {point.window_id!r}"
+                        )
 
     @model_validator(mode="after")
     def _cross_document_consistency(self) -> "Aggregates":
@@ -413,6 +574,7 @@ class Aggregates(BaseModel):
             unknown = set(per_window) - window_ids
             if unknown:
                 raise ValueError(f"sections.{name}.per_window references unknown windows: {sorted(unknown)}")
+        self._check_trends(window_ids)
         referenced = set(_iter_footnote_ids(dump_doc(self.sections)))
         unknown_footnotes = referenced - set(self.footnotes)
         if unknown_footnotes:

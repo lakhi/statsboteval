@@ -2,7 +2,11 @@
 
 The floor (contract invariant 1) is applied in exactly one place: floored_count()
 (plus its summary-stats sibling _summary()). No other code may turn corpus
-numbers into cells. ISO-week bucketing happens in Python after
+numbers into cells. The one shape outside that rule is a trends Finding
+(contract §7.6, D-49), which has no suppressed state because sub-floor
+candidates are dropped before publication rather than marked — trends.py owns
+that path and Aggregates._check_trends re-proves the floor on every published
+side. ISO-week bucketing happens in Python after
 UTC->Europe/Vienna conversion — calendar knowledge lives here, not in SQL
 (matching the contract's semester principle).
 """
@@ -62,7 +66,9 @@ from .contract import (
 from .classify.codebook import DEDUCTIVE_CATEGORY_NAMES, category_code
 from .contract import TopicDistribution, TopicGroup, TopicItem, TopicsSection, TopicsWindowEntry
 from .language import LABEL_VERSION as LANGUAGE_LABEL_VERSION
+from .stats import classify_user, quantile_type2
 from .status import read_status, resolve_status
+from .trends import build_trends
 from .windows import build_windows
 
 VIENNA = ZoneInfo("Europe/Vienna")
@@ -107,10 +113,31 @@ FOOTNOTES = {
         text="Program level comes from coordinator roster lists; students who moved from "
         "bachelor to master are counted by their status at usage time (per session)."
     ),
+    # Trends footnotes (schema 1.3.0, D-49). trend_method is versioned with the numbers
+    # it quotes: changing a threshold means editing this text in the same commit.
+    "trend_method": Footnote(
+        text="Trends compares the selected period with the one before it across a fixed set of "
+        "measures. A change is listed only if both periods clear the privacy floor, the change "
+        "is large enough to matter for its measure, and it stays significant at p < .05 after "
+        "Benjamini-Hochberg correction across every measure tested (marked robust) or at least "
+        "before it (indicative). Survivors are ordered by how directly they bear on teaching "
+        "decisions, not by how small their p-value is. These are all StatsBot users rather than "
+        "a sample, so the tests guard against over-reading short-period noise; they are not "
+        "inference to a wider population."
+    ),
+    "per_week_rate": Footnote(
+        text="Volume measures are compared per covered week so periods of unequal length stay "
+        "comparable. Variation in activity within a period (term start, exam weeks) is not "
+        "corrected for, and a period still in progress is averaged over the weeks so far."
+    ),
+    "cohort_turnover": Footnote(
+        text="Each semester draws a largely different cohort of students; a change between "
+        "semesters may reflect who enrolled rather than a change in behavior."
+    ),
 }
 
 # Display labels for deductive codes: the public manuscript names (codebook.py constant).
-_DEDUCTIVE_LABELS = {category_code(name): name for name in DEDUCTIVE_CATEGORY_NAMES}
+DEDUCTIVE_LABELS = {category_code(name): name for name in DEDUCTIVE_CATEGORY_NAMES}
 _TOPIC_DOMAINS = ("deductive", "method_theme", "software_theme", "emergent_theme")
 
 
@@ -123,15 +150,6 @@ def floored_count(value: int, n_students: int, floor_n: int) -> OkCell | Suppres
     if n_students == 0 or n_students >= floor_n:
         return ok(value)
     return suppressed()
-
-
-def _quantile_type2(sorted_vals: list[float], p: float) -> float:
-    """R quantile type 2 — the estimator the Bergmann reference scripts use."""
-    n = len(sorted_vals)
-    h = n * p + 0.5
-    lo = min(max(math.ceil(h - 0.5), 1), n)
-    hi = min(max(math.floor(h + 0.5), 1), n)
-    return (sorted_vals[lo - 1] + sorted_vals[hi - 1]) / 2
 
 
 def _summary(
@@ -151,9 +169,9 @@ def _summary(
     return OkSummaryStats(
         status="ok",
         n_students=len(students),
-        median=round(_quantile_type2(vals, 0.5), 1),
-        p25=round(_quantile_type2(vals, 0.25), 1),
-        p75=round(_quantile_type2(vals, 0.75), 1),
+        median=round(quantile_type2(vals, 0.5), 1),
+        p25=round(quantile_type2(vals, 0.25), 1),
+        p75=round(quantile_type2(vals, 0.75), 1),
         mean=mean,
         sd=sd,
     )
@@ -216,19 +234,10 @@ def _user_classes(user_dates: dict[str, list[datetime]], floor_n: int) -> UserCl
     Computed on Vienna-local timestamps for consistency with the document's
     timezone (the reference scripts used UTC; the thresholds are what is pinned).
     """
-    one_time = monthly = sporadic = 0
+    tally = {"one_time": 0, "monthly": 0, "sporadic": 0}
     for stamps in user_dates.values():
-        stamps = sorted(stamps)
-        days = [s.date() for s in stamps]
-        span_days = (days[-1] - days[0]).days + 1
-        within_24h = stamps[-1] - stamps[0] <= timedelta(hours=24)
-        gaps = [(b - a).days for a, b in zip(days, days[1:])]
-        if span_days < 3 and within_24h:
-            one_time += 1
-        elif all(g < 30 for g in gaps) and span_days >= 30:
-            monthly += 1
-        else:
-            sporadic += 1
+        tally[classify_user(stamps)] += 1
+    one_time, monthly, sporadic = tally["one_time"], tally["monthly"], tally["sporadic"]
     return UserClasses(
         one_time=floored_count(one_time, one_time, floor_n),
         monthly=floored_count(monthly, monthly, floor_n),
@@ -243,17 +252,32 @@ def _window_weeks(window: Window, axis: list[str]) -> set[str]:
     return set(window.weeks) & set(axis)
 
 
-def build_aggregates(
+@dataclass(frozen=True)
+class CorpusView:
+    """The in-memory corpus every section and every finding is computed from.
+
+    Read once per run and shared, so `preview-trends` and a real publish can never
+    disagree about the data underneath them.
+    """
+
+    msgs: list[_Message]
+    sessions: list[_Session]
+    registrations: list[tuple[str, str]]  # (pseudonym, week)
+    axis: list[str]
+    windows: list[Window]
+    first_week: str
+    through_week: str
+    positives: dict[str, dict[str, set[int]]]  # domain -> code -> history_ids
+
+
+def read_corpus_view(
     con: duckdb.DuckDBPyConnection,
     *,
-    floor_n: int,
     now: datetime,
-    provenance: Literal["synthetic", "production"],
-    pipeline_version: str,
     axis_start: date | None = None,
     classification_version: str | None = None,
-    theme_set_version: str | None = None,
-) -> Aggregates:
+) -> CorpusView:
+    """Read the corpus into the structures the aggregation and trends passes share."""
     rows = con.execute(
         "SELECT m.history_id, m.pseudonym, m.session_started, m.created_at, m.completion_tokens, l.code "
         "FROM messages m LEFT JOIN labels l ON l.history_id = m.history_id "
@@ -311,6 +335,50 @@ def build_aggregates(
         if axis_start is not None and local_date < axis_start:
             continue
         registrations.append((pseudonym, date_to_week(local_date)))
+
+    # Label positives, read here rather than inside the topics block: build_trends needs
+    # exactly the same material, and a second query would be a second source of truth for
+    # which message carries which code. Empty when nothing was classified.
+    positives: dict[str, dict[str, set[int]]] = {domain: defaultdict(set) for domain in _TOPIC_DOMAINS}
+    if classification_version is not None:
+        for domain, code, history_id in con.execute(
+            "SELECT domain, code, history_id FROM labels "
+            "WHERE label_version = ? AND value = 1 AND domain IN ('deductive', 'method_theme', "
+            "'software_theme', 'emergent_theme')",
+            [classification_version],
+        ).fetchall():
+            positives[domain][code].add(history_id)
+
+    return CorpusView(
+        msgs=msgs,
+        sessions=sessions,
+        registrations=registrations,
+        axis=axis,
+        windows=windows,
+        first_week=first,
+        through_week=through,
+        positives=positives,
+    )
+
+
+def build_aggregates(
+    con: duckdb.DuckDBPyConnection,
+    *,
+    floor_n: int,
+    now: datetime,
+    provenance: Literal["synthetic", "production"],
+    pipeline_version: str,
+    axis_start: date | None = None,
+    classification_version: str | None = None,
+    theme_set_version: str | None = None,
+) -> Aggregates:
+    view = read_corpus_view(
+        con, now=now, axis_start=axis_start, classification_version=classification_version
+    )
+    msgs, sessions, registrations = view.msgs, view.sessions, view.registrations
+    axis, windows = view.axis, view.windows
+    first, through = view.first_week, view.through_week
+    positives = view.positives
 
     # ---- weekly series ------------------------------------------------------
     def weekly_series(
@@ -439,15 +507,6 @@ def build_aggregates(
     # ---- topics (Phase B, schema 1.1.0; by_status per D-39) -----------------
     topics_section: TopicsSection | None = None
     if classification_version is not None:
-        positives: dict[str, dict[str, set[int]]] = {domain: defaultdict(set) for domain in _TOPIC_DOMAINS}
-        for domain, code, history_id in con.execute(
-            "SELECT domain, code, history_id FROM labels "
-            "WHERE label_version = ? AND value = 1 AND domain IN ('deductive', 'method_theme', "
-            "'software_theme', 'emergent_theme')",
-            [classification_version],
-        ).fetchall():
-            positives[domain][code].add(history_id)
-
         # 1.2.0: emergent items carry their reviewed one-line definition from the
         # frozen theme set. Other domains publish no description — Bergmann
         # category definitions are unpublished research material (D-16).
@@ -461,7 +520,7 @@ def build_aggregates(
 
         def topic_distribution(domain: str, subset: list[_Message], with_status_rule: bool) -> TopicDistribution:
             def display(code: str) -> str:
-                return _DEDUCTIVE_LABELS.get(code, code) if domain == "deductive" else code
+                return DEDUCTIVE_LABELS.get(code, code) if domain == "deductive" else code
 
             items = []
             for code in sorted(positives[domain], key=display):
@@ -519,6 +578,21 @@ def build_aggregates(
     if topics_section is not None and classification_version is not None:
         label_versions["classification"] = classification_version
 
+    # ---- trends (schema 1.3.0, D-49) ----------------------------------------
+    # Last, and from the same in-memory structures every section above used: findings
+    # are comparisons of published measures, so they must not be able to disagree with
+    # the measures themselves.
+    trends_section = build_trends(
+        msgs=msgs,
+        sessions=sessions,
+        registrations=registrations,
+        windows=windows,
+        axis=axis,
+        floor_n=floor_n,
+        positives=positives if topics_section is not None else None,
+        deductive_labels=DEDUCTIVE_LABELS,
+    )
+
     return Aggregates(
         schema_version=SCHEMA_VERSION,
         generated_at=now.astimezone(timezone.utc),
@@ -556,5 +630,6 @@ def build_aggregates(
                 per_window=language_windows,
             ),
             topics=topics_section,
+            trends=trends_section,
         ),
     )

@@ -130,6 +130,31 @@ def test_run_synthetic_with_labels_publishes_topics(tmp_path: Path) -> None:
     assert set(entry["by_status"]) <= {"bachelor", "master", "staff", "unknown"}
     assert len(entry["by_status"]) >= 2
 
+    # T-6: the default axis spans two semesters, so the planted shifts publish as findings
+    # and every window state the dashboard branches on appears. This is the one end-to-end
+    # proof that a shift survives seeding, aggregation and the publish guard; labelling
+    # dominates the runtime, so the suite pays for exactly one corpus of this size.
+    per_window = doc["sections"]["trends"]["per_window"]
+    assert set(per_window) == {w["id"] for w in doc["windows"]}
+    semesters = [w["id"] for w in doc["windows"] if w["kind"] == "semester"]
+    assert len(semesters) >= 2, "40 weeks should always cover two semesters"
+
+    assert per_window[semesters[0]]["baseline"] is None  # earliest: no predecessor
+    assert per_window[semesters[0]]["findings"] == []
+    assert per_window["trailing_4"]["baseline"]["kind"] == "weeks"
+    assert per_window["all_time"]["baseline"] == {"kind": "trajectory"}
+
+    latest = per_window[semesters[-1]]["findings"]
+    assert latest, "the planted shifts should publish in the most recent semester"
+    ids = {f["id"] for f in latest}
+    assert any(i.startswith("topics-method_theme-") for i in ids)
+    assert {"share", "median"} <= {f["kind"] for f in latest}
+    # Every published side cleared the floor, and all_time findings carry a full trajectory.
+    for finding in latest:
+        assert finding["current"]["n_students"] >= 3 and finding["baseline"]["n_students"] >= 3
+    for finding in per_window["all_time"]["findings"]:
+        assert [p["window_id"] for p in finding["trajectory"]] == semesters
+
 
 def test_validate_subcommand_prints_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     from statsboteval_pipeline.labels import LabelRow, write_labels
@@ -264,3 +289,71 @@ def test_assign_themes_refuses_missing_or_unreviewed_set(corpus: Path, tmp_path:
     with pytest.raises(ThemeSetError, match="not reviewed"):
         run_theme_assignment(con, env_file=env)
     con.close()
+
+
+@pytest.fixture(scope="module")
+def two_semester_corpus(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A 22-week corpus spanning 2025S and 2025W, so the pairing table has work to do.
+
+    Module-scoped: seeding 22 weeks costs ~20s, and these tests only read it.
+    """
+    from datetime import date
+
+    from statsboteval_pipeline.fixtures import seed_synthetic_labels
+
+    path = tmp_path_factory.mktemp("preview") / "corpus.duckdb"
+    con = open_corpus(path)
+    seed_synthetic(con, weeks=22, seed=7, anchor=date(2025, 11, 19))
+    seed_synthetic_labels(con, seed=7)
+    con.close()
+    return path
+
+
+def test_preview_trends_prints_the_candidate_table(
+    two_semester_corpus: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T-4: the dry run reports every candidate and its gate, and writes nothing."""
+    before = sorted(p.name for p in two_semester_corpus.parent.iterdir())
+
+    assert cli.main(["preview-trends", "--corpus", str(two_semester_corpus)]) == 0
+    printed = capsys.readouterr().out
+
+    # The thresholds in force are printed with the table, so a run is self-documenting.
+    assert "Thresholds in force" in printed
+    assert "privacy floor = 3 students" in printed
+    assert "topics=3" in printed
+    # Every window in the registry is reported, including the empty-state one.
+    assert "=== all_time" in printed
+    assert "no earlier period to compare" in printed
+    # Candidates carry a verdict, and the legend explains each one.
+    assert "verdict" in printed
+    assert "fewer than the privacy floor" in printed
+    # Topic candidates are present once labels exist, tagged tier 1.
+    assert "topics-method_theme-" in printed
+    # Read-only: no document, no blob, no new file.
+    assert sorted(p.name for p in two_semester_corpus.parent.iterdir()) == before
+
+
+def test_preview_trends_can_restrict_to_one_window(
+    two_semester_corpus: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["preview-trends", "--corpus", str(two_semester_corpus), "--window", "trailing_4"]) == 0
+    printed = capsys.readouterr().out
+    assert "=== trailing_4" in printed
+    assert "=== all_time" not in printed
+
+
+def test_preview_trends_notes_when_no_labels_exist(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Without a classification pass there are no topic candidates, and the operator is
+    # told so rather than left wondering why tier 1 is nearly empty.
+    corpus = tmp_path / "corpus.duckdb"
+    con = open_corpus(corpus)
+    seed_synthetic(con, weeks=8, seed=7)
+    con.close()
+
+    assert cli.main(["preview-trends", "--corpus", str(corpus)]) == 0
+    printed = capsys.readouterr().out
+    assert f"no {CURRENT_LABEL_VERSION} labels" in printed
+    assert "topics-" not in printed

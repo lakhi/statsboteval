@@ -31,12 +31,29 @@ class LabelRow(NamedTuple):
 
 
 def write_labels(con: duckdb.DuckDBPyConnection, rows: Iterable[LabelRow]) -> None:
-    """Bulk upsert on the primary key — re-running a labeling pass never duplicates."""
-    con.executemany(
-        "INSERT OR REPLACE INTO labels (history_id, label_version, domain, code, value, provenance) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        [tuple(row) for row in rows],
-    )
+    """Bulk upsert on the primary key — re-running a labeling pass never duplicates.
+
+    Staged through a temp table rather than `executemany("INSERT OR REPLACE ...")`:
+    DuckDB runs the latter one statement at a time, doing a primary-key probe per row,
+    which measured at ~1.5 ms/row — 90 s to write one classification pass over the real
+    corpus, and growing linearly with it. Loading a PK-less staging table and merging in a
+    single statement lets the columnar engine do the work it is good at.
+    """
+    # Last-wins on duplicate keys, matching what row-by-row INSERT OR REPLACE did. The
+    # merge below cannot do it: DuckDB refuses to update the same row twice in one
+    # statement, so a duplicate would turn a silent overwrite into a hard failure.
+    deduped = {row[:4]: tuple(row) for row in rows}
+    if not deduped:
+        return
+    con.execute("CREATE OR REPLACE TEMP TABLE _labels_in AS SELECT * FROM labels LIMIT 0")
+    try:
+        con.executemany("INSERT INTO _labels_in VALUES (?, ?, ?, ?, ?, ?)", list(deduped.values()))
+        con.execute(
+            "INSERT OR REPLACE INTO labels (history_id, label_version, domain, code, value, provenance) "
+            "SELECT history_id, label_version, domain, code, value, provenance FROM _labels_in"
+        )
+    finally:
+        con.execute("DROP TABLE IF EXISTS _labels_in")
 
 
 def read_labels(con: duckdb.DuckDBPyConnection, label_version: str) -> list[LabelRow]:

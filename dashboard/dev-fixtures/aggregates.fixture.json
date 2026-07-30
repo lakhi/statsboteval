@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "generated_at": "2026-07-06T05:12:33Z",
   "data_through_week": "2026-W27",
   "data_through_date": "2026-07-05",
@@ -152,6 +152,15 @@
     },
     "status_rule": {
       "text": "Program level comes from coordinator roster lists; students who moved from bachelor to master are counted by their status at usage time (per session)."
+    },
+    "trend_method": {
+      "text": "Findings are the changes most likely to inform a teaching or tooling decision, among those large and consistent enough to stand out from normal variation."
+    },
+    "per_week_rate": {
+      "text": "Volume measures are compared per covered week, so periods of unequal length stay comparable."
+    },
+    "cohort_turnover": {
+      "text": "Each semester draws a largely different cohort of students; a shift between semesters may reflect who enrolled rather than a change in behavior."
     }
   },
   "sections": {
@@ -15679,6 +15688,248 @@
         }
       },
       "theme_set_version": "statsboteval-themes-v1"
+    },
+    "trends": {
+      "per_window": {
+        "2025S": {
+          "baseline": null,
+          "insufficient_data": false,
+          "findings": []
+        },
+        "2025W": {
+          "baseline": {
+            "kind": "window",
+            "window_id": "2025S"
+          },
+          "insufficient_data": false,
+          "findings": []
+        },
+        "2026S": {
+          "baseline": {
+            "kind": "window",
+            "window_id": "2025W"
+          },
+          "insufficient_data": false,
+          "findings": [
+            {
+              "method": "two-proportion z, BH-adjusted",
+              "footnote_ids": [
+                "trend_method",
+                "multi_label",
+                "cohort_turnover"
+              ],
+              "id": "topics-method_theme-regression",
+              "tab": "topics",
+              "title": "Questions about regression modelling rose",
+              "measure": "Share of messages about regression modelling",
+              "kind": "share",
+              "unit": "% of messages",
+              "current": {
+                "value": 23.1,
+                "n_students": 47
+              },
+              "baseline": {
+                "value": 16,
+                "n_students": 85
+              },
+              "delta": 7.1,
+              "evidence": "robust"
+            },
+            {
+              "method": "two-proportion z, BH-adjusted",
+              "footnote_ids": [
+                "trend_method",
+                "multi_label"
+              ],
+              "id": "topics-method_theme-anova",
+              "tab": "topics",
+              "title": "Questions about the ANOVA family fell",
+              "measure": "Share of messages about the ANOVA family",
+              "kind": "share",
+              "unit": "% of messages",
+              "current": {
+                "value": 8.4,
+                "n_students": 24
+              },
+              "baseline": {
+                "value": 13.8,
+                "n_students": 58
+              },
+              "delta": -5.4,
+              "evidence": "robust"
+            },
+            {
+              "method": "two-proportion z, BH-adjusted",
+              "footnote_ids": [
+                "trend_method",
+                "multi_label",
+                "label_provenance"
+              ],
+              "id": "topics-emergent_theme-assumptions",
+              "tab": "topics",
+              "title": "Questions about checking assumptions rose",
+              "measure": "Share of messages about checking assumptions",
+              "kind": "share",
+              "unit": "% of messages",
+              "current": {
+                "value": 23.8,
+                "n_students": 37
+              },
+              "baseline": {
+                "value": 17.8,
+                "n_students": 73
+              },
+              "delta": 6,
+              "evidence": "indicative"
+            },
+            {
+              "method": "two-proportion z, BH-adjusted",
+              "footnote_ids": [
+                "trend_method",
+                "language_heuristic"
+              ],
+              "id": "language-de-share",
+              "tab": "language",
+              "title": "German share of messages fell",
+              "measure": "German share of messages",
+              "kind": "share",
+              "unit": "% of messages",
+              "current": {
+                "value": 48.1,
+                "n_students": 74
+              },
+              "baseline": {
+                "value": 61.8,
+                "n_students": 91
+              },
+              "delta": -13.7,
+              "evidence": "robust"
+            },
+            {
+              "method": "Mann-Whitney U (normal approximation)",
+              "footnote_ids": [
+                "trend_method",
+                "chat_fragmentation"
+              ],
+              "id": "engagement-messages-per-session",
+              "tab": "engagement",
+              "title": "Messages per conversation rose",
+              "measure": "Median messages per conversation",
+              "kind": "median",
+              "unit": "messages",
+              "current": {
+                "value": 4,
+                "n_students": 66
+              },
+              "baseline": {
+                "value": 3,
+                "n_students": 74
+              },
+              "delta": 1,
+              "evidence": "indicative"
+            }
+          ]
+        },
+        "trailing_4": {
+          "baseline": {
+            "kind": "weeks",
+            "from": "2026-W20",
+            "through": "2026-W23"
+          },
+          "insufficient_data": true,
+          "findings": []
+        },
+        "all_time": {
+          "baseline": {
+            "kind": "trajectory"
+          },
+          "insufficient_data": false,
+          "findings": [
+            {
+              "method": "two-proportion z, BH-adjusted",
+              "footnote_ids": [
+                "trend_method",
+                "language_heuristic",
+                "cohort_turnover"
+              ],
+              "id": "language-de-share",
+              "tab": "language",
+              "title": "German share of messages fell",
+              "measure": "German share of messages",
+              "kind": "share",
+              "unit": "% of messages",
+              "current": {
+                "value": 48.1,
+                "n_students": 74
+              },
+              "baseline": {
+                "value": 68.2,
+                "n_students": 88
+              },
+              "delta": -20.1,
+              "evidence": "robust",
+              "trajectory": [
+                {
+                  "window_id": "2025S",
+                  "value": 68.2,
+                  "n_students": 88
+                },
+                {
+                  "window_id": "2025W",
+                  "value": 61.8,
+                  "n_students": 91
+                },
+                {
+                  "window_id": "2026S",
+                  "value": 48.1,
+                  "n_students": 74
+                }
+              ]
+            },
+            {
+              "method": "Poisson rate ratio, BH-adjusted",
+              "footnote_ids": [
+                "trend_method",
+                "per_week_rate",
+                "cohort_turnover"
+              ],
+              "id": "adoption-messages-per-week",
+              "tab": "adoption",
+              "title": "Messages per week rose",
+              "measure": "Messages per covered week",
+              "kind": "rate",
+              "unit": "per week",
+              "current": {
+                "value": 194,
+                "n_students": 66
+              },
+              "baseline": {
+                "value": 105.6,
+                "n_students": 61
+              },
+              "delta": 88.4,
+              "evidence": "robust",
+              "trajectory": [
+                {
+                  "window_id": "2025S",
+                  "value": 105.6,
+                  "n_students": 61
+                },
+                {
+                  "window_id": "2025W",
+                  "value": 142.3,
+                  "n_students": 74
+                },
+                {
+                  "window_id": "2026S",
+                  "value": 194,
+                  "n_students": 66
+                }
+              ]
+            }
+          ]
+        }
+      }
     }
   }
 }

@@ -250,8 +250,152 @@ const topics = {
   theme_set_version: "statsboteval-themes-v1",
 };
 
+// ---- trends (schema 1.3.0) -------------------------------------------------
+// Hand-authored rather than derived, so that one document can hold every window state the
+// tab has to branch on. The pipeline can only ever show a real corpus in one state at a
+// time; this is the fixture the empty states get built against.
+const finding = (o) => ({ method: "two-proportion z, BH-adjusted", footnote_ids: ["trend_method"], ...o });
+
+const trends = {
+  per_window: {
+    // Earliest semester: nothing before it. Distinct from "we compared and found nothing".
+    "2025S": { baseline: null, insufficient_data: false, findings: [] },
+
+    // Compared, and genuinely flat — the "no meaningful shifts" empty state.
+    "2025W": { baseline: { kind: "window", window_id: "2025S" }, insufficient_data: false, findings: [] },
+
+    // A full deck: the cap of 5, topics taking its allowance of 3, every finding kind,
+    // both evidence markers, and a footnote set that exercises multi-symbol Note. lines.
+    "2026S": {
+      baseline: { kind: "window", window_id: "2025W" },
+      insufficient_data: false,
+      findings: [
+        finding({
+          id: "topics-method_theme-regression",
+          tab: "topics",
+          title: "Questions about regression modelling rose",
+          measure: "Share of messages about regression modelling",
+          kind: "share",
+          unit: "% of messages",
+          current: { value: 23.1, n_students: 47 },
+          baseline: { value: 16.0, n_students: 85 },
+          delta: 7.1,
+          evidence: "robust",
+          footnote_ids: ["trend_method", "multi_label", "cohort_turnover"],
+        }),
+        finding({
+          id: "topics-method_theme-anova",
+          tab: "topics",
+          title: "Questions about the ANOVA family fell",
+          measure: "Share of messages about the ANOVA family",
+          kind: "share",
+          unit: "% of messages",
+          current: { value: 8.4, n_students: 24 },
+          baseline: { value: 13.8, n_students: 58 },
+          delta: -5.4,
+          evidence: "robust",
+          footnote_ids: ["trend_method", "multi_label"],
+        }),
+        finding({
+          id: "topics-emergent_theme-assumptions",
+          tab: "topics",
+          title: "Questions about checking assumptions rose",
+          measure: "Share of messages about checking assumptions",
+          kind: "share",
+          unit: "% of messages",
+          current: { value: 23.8, n_students: 37 },
+          baseline: { value: 17.8, n_students: 73 },
+          delta: 6.0,
+          evidence: "indicative",
+          footnote_ids: ["trend_method", "multi_label", "label_provenance"],
+        }),
+        finding({
+          id: "language-de-share",
+          tab: "language",
+          title: "German share of messages fell",
+          measure: "German share of messages",
+          kind: "share",
+          unit: "% of messages",
+          current: { value: 48.1, n_students: 74 },
+          baseline: { value: 61.8, n_students: 91 },
+          delta: -13.7,
+          evidence: "robust",
+          footnote_ids: ["trend_method", "language_heuristic"],
+        }),
+        finding({
+          id: "engagement-messages-per-session",
+          tab: "engagement",
+          title: "Messages per conversation rose",
+          measure: "Median messages per conversation",
+          kind: "median",
+          unit: "messages",
+          current: { value: 4.0, n_students: 66 },
+          baseline: { value: 3.0, n_students: 74 },
+          delta: 1.0,
+          evidence: "indicative",
+          method: "Mann-Whitney U (normal approximation)",
+          footnote_ids: ["trend_method", "chat_fragmentation"],
+        }),
+      ],
+    },
+
+    // The off-season state: a baseline exists, but nothing was testable. Roughly a third
+    // of the year is break weeks, so this is what the tab shows for months at a time.
+    "trailing_4": {
+      baseline: { kind: "weeks", from: weeks.at(-8), through: weeks.at(-5) },
+      insufficient_data: true,
+      findings: [],
+    },
+
+    // Trajectories: one point per semester, so the card draws a slope rather than a delta.
+    all_time: {
+      baseline: { kind: "trajectory" },
+      insufficient_data: false,
+      findings: [
+        finding({
+          id: "language-de-share",
+          tab: "language",
+          title: "German share of messages fell",
+          measure: "German share of messages",
+          kind: "share",
+          unit: "% of messages",
+          current: { value: 48.1, n_students: 74 },
+          baseline: { value: 68.2, n_students: 88 },
+          delta: -20.1,
+          evidence: "robust",
+          trajectory: [
+            { window_id: "2025S", value: 68.2, n_students: 88 },
+            { window_id: "2025W", value: 61.8, n_students: 91 },
+            { window_id: "2026S", value: 48.1, n_students: 74 },
+          ],
+          footnote_ids: ["trend_method", "language_heuristic", "cohort_turnover"],
+        }),
+        finding({
+          id: "adoption-messages-per-week",
+          tab: "adoption",
+          title: "Messages per week rose",
+          measure: "Messages per covered week",
+          kind: "rate",
+          unit: "per week",
+          current: { value: 194.0, n_students: 66 },
+          baseline: { value: 105.6, n_students: 61 },
+          delta: 88.4,
+          evidence: "robust",
+          method: "Poisson rate ratio, BH-adjusted",
+          trajectory: [
+            { window_id: "2025S", value: 105.6, n_students: 61 },
+            { window_id: "2025W", value: 142.3, n_students: 74 },
+            { window_id: "2026S", value: 194.0, n_students: 66 },
+          ],
+          footnote_ids: ["trend_method", "per_week_rate", "cohort_turnover"],
+        }),
+      ],
+    },
+  },
+};
+
 const doc = {
-  schema_version: "1.2.0",
+  schema_version: "1.3.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),
@@ -286,6 +430,15 @@ const doc = {
     },
     status_rule: {
       text: "Program level comes from coordinator roster lists; students who moved from bachelor to master are counted by their status at usage time (per session).",
+    },
+    trend_method: {
+      text: "Findings are the changes most likely to inform a teaching or tooling decision, among those large and consistent enough to stand out from normal variation.",
+    },
+    per_week_rate: {
+      text: "Volume measures are compared per covered week, so periods of unequal length stay comparable.",
+    },
+    cohort_turnover: {
+      text: "Each semester draws a largely different cohort of students; a shift between semesters may reflect who enrolled rather than a change in behavior.",
     },
   },
   sections: {
@@ -400,6 +553,7 @@ const doc = {
       }),
     },
     topics,
+    trends,
   },
 };
 

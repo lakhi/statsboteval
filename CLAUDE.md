@@ -16,7 +16,8 @@ course performance), (3) master's thesis. See `docs/research-context.md`.
 **Current status: milestone 1 live on real data** at <https://statsboteval.azurewebsites.net>
 since 2026-07-17 (D-37); Phase B classification complete (D-42/D-43/D-44). The weekly
 pipeline extracts from the production DB, classifies, aggregates under the N=3 floor, and
-publishes; the dashboard serves five educator-question tabs plus Topics. Corpus scale:
+publishes; the dashboard serves five educator-question tabs plus Topics and **Trends**
+(period comparisons, schema 1.3.0, D-49 — built 2026-07-30, not yet published). Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 

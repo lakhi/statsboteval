@@ -57,28 +57,62 @@ export type Label = string;
 export type Items = TopicItem[];
 export type NTotal1 = OkCell | SuppressedCell;
 export type ThemeSetVersion = string | null;
+export type Baseline = (WindowBaseline | WeeksBaseline | TrajectoryBaseline) | null;
+export type Kind = "window";
+export type WindowId = string;
+export type From = string;
+export type Kind1 = "weeks";
+export type Through = string;
+export type Kind2 = "trajectory";
+/**
+ * @maxItems 5
+ */
+export type Findings =
+  | []
+  | [Finding]
+  | [Finding, Finding]
+  | [Finding, Finding, Finding]
+  | [Finding, Finding, Finding, Finding]
+  | [Finding, Finding, Finding, Finding, Finding];
+export type NStudents1 = number;
+export type Value1 = number;
+export type Delta = number;
+export type Evidence = "robust" | "indicative";
+export type FootnoteIds5 = string[] | null;
+export type Id = string;
+export type Kind3 = "rate" | "share" | "median";
+export type Measure = string;
+export type Method = string;
+export type Tab = "topics" | "adoption" | "engagement" | "timing" | "language";
+export type Title = string;
+export type Trajectory = TrajectoryPoint[] | null;
+export type NStudents2 = number;
+export type Value2 = number;
+export type WindowId1 = string;
+export type Unit1 = string;
+export type InsufficientData = boolean;
 export type ActiveStudents = OkCell | SuppressedCell;
 export type Messages = OkCell | SuppressedCell;
 export type NewRegistrations = OkCell | SuppressedCell;
 export type Sessions = OkCell | SuppressedCell;
-export type FootnoteIds5 = string[] | null;
+export type FootnoteIds6 = string[] | null;
 export type Monthly = OkCell | SuppressedCell;
 export type OneTime = OkCell | SuppressedCell;
 export type Sporadic = OkCell | SuppressedCell;
 export type Timezone = string;
-export type From = string;
-export type Through = string;
-export type Id = string;
-export type Kind = "all_time";
+export type From1 = string;
+export type Through1 = string;
+export type Id1 = string;
+export type Kind4 = "all_time";
 export type Label1 = string;
 export type EndDate = string;
-export type Id1 = string;
-export type Kind1 = "semester";
+export type Id2 = string;
+export type Kind5 = "semester";
 export type Label2 = string;
 export type StartDate = string;
 export type Weeks = string[];
-export type Id2 = string;
-export type Kind2 = "trailing";
+export type Id3 = string;
+export type Kind6 = "trailing";
 export type Label3 = string;
 export type Weeks1 = string[];
 export type Windows = (AllTimeWindow | SemesterWindow | TrailingWindow)[];
@@ -118,6 +152,7 @@ export interface Sections {
   temporal_usage?: TemporalUsage | null;
   tokens?: TokensSection | null;
   topics?: TopicsSection | null;
+  trends?: TrendsSection | null;
   usage_context?: UsageContext | null;
   [k: string]: unknown;
 }
@@ -286,12 +321,67 @@ export interface TopicItem {
   label: Label;
   [k: string]: unknown;
 }
-export interface UsageContext {
+export interface TrendsSection {
   per_window: PerWindow5;
-  weekly: UsageContextWeekly;
   [k: string]: unknown;
 }
 export interface PerWindow5 {
+  [k: string]: TrendsWindow;
+}
+export interface TrendsWindow {
+  baseline?: Baseline;
+  findings?: Findings;
+  insufficient_data?: InsufficientData;
+  [k: string]: unknown;
+}
+export interface WindowBaseline {
+  kind: Kind;
+  window_id: WindowId;
+  [k: string]: unknown;
+}
+export interface WeeksBaseline {
+  from: From;
+  kind: Kind1;
+  through: Through;
+  [k: string]: unknown;
+}
+export interface TrajectoryBaseline {
+  kind: Kind2;
+  [k: string]: unknown;
+}
+export interface Finding {
+  baseline: MeasureValue;
+  current: MeasureValue;
+  delta: Delta;
+  evidence: Evidence;
+  footnote_ids?: FootnoteIds5;
+  id: Id;
+  kind: Kind3;
+  measure: Measure;
+  method: Method;
+  tab: Tab;
+  title: Title;
+  trajectory?: Trajectory;
+  unit: Unit1;
+  [k: string]: unknown;
+}
+export interface MeasureValue {
+  n_students: NStudents1;
+  value: Value1;
+  [k: string]: unknown;
+}
+export interface TrajectoryPoint {
+  n_students: NStudents2;
+  value: Value2;
+  window_id: WindowId1;
+  [k: string]: unknown;
+}
+export interface UsageContext {
+  per_window: PerWindow6;
+  weekly: UsageContextWeekly;
+  [k: string]: unknown;
+}
+export interface PerWindow6 {
   [k: string]: UsageContextWindow;
 }
 export interface UsageContextWindow {
@@ -307,7 +397,7 @@ export interface UsageContextTotals {
   [k: string]: unknown;
 }
 export interface UserClasses {
-  footnote_ids?: FootnoteIds5;
+  footnote_ids?: FootnoteIds6;
   monthly: Monthly;
   one_time: OneTime;
   sporadic: Sporadic;
@@ -319,21 +409,21 @@ export interface UsageContextWeekly {
 }
 export interface AllTimeWindow {
   coverage: Coverage;
-  id: Id;
-  kind: Kind;
+  id: Id1;
+  kind: Kind4;
   label: Label1;
   [k: string]: unknown;
 }
 export interface Coverage {
-  from: From;
-  through: Through;
+  from: From1;
+  through: Through1;
   [k: string]: unknown;
 }
 export interface SemesterWindow {
   coverage: Coverage;
   end_date: EndDate;
-  id: Id1;
-  kind: Kind1;
+  id: Id2;
+  kind: Kind5;
   label: Label2;
   start_date: StartDate;
   weeks: Weeks;
@@ -341,8 +431,8 @@ export interface SemesterWindow {
 }
 export interface TrailingWindow {
   coverage: Coverage;
-  id: Id2;
-  kind: Kind2;
+  id: Id3;
+  kind: Kind6;
   label: Label3;
   weeks: Weeks1;
   [k: string]: unknown;

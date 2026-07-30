@@ -9,8 +9,9 @@ March 2025, and surfaces aggregated, non-identifying insights to educators throu
 classification complete and published. The weekly pipeline extracts from the production DB
 (read-only, in-flight pseudonymization), classifies each message with an LLM against a
 versioned codebook, aggregates under the N=3 privacy floor, and publishes to the dashboard:
-five educator-question tabs plus **Topics**, with a global semester/window filter (D-32); 
-only floored, non-identifying aggregates exist
+five educator-question tabs plus **Topics**, with a global semester/window filter (D-32).
+A **Trends** tab (pipeline-selected period comparisons, D-49) is built and tested but not
+yet published. Only floored, non-identifying aggregates exist
 cloud-side; no chat text ever leaves the local machine except transiently to the consented
 EU classification endpoint.
 

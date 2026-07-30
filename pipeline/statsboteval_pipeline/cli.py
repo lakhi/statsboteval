@@ -23,7 +23,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run-synthetic", help="seed a fresh synthetic corpus, aggregate, guard, write/upload")
     run.add_argument("--corpus", type=Path, required=True, help="path for a FRESH DuckDB corpus file")
-    run.add_argument("--weeks", type=int, default=8)
+    # 40 weeks (~9 months) always spans at least two semesters whatever today's date is,
+    # which is what gives the synthetic run a Trends section to publish (T-6). Shorter
+    # axes still work; they just produce the no-predecessor empty state everywhere.
+    run.add_argument("--weeks", type=int, default=40)
     run.add_argument("--seed", type=int, default=42)
     run.add_argument("--floor-n", type=int, default=3)
     run.add_argument("--out", type=Path, help="write the guarded document to this file")
@@ -56,6 +59,25 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"label version aggregated into topics (default: {CURRENT_LABEL_VERSION}; topics omitted "
         "while no such labels exist). Point at an older version to roll the dashboard back.",
     )
+    pv = sub.add_parser(
+        "preview-trends",
+        help="print the full trends candidate table for a corpus — what published, what didn't, and why "
+        "(read-only; no aggregation output, no blob, no publish)",
+    )
+    pv.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
+    pv.add_argument("--floor-n", type=int, default=3)
+    pv.add_argument(
+        "--axis-start",
+        type=date.fromisoformat,
+        default=date(2025, 3, 1),
+        help="same default as run-weekly, so the preview sees the publishable range",
+    )
+    pv.add_argument(
+        "--classification-version",
+        default=CURRENT_LABEL_VERSION,
+        help=f"label version behind topic candidates (default: {CURRENT_LABEL_VERSION})",
+    )
+    pv.add_argument("--window", help="restrict the table to one window id")
     cf = sub.add_parser("classify", help="run the LLM classification pass (deductive + frozen themes)")
     cf.add_argument("--corpus", type=Path, required=True, help="DuckDB corpus file")
     cf.add_argument("--env-file", type=Path, default=Path(".env"), help="settings file (default: ./.env)")
@@ -200,6 +222,37 @@ def main(argv: list[str] | None = None) -> int:
         _write_and_upload(payload, doc, args, parser, verb="uploaded")
         if not args.out and not args.upload:
             print("guard OK; pass --out and/or --upload to emit the document")
+        return 0
+
+    if args.command == "preview-trends":
+        # Read-only and local: no source connection, so no pepper interlock is involved.
+        from .aggregate import DEDUCTIVE_LABELS, read_corpus_view
+        from .trends import assess_windows, format_candidate_preview
+
+        con = open_corpus(args.corpus)
+        view = read_corpus_view(
+            con,
+            now=datetime.now(timezone.utc),
+            axis_start=args.axis_start,
+            classification_version=args.classification_version,
+        )
+        classified = any(view.positives[domain] for domain in view.positives)
+        assessments = assess_windows(
+            msgs=view.msgs,
+            sessions=view.sessions,
+            registrations=view.registrations,
+            windows=view.windows,
+            axis=view.axis,
+            floor_n=args.floor_n,
+            positives=view.positives if classified else None,
+            deductive_labels=DEDUCTIVE_LABELS,
+        )
+        print(
+            f"corpus {args.corpus}: {len(view.msgs)} messages, {len(view.sessions)} conversations, "
+            f"weeks {view.first_week}..{view.through_week}"
+            + ("" if classified else f"  (no {args.classification_version} labels — no topic candidates)")
+        )
+        print(format_candidate_preview(assessments, floor_n=args.floor_n, only_window=args.window))
         return 0
 
     if args.command == "import-status":

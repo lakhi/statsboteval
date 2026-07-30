@@ -26,6 +26,8 @@ from statsboteval_pipeline.contract import (
     TokensSection,
     TokensWindow,
     TrailingWindow,
+    TrendsSection,
+    TrendsWindow,
     UsageContext,
     UsageContextTotals,
     UsageContextWeekly,
@@ -47,6 +49,8 @@ FOOTNOTES = {
     "language_heuristic": Footnote(text="Language detected locally by a statistical heuristic (lang-heuristic-v1)."),
     "user_class_definitions": Footnote(text="One-time/monthly/sporadic per the Bergmann Stage-2 definitions."),
     "duration_definition": Footnote(text="Duration = last minus first server timestamp; single-message sessions = 0."),
+    "trend_method": Footnote(text="Findings are selected by relevance among changes that cleared a noise gate."),
+    "cohort_turnover": Footnote(text="Each semester draws a largely different cohort of students."),
 }
 
 
@@ -78,6 +82,55 @@ def histogram(unit: str, footnote_ids: list[str] | None = None) -> Histogram:
         n_total=ok(327),
         summary={"status": "ok", "n_students": 74, "median": 2.0, "p25": 1.0, "p75": 4.0, "mean": 2.4, "sd": 2.1},
         footnote_ids=footnote_ids,
+    )
+
+
+def trends() -> TrendsSection:
+    """A trends section shaped the way this 4-week axis would really produce one.
+
+    The axis covers a single semester, so `all_time` has no earlier semester to plot a
+    trajectory against and `2025S` has no predecessor at all — both carry `baseline: null`,
+    which is also what exercises the TrendsWindow serializer that reinstates the null.
+    Trajectories need two semesters and are exercised by the multi-semester dev fixture.
+    """
+    return TrendsSection(
+        per_window={
+            "all_time": TrendsWindow(baseline=None),
+            "2025S": TrendsWindow(baseline=None),
+            "trailing_4": TrendsWindow(
+                baseline={"kind": "weeks", "from": "2025-W11", "through": "2025-W12"},
+                findings=[
+                    {
+                        "id": "language-de-share",
+                        "tab": "language",
+                        "title": "German share of messages fell",
+                        "measure": "German share of messages",
+                        "kind": "share",
+                        "unit": "% of messages",
+                        "current": {"value": 48.1, "n_students": 12},
+                        "baseline": {"value": 61.8, "n_students": 9},
+                        "delta": -13.7,
+                        "evidence": "robust",
+                        "method": "two-proportion z, BH-adjusted",
+                        "footnote_ids": ["trend_method", "language_heuristic"],
+                    },
+                    {
+                        "id": "engagement-messages-per-session",
+                        "tab": "engagement",
+                        "title": "Messages per conversation rose",
+                        "measure": "Median messages per conversation",
+                        "kind": "median",
+                        "unit": "messages",
+                        "current": {"value": 3.0, "n_students": 12},
+                        "baseline": {"value": 2.0, "n_students": 9},
+                        "delta": 1.0,
+                        "evidence": "indicative",
+                        "method": "Mann-Whitney U (normal approximation)",
+                        "footnote_ids": ["trend_method", "chat_fragmentation"],
+                    },
+                ],
+            ),
+        }
     )
 
 
@@ -163,5 +216,6 @@ def make_synthetic_aggregates() -> Aggregates:
                 ),
                 per_window=per_window_language,
             ),
+            trends=trends(),
         ),
     )

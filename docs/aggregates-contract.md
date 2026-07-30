@@ -55,7 +55,7 @@ display** — pre-aggregated, privacy-floored, cohort-wide. Consumers:
 "footnotes": { … }             §6.2 — caveat registry, referenced by id
 "sections":  {                 §7   — one key per dashboard view
     "temporal_usage": … , "usage_context": … , "sessions": … ,
-    "tokens": … , "language": …                    // Phase B adds "topics" (§8)
+    "tokens": … , "language": … , "trends": …      // Phase B adds "topics" (§8)
 }
 ```
 
@@ -197,10 +197,13 @@ Initial catalog:
 | `multi_label` | a message may carry several categories/themes; topic counts do not sum to the message total (schema 1.1.0) |
 | `label_provenance` | topics come from automated classification; `label_versions.classification` names the exact version (schema 1.1.0) |
 | `status_rule` | program level from coordinator roster lists; BA→MA transitioners counted by status at usage time, session-level (D-39) |
+| `trend_method` | how a trend is selected: gate (floor, size, effect, BH-adjusted p) then relevance ranking; census framing (schema 1.3.0 — D-49) |
+| `per_week_rate` | volume measures compared per covered week; within-period seasonality not corrected, in-progress periods averaged over weeks so far (schema 1.3.0) |
+| `cohort_turnover` | each semester draws a largely different cohort; a between-semester change may reflect who enrolled (schema 1.3.0) |
 
 Adding a footnote or attaching an existing id to a metric is additive.
 
-## 7 · Sections (Phase A)
+## 7 · Sections
 
 Common inner layout: `weekly` (trend material) and/or `per_window` (rollups keyed by
 window id). Educator-question coverage: E (when/language) fully; D (helping?) via proxies
@@ -268,6 +271,71 @@ Fixed key set in v1 (`de`, `en`, `other`, `undetermined` — detector returns No
 of published cells (legal display math); a suppressed language renders as "< N students"
 with no share. Governed by `label_versions.language` — the file's first exercise of the
 D-07 label-versioning design.
+
+### 7.6 `trends` — how is usage changing over time? (schema 1.3.0 — normative)
+
+*Added 2026-07-29 (D-49). Additive minor bump: `SCHEMA_VERSION` 1.2.0 → 1.3.0, same
+`v1/` blob prefix (§10); a 1.2.0 document still validates and 1.2.0 readers ignore this
+section (invariant 5).*
+
+```json
+{ "per_window": { "<window_id>": {
+      "baseline": { "kind": "window", "window_id": "2025W" }        // semester → predecessor
+                | { "kind": "weeks", "from": WeekId, "through": WeekId }  // trailing_4
+                | { "kind": "trajectory" }                          // all_time
+                | null,                                             // no predecessor
+      "insufficient_data": false,
+      "findings": [ {
+          "id": "language-de-share", "tab": "language",
+          "title": "German share of messages fell",
+          "measure": "German share of messages",
+          "kind": "share",                       // rate | share | median
+          "unit": "% of messages",
+          "current":  MeasureValue, "baseline": MeasureValue,
+          "delta": -13.7,                        // in unit terms (pp, per-week, minutes…)
+          "evidence": "robust",                  // robust | indicative
+          "method": "two-proportion z, BH-adjusted",
+          "trajectory": [ TrajectoryPoint ],     // OPTIONAL — only under a trajectory baseline
+          "footnote_ids": ["trend_method", "language_heuristic"] } ] } } }
+```
+
+- `MeasureValue` = `{ value: float, n_students: int }`, `TrajectoryPoint` =
+  `{ window_id, value, n_students }`. Deliberately **not** `CountCell`: findings publish
+  derived floats (rates, shares, medians), and a sub-floor candidate is **dropped before
+  publication** rather than marked suppressed. This is the one place where the floor is
+  satisfied by absence rather than by a visible marker — legitimate because a rendered
+  "we found a shift but cannot tell you what it was" carries no information, unlike a
+  suppressed count in a series where position and neighbours do. Every published side
+  still carries `n_students ≥ privacy_floor_n`, guard-enforced.
+- **`baseline: null` is a value, not an absent key** — it is the "no earliest predecessor
+  to compare against" marker the dashboard branches on, so it survives the document's
+  `exclude_none` serialization (same treatment as `HistogramBin.hi`).
+- **`insufficient_data`** distinguishes *nothing was testable* (every candidate fell
+  below the floor or the minimum n — the normal state of `trailing_4` during the Feb and
+  Jul–Sep break weeks) from *tested and flat* (an empty `findings` list). It is `false`
+  whenever `baseline` is `null` or `findings` is non-empty.
+- **Findings are pre-ranked; the client renders them in the order received.** Selection
+  and ordering are analysis, not display math (invariant 4), and the per-student
+  observations the tests need exist only locally. The relevance tier that drives the
+  ordering is deliberately **not published** — publishing it would invite the dashboard
+  to re-sort.
+- At most **5** findings per window, at most **3** from `topics` and **2** from any other
+  tab. `tab` is the closed set `topics | adoption | engagement | timing | language` and
+  names the source tab a card links back to.
+- `evidence` is `robust` (Benjamini–Hochberg-adjusted p < .05, one family per window) or
+  `indicative` (unadjusted p < .05 only). p-values are not published; `method` names the
+  test for the card's tooltip. These are a census, not a sample — the tests guard against
+  over-reading noise, not inference to a population.
+- `title` is template-generated from pinned measure names. **No finding text derives from
+  chat content**, so no D-33-style operator review gates a publish (invariant 6 holds
+  structurally).
+- New footnotes: `trend_method` (candidate pool, tests, BH family, thresholds — versioned
+  with the numbers), `per_week_rate` (volume measures compare as per-covered-week rates;
+  in-progress windows caveated, within-semester seasonality not corrected),
+  `cohort_turnover` (each semester draws a largely different cohort, so a between-semester
+  shift may reflect who enrolled).
+
+No existing key changed meaning.
 
 ## 8 · `topics` section (Phase B, schema 1.1.0 — normative)
 
@@ -350,7 +418,15 @@ a shorter history) is *not* a schema event.
   over `[first_week, data_through_week]`; heatmaps have exactly 168 cells; every
   `per_window` key exists in the windows registry; every `footnote_ids` entry exists in
   the footnotes registry; no fields outside the schema (structurally excludes chat text).
-- **Property test**: cells covering 1..N−1 students never survive, for generated corpora.
+- **Floor walk over the outgoing bytes** (1.3.0, D-49): no `n_students` anywhere in the
+  serialized document is below `privacy_floor_n`. Deliberately stated over the whole
+  document rather than per section — every model that publishes an `n_students` does so
+  only after a floor test, so the universal claim is the true one and keeps holding as
+  sections are added. It is the last check before upload and is redundant with the model
+  validators by design: those check the object graph, this checks what leaves the machine.
+- **Property test**: cells covering 1..N−1 students never survive, for generated corpora;
+  and for `trends` (where the floor is satisfied by dropping a candidate rather than by
+  marking a cell) no generated corpus yields a finding with a sub-floor side.
 
 ## 12 · Example document (illustrative, truncated)
 

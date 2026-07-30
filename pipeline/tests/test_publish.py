@@ -13,7 +13,13 @@ from azure.storage.blob import BlobServiceClient
 
 from statsboteval_pipeline.contract import dump_doc
 from statsboteval_pipeline.export_schema import SCHEMA_PATH
-from statsboteval_pipeline.publish import PublishGuardError, _assert_suppressed_bare, guard, publish
+from statsboteval_pipeline.publish import (
+    PublishGuardError,
+    _assert_floor_respected,
+    _assert_suppressed_bare,
+    guard,
+    publish,
+)
 
 from .factories import make_synthetic_aggregates
 
@@ -34,6 +40,43 @@ def test_guard_walk_rejects_suppressed_with_payload() -> None:
     cell["value"] = 7  # the leak the guard exists to catch
     with pytest.raises(PublishGuardError, match="suppressed"):
         _assert_suppressed_bare(dumped)
+
+
+def test_guard_walk_rejects_a_sub_floor_finding() -> None:
+    dumped = dump_doc(make_synthetic_aggregates())
+    finding = dumped["sections"]["trends"]["per_window"]["trailing_4"]["findings"][0]
+    finding["baseline"]["n_students"] = 2  # floor is 3
+    with pytest.raises(PublishGuardError, match=r"trailing_4.*n_students=2"):
+        _assert_floor_respected(dumped, 3)
+
+
+def test_guard_walk_rejects_a_sub_floor_summary() -> None:
+    # The walk is generic, not trends-specific: the same statement covers the histogram
+    # summaries that _summary() floors, and any section that publishes an n_students later.
+    dumped = dump_doc(make_synthetic_aggregates())
+    dumped["sections"]["sessions"]["per_window"]["all_time"]["messages_per_session"]["summary"]["n_students"] = 1
+    with pytest.raises(PublishGuardError, match="n_students=1"):
+        _assert_floor_respected(dumped, 3)
+
+
+def test_guard_walk_names_the_path_to_the_offending_cell() -> None:
+    dumped = dump_doc(make_synthetic_aggregates())
+    dumped["sections"]["trends"]["per_window"]["trailing_4"]["findings"][1]["current"]["n_students"] = 2
+    with pytest.raises(PublishGuardError) as exc:
+        _assert_floor_respected(dumped, 3)
+    # An operator hitting this at publish time needs the coordinates, not just the fact.
+    assert "sections.trends.per_window.trailing_4.findings[1].current" in str(exc.value)
+
+
+def test_guard_accepts_a_measured_zero() -> None:
+    # ok(0) carries no n_students at all (a measured zero is not identifying), so the
+    # universal walk must not read a zero *value* as a zero student count.
+    dumped = dump_doc(make_synthetic_aggregates())
+    assert dumped["sections"]["language"]["weekly"]["messages_by_language"]["other"]["series"][0]["cell"] == {
+        "status": "ok",
+        "value": 0,
+    }
+    _assert_floor_respected(dumped, 3)
 
 
 def _free_port() -> int:

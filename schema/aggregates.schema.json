@@ -48,6 +48,113 @@
       "title": "Coverage",
       "type": "object"
     },
+    "Finding": {
+      "properties": {
+        "baseline": {
+          "$ref": "#/$defs/MeasureValue"
+        },
+        "current": {
+          "$ref": "#/$defs/MeasureValue"
+        },
+        "delta": {
+          "title": "Delta",
+          "type": "number"
+        },
+        "evidence": {
+          "enum": [
+            "robust",
+            "indicative"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "rate",
+            "share",
+            "median"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "measure": {
+          "title": "Measure",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "tab": {
+          "enum": [
+            "topics",
+            "adoption",
+            "engagement",
+            "timing",
+            "language"
+          ],
+          "title": "Tab",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "trajectory": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/TrajectoryPoint"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trajectory"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "tab",
+        "title",
+        "measure",
+        "kind",
+        "unit",
+        "current",
+        "baseline",
+        "delta",
+        "evidence",
+        "method"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
     "Footnote": {
       "properties": {
         "text": {
@@ -386,6 +493,25 @@
       "title": "LanguageWindow",
       "type": "object"
     },
+    "MeasureValue": {
+      "properties": {
+        "n_students": {
+          "minimum": 1,
+          "title": "N Students",
+          "type": "integer"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "n_students"
+      ],
+      "title": "MeasureValue",
+      "type": "object"
+    },
     "MessagesByLanguage": {
       "properties": {
         "de": {
@@ -554,6 +680,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/TopicsSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trends": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TrendsSection"
             },
             {
               "type": "null"
@@ -1001,6 +1138,109 @@
       "title": "TrailingWindow",
       "type": "object"
     },
+    "TrajectoryBaseline": {
+      "properties": {
+        "kind": {
+          "const": "trajectory",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "TrajectoryBaseline",
+      "type": "object"
+    },
+    "TrajectoryPoint": {
+      "properties": {
+        "n_students": {
+          "minimum": 1,
+          "title": "N Students",
+          "type": "integer"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "window_id": {
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "window_id",
+        "value",
+        "n_students"
+      ],
+      "title": "TrajectoryPoint",
+      "type": "object"
+    },
+    "TrendsSection": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TrendsWindow"
+          },
+          "title": "Per Window",
+          "type": "object"
+        }
+      },
+      "required": [
+        "per_window"
+      ],
+      "title": "TrendsSection",
+      "type": "object"
+    },
+    "TrendsWindow": {
+      "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "trajectory": "#/$defs/TrajectoryBaseline",
+                  "weeks": "#/$defs/WeeksBaseline",
+                  "window": "#/$defs/WindowBaseline"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/WindowBaseline"
+                },
+                {
+                  "$ref": "#/$defs/WeeksBaseline"
+                },
+                {
+                  "$ref": "#/$defs/TrajectoryBaseline"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "maxItems": 5,
+          "title": "Findings",
+          "type": "array"
+        },
+        "insufficient_data": {
+          "default": false,
+          "title": "Insufficient Data",
+          "type": "boolean"
+        }
+      },
+      "title": "TrendsWindow",
+      "type": "object"
+    },
     "UsageContext": {
       "properties": {
         "per_window": {
@@ -1275,6 +1515,51 @@
         "series"
       ],
       "title": "WeeklySeries",
+      "type": "object"
+    },
+    "WeeksBaseline": {
+      "properties": {
+        "from": {
+          "pattern": "^\\d{4}-W\\d{2}$",
+          "title": "From",
+          "type": "string"
+        },
+        "kind": {
+          "const": "weeks",
+          "title": "Kind",
+          "type": "string"
+        },
+        "through": {
+          "pattern": "^\\d{4}-W\\d{2}$",
+          "title": "Through",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "from",
+        "through"
+      ],
+      "title": "WeeksBaseline",
+      "type": "object"
+    },
+    "WindowBaseline": {
+      "properties": {
+        "kind": {
+          "const": "window",
+          "title": "Kind",
+          "type": "string"
+        },
+        "window_id": {
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "window_id"
+      ],
+      "title": "WindowBaseline",
       "type": "object"
     }
   },
