@@ -159,9 +159,9 @@ export interface LabelVersions {
 }
 export interface Sections {
   language?: LanguageSection | null;
+  per_student?: PerStudentSection | null;
   sessions?: SessionsSection | null;
   temporal_usage?: TemporalUsage | null;
-  tokens?: TokensSection | null;
   topics?: TopicsSection | null;
   trends?: TrendsSection | null;
   usage_context?: UsageContext | null;
@@ -217,16 +217,25 @@ export interface WeeklyEntry {
   week: Week;
   [k: string]: unknown;
 }
-export interface SessionsSection {
+export interface PerStudentSection {
   per_window: PerWindow1;
   [k: string]: unknown;
 }
 export interface PerWindow1 {
-  [k: string]: SessionsWindow;
+  [k: string]: PerStudentWindow;
 }
-export interface SessionsWindow {
-  messages_per_session: Histogram;
-  session_duration_minutes: Histogram;
+/**
+ * Engagement breadth: one observation per student, not per session (1.5.0, D-53).
+ *
+ * The `sessions` section above bins sessions; these bin the students behind them.
+ * Nothing here is derivable from that section or from `usage_context.totals`:
+ * dividing two floored totals yields a mean and says nothing about the spread,
+ * which for every one of these three is where the finding lives (invariant 4).
+ */
+export interface PerStudentWindow {
+  messages_per_student: Histogram;
+  sessions_per_student: Histogram;
+  weeks_active_per_student: Histogram;
   [k: string]: unknown;
 }
 export interface Histogram {
@@ -257,12 +266,24 @@ export interface SuppressedSummaryStats {
   status: Status3;
   [k: string]: unknown;
 }
-export interface TemporalUsage {
+export interface SessionsSection {
   per_window: PerWindow2;
-  weekly: TemporalUsageWeekly;
   [k: string]: unknown;
 }
 export interface PerWindow2 {
+  [k: string]: SessionsWindow;
+}
+export interface SessionsWindow {
+  messages_per_session: Histogram;
+  session_duration_minutes: Histogram;
+  [k: string]: unknown;
+}
+export interface TemporalUsage {
+  per_window: PerWindow3;
+  weekly: TemporalUsageWeekly;
+  [k: string]: unknown;
+}
+export interface PerWindow3 {
   [k: string]: TemporalUsageWindow;
 }
 export interface TemporalUsageWindow {
@@ -284,17 +305,6 @@ export interface TemporalUsageWeekly {
   active_students: WeeklySeries;
   messages: WeeklySeries;
   sessions: WeeklySeries;
-  [k: string]: unknown;
-}
-export interface TokensSection {
-  per_window: PerWindow3;
-  [k: string]: unknown;
-}
-export interface PerWindow3 {
-  [k: string]: TokensWindow;
-}
-export interface TokensWindow {
-  completion_tokens_per_message: Histogram;
   [k: string]: unknown;
 }
 export interface TopicsSection {

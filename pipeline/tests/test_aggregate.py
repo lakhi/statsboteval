@@ -255,7 +255,7 @@ def test_windows_registry_in_document(con2: duckdb.DuckDBPyConnection) -> None:
     sem = doc["windows"][1]
     assert sem["coverage"] == {"from": "2025-W10", "through": "2025-W11"}
     assert len(sem["weeks"]) == 17  # full 2025S membership, W10..W26
-    for name in ("temporal_usage", "usage_context", "sessions", "tokens", "language"):
+    for name in ("temporal_usage", "usage_context", "sessions", "per_student", "language"):
         assert set(doc["sections"][name]["per_window"]) == {"all_time", "2025S", "trailing_4"}, name
 
 
@@ -401,25 +401,60 @@ def test_sessions_histogram_floor_per_bin(con2: duckdb.DuckDBPyConnection) -> No
     assert mps["summary"]["status"] == "ok"  # 3 contributing students >= floor
 
 
-def test_tokens_histogram(con2: duckdb.DuckDBPyConnection) -> None:
-    tok = build2(con2, floor_n=1)["sections"]["tokens"]["per_window"]["all_time"]["completion_tokens_per_message"]
-    assert tok["unit"] == "messages"
-    assert [(b["lo"], b["hi"], b["cell"]["value"]) for b in tok["bins"]] == [
-        (0, 100, 3),
-        (101, 250, 1),
-        (251, 500, 2),
-        (501, 1000, 1),
-        (1001, None, 1),
+def test_per_student_distributions(con2: duckdb.DuckDBPyConnection) -> None:
+    """One observation per student (D-53), hand-computed from the corpus above.
+
+    syn-0001: 3 msgs / 2 sessions / weeks W10+W11 · syn-0002: 3 msgs / 1 session / W10
+    · syn-0003: 2 msgs / 2 sessions / W10+W11. The pilot student is outside axis_start.
+    """
+    per_student = build2(con2, floor_n=1)["sections"]["per_student"]["per_window"]["all_time"]
+
+    sessions = per_student["sessions_per_student"]
+    assert sessions["unit"] == "students"
+    assert [(b["lo"], b["hi"], b["cell"]["value"]) for b in sessions["bins"]] == [
+        (1, 1, 1),  # syn-0002
+        (2, 3, 2),  # syn-0001, syn-0003
+        (4, 7, 0),
+        (8, None, 0),
     ]
-    assert tok["summary"] == {
-        "status": "ok",
-        "n_students": 3,
-        "median": 190.0,
-        "p25": 85.0,
-        "p75": 500.0,
-        "mean": 350.0,
-        "sd": 403.4,
+    assert sessions["n_total"] == {"status": "ok", "value": 3}  # students, not sessions
+    assert sessions["summary"] == {
+        "status": "ok", "n_students": 3, "median": 2.0, "p25": 1.0, "p75": 2.0, "mean": 1.7, "sd": 0.6,
     }
+
+    weeks = per_student["weeks_active_per_student"]
+    assert [(b["lo"], b["cell"]["value"]) for b in weeks["bins"]] == [(1, 1), (2, 2), (4, 0), (8, 0)]
+    assert weeks["footnote_ids"] == ["weeks_active_window"]
+
+    messages = per_student["messages_per_student"]
+    assert [(b["lo"], b["hi"], b["cell"]["value"]) for b in messages["bins"]] == [
+        (1, 2, 1),  # syn-0003
+        (3, 5, 2),  # syn-0001, syn-0002
+        (6, 10, 0),
+        (11, 25, 0),
+        (26, None, 0),
+    ]
+    assert messages["summary"]["median"] == 3.0
+    assert messages["summary"]["mean"] == 2.7
+
+
+def test_per_student_bins_floor_on_their_own_count(con2: duckdb.DuckDBPyConnection) -> None:
+    """A per-student bin's value IS its contributing-student count, so the floor reads
+    straight off it: at N=3 the 1-and-2-student bins go, while n_total (3 students)
+    stays. The differencing that leaves — total minus surviving bins — is the accepted
+    residual recorded in D-53, not an oversight; pinned here so a change is deliberate.
+    """
+    sessions = build2(con2, floor_n=3)["sections"]["per_student"]["per_window"]["all_time"][
+        "sessions_per_student"
+    ]
+    assert [b["cell"] for b in sessions["bins"]] == [
+        {"status": "suppressed"},  # 1 student
+        {"status": "suppressed"},  # 2 students
+        {"status": "ok", "value": 0},  # a measured zero is never suppressed (invariant 2)
+        {"status": "ok", "value": 0},
+    ]
+    assert sessions["n_total"] == {"status": "ok", "value": 3}
+    assert sessions["summary"]["status"] == "ok"  # 3 contributing students >= floor
 
 
 def test_language_section_joins_labels(con2: duckdb.DuckDBPyConnection) -> None:

@@ -36,6 +36,8 @@ from .contract import (
     MessagesByLanguage,
     OkCell,
     OkSummaryStats,
+    PerStudentSection,
+    PerStudentWindow,
     SCHEMA_VERSION,
     Sections,
     SessionsSection,
@@ -46,8 +48,6 @@ from .contract import (
     TemporalUsage,
     TemporalUsageWeekly,
     TemporalUsageWindow,
-    TokensSection,
-    TokensWindow,
     UsageContext,
     UsageContextByStatus,
     UsageContextTotals,
@@ -80,7 +80,12 @@ LANGUAGE_CODES = ("de", "en", "other", "undetermined")
 # Fixed bin edges, pinned to the design fixture the dashboard was built against.
 MESSAGES_PER_SESSION_BINS: list[tuple[int, int | None]] = [(1, 1), (2, 3), (4, 7), (8, None)]
 SESSION_DURATION_BINS: list[tuple[int, int | None]] = [(0, 1), (2, 5), (6, 15), (16, 30), (31, None)]
-COMPLETION_TOKENS_BINS: list[tuple[int, int | None]] = [(0, 100), (101, 250), (251, 500), (501, 1000), (1001, None)]
+# Per-student edges (1.5.0, D-53). The first two reuse the session shape so a reader moving
+# between "per conversation" and "per student" cards is reading the same ruler; the message
+# edges are wider because a student's message count spans an order of magnitude more.
+SESSIONS_PER_STUDENT_BINS: list[tuple[int, int | None]] = [(1, 1), (2, 3), (4, 7), (8, None)]
+WEEKS_ACTIVE_BINS: list[tuple[int, int | None]] = [(1, 1), (2, 3), (4, 7), (8, None)]
+MESSAGES_PER_STUDENT_BINS: list[tuple[int, int | None]] = [(1, 2), (3, 5), (6, 10), (11, 25), (26, None)]
 
 # Footnote catalog texts are pinned in docs/aggregates-contract.md §6.2.
 FOOTNOTES = {
@@ -126,6 +131,14 @@ FOOTNOTES = {
     "status_multi": Footnote(
         text="A student who moved from bachelor to master inside the selected window is counted "
         "under both levels, so the student counts can exceed the window total by a few."
+    ),
+    # 1.5.0 (D-53). Weeks active is bounded by the window it is read in — 4 in trailing_4,
+    # ~17 in a semester, the whole axis in all_time — so the shares are not comparable
+    # across windows of different length. Same shape of caveat as user_class_window.
+    "weeks_active_window": Footnote(
+        text="Weeks active counts only the ISO weeks inside the selected window, so a shorter "
+        "window necessarily yields fewer weeks per student; the shares are not comparable "
+        "between windows of different length."
     ),
     "duration_definition": Footnote(
         text="Session duration = last minus first server timestamp in the session; "
@@ -214,7 +227,6 @@ class _Message:
     session: tuple[str, int]
     local: datetime  # Europe/Vienna
     week: str
-    completion_tokens: int
     lang: str
 
 
@@ -318,7 +330,7 @@ def read_corpus_view(
 ) -> CorpusView:
     """Read the corpus into the structures the aggregation and trends passes share."""
     rows = con.execute(
-        "SELECT m.history_id, m.pseudonym, m.session_started, m.created_at, m.completion_tokens, l.code "
+        "SELECT m.history_id, m.pseudonym, m.session_started, m.created_at, l.code "
         "FROM messages m LEFT JOIN labels l ON l.history_id = m.history_id "
         "  AND l.label_version = ? AND l.domain = 'language'",
         [LANGUAGE_LABEL_VERSION],
@@ -343,7 +355,7 @@ def read_corpus_view(
 
     msgs: list[_Message] = []
     first_seen: dict[str, date] = {}
-    for history_id, pseudonym, session_started, created_at, completion_tokens, lang in rows:
+    for history_id, pseudonym, session_started, created_at, lang in rows:
         local = created_at.replace(tzinfo=timezone.utc).astimezone(VIENNA)
         # Retention's baseline is deliberately read BEFORE the axis_start filter below:
         # a student who wrote during the 2024/25 pilot is not a new user in 2025S just
@@ -358,10 +370,7 @@ def read_corpus_view(
         if week_monday(week) > through_monday:
             continue  # current, incomplete week
         msgs.append(
-            _Message(
-                history_id, pseudonym, (pseudonym, session_started), local, week, completion_tokens,
-                lang or "undetermined",
-            )
+            _Message(history_id, pseudonym, (pseudonym, session_started), local, week, lang or "undetermined")
         )
     if not msgs:
         raise ValueError("no corpus data within the publishable range (axis_start / complete weeks)")
@@ -487,7 +496,7 @@ def build_aggregates(
     temporal_windows: dict[str, TemporalUsageWindow] = {}
     usage_windows: dict[str, UsageContextWindow] = {}
     session_windows: dict[str, SessionsWindow] = {}
-    token_windows: dict[str, TokensWindow] = {}
+    per_student_windows: dict[str, PerStudentWindow] = {}
     language_windows: dict[str, LanguageWindow] = {}
 
     for window in windows:
@@ -593,13 +602,38 @@ def build_aggregates(
                 with_mean_sd=False,
             ),
         )
-        token_windows[window.id] = TokensWindow(
-            completion_tokens_per_message=_histogram(
-                "messages",
-                COMPLETION_TOKENS_BINS,
-                [(m.completion_tokens, float(m.completion_tokens), m.pseudonym) for m in w_msgs],
+        # Per-student distributions (1.5.0, D-53). One observation per student, so every
+        # bin's contributing-student count IS its value and _histogram's floor reduces to
+        # "fewer than N students in this bin". Sorted for a byte-stable document.
+        sessions_by_student: dict[str, int] = defaultdict(int)
+        messages_by_student: dict[str, int] = defaultdict(int)
+        weeks_by_student: dict[str, set[str]] = defaultdict(set)
+        for s in w_sessions:
+            sessions_by_student[s.pseudonym] += 1
+        for m in w_msgs:
+            messages_by_student[m.pseudonym] += 1
+            weeks_by_student[m.pseudonym].add(m.week)
+        per_student_windows[window.id] = PerStudentWindow(
+            sessions_per_student=_histogram(
+                "students",
+                SESSIONS_PER_STUDENT_BINS,
+                [(n, float(n), p) for p, n in sorted(sessions_by_student.items())],
                 floor_n,
-            )
+                ["chat_fragmentation"],
+            ),
+            weeks_active_per_student=_histogram(
+                "students",
+                WEEKS_ACTIVE_BINS,
+                [(len(weeks), float(len(weeks)), p) for p, weeks in sorted(weeks_by_student.items())],
+                floor_n,
+                ["weeks_active_window"],
+            ),
+            messages_per_student=_histogram(
+                "students",
+                MESSAGES_PER_STUDENT_BINS,
+                [(n, float(n), p) for p, n in sorted(messages_by_student.items())],
+                floor_n,
+            ),
         )
 
         lang_totals: dict[str, OkCell | SuppressedCell] = {}
@@ -725,7 +759,7 @@ def build_aggregates(
                 per_window=usage_windows,
             ),
             sessions=SessionsSection(per_window=session_windows),
-            tokens=TokensSection(per_window=token_windows),
+            per_student=PerStudentSection(per_window=per_student_windows),
             language=LanguageSection(
                 weekly=LanguageWeekly(
                     messages_by_language=MessagesByLanguage(**lang_weekly, footnote_ids=["language_heuristic"])

@@ -55,7 +55,7 @@ display** — pre-aggregated, privacy-floored, cohort-wide. Consumers:
 "footnotes": { … }             §6.2 — caveat registry, referenced by id
 "sections":  {                 §7   — one key per dashboard view
     "temporal_usage": … , "usage_context": … , "sessions": … ,
-    "tokens": … , "language": … , "trends": …      // Phase B adds "topics" (§8)
+    "per_student": … , "language": … , "trends": …  // Phase B adds "topics" (§8)
 }
 ```
 
@@ -198,6 +198,7 @@ Initial catalog:
 | `signup_activation` | "sent at least 1 msg" is window-scoped on both sides; a late signup counts in the window they first wrote in (schema 1.4.0) |
 | `status_multi` | a BA→MA transitioner active on both sides of the boundary is counted under both levels, so student counts can exceed the total (schema 1.4.0) |
 | `duration_definition` | session duration = last − first server `created_at` in the session; single-message sessions = 0 |
+| `weeks_active_window` | weeks active counts only the weeks inside the selected window, so the shares are not comparable between windows of different length (schema 1.5.0 — D-53) |
 | `multi_label` | a message may carry several categories/themes; topic counts do not sum to the message total (schema 1.1.0) |
 | `label_provenance` | topics come from automated classification; `label_versions.classification` names the exact version (schema 1.1.0) |
 | `status_rule` | program level from coordinator roster lists; BA→MA transitioners counted by status at usage time, session-level (D-39) |
@@ -280,15 +281,42 @@ folded into monthly. Reference check on our 2025S window: 111 one-time / 12 mont
 } } }                                          //            duration_definition
 ```
 
-### 7.4 `tokens` — reply length
+Field names keep the source vocabulary (`session`); the Engagement tab renders both as
+*conversation* (D-08's unit, and the word the `chat_fragmentation` footnote already used).
+
+### 7.4 `per_student` — engagement breadth (schema 1.5.0 — normative)
+
+*Added 2026-07-30 (D-53), in the slot the removed `tokens` section held. Section
+additions are additive (§10): `SCHEMA_VERSION` 1.4.0 → 1.5.0, same `v1/` blob prefix.*
 
 ```json
-{ "per_window": { "<window_id>": { "completion_tokens_per_message": Histogram } } }
+{ "per_window": { "<window_id>": {
+      "sessions_per_student":     Histogram,   // unit "students"; chat_fragmentation
+      "weeks_active_per_student": Histogram,   // unit "students"; weeks_active_window
+      "messages_per_student":     Histogram    // unit "students"
+} } }
 ```
 
-v1 publishes `completion_tokens` only. `prompt_tokens` counts the re-sent session context
-(source data dictionary) and is **omitted**; a session-context-growth view can arrive
-additively later.
+- Same `Histogram` primitive as §7.3, but **one observation per student**: the bins count
+  students, `n_total` is the window's active-student count, and the summary describes the
+  spread across students. Only students with ≥ 1 message in the window appear.
+- None of the three is derivable client-side (invariant 4). Dividing `totals.messages` by
+  `totals.active_students` yields a mean and nothing else, and on this data mean and median
+  disagree sharply (2026S: mean 7.5, median 5) — the skew *is* the finding.
+- `weeks_active_per_student` is bounded by the window's length, so its shares are not
+  comparable between windows of different length (`weeks_active_window` footnote).
+- **Accepted differencing residual** (owner, 2026-07-30): these bins partition the students
+  that `n_total` counts, so `n_total` minus the published bins recovers the total held by
+  the suppressed ones — exactly, when only one bin is suppressed. Secondary suppression was
+  considered and declined as disproportionate for a cohort-wide teaching dashboard; the
+  floor stays per-cell here as everywhere else. Recorded in D-53 with the D-50 open item.
+
+**Removed in 1.5.0: `tokens`** (`completion_tokens_per_message`). It measured the model's
+verbosity rather than student engagement, and no view rendered it after the Engagement
+redesign. Removing an *optional section no reader renders* is treated as a minor change
+(§10): archived documents that carry it still validate, since readers ignore unknown fields
+(invariant 5). `completion_tokens` and `prompt_tokens` remain in the local corpus, so a
+reply-length or session-context-growth view can return additively.
 
 ### 7.5 `language` — …and in which language?
 
@@ -443,6 +471,14 @@ type or a cell's meaning, changing week/date formats. Breaking = major bump + ne
 prefix + coordinated reader upgrade. `data_through_week` regressing (erasure republish of
 a shorter history) is *not* a schema event.
 
+**One narrow exception, exercised once (1.5.0, D-53): withdrawing a whole optional section
+that no reader renders is a minor change.** The reasoning is invariant 5, not convenience —
+an optional section may legitimately be absent, so a document without it is one every
+reader already had to tolerate, and archived documents that still carry it keep validating
+because readers ignore unknown fields. This does **not** extend to removing a *field from a
+section that stays*: there the reader has no absence contract to fall back on, and that
+remains a major break.
+
 ## 11 · Validation & publish guard
 
 - **Schema round-trip**: pipeline output validates against
@@ -531,7 +567,7 @@ a shorter history) is *not* a schema event.
 ```
 
 (`"…"` marks truncation for readability; real files are dense per §5. `usage_context`,
-`tokens`, `language` follow §7 identically.)
+`per_student`, `language` follow §7 identically.)
 
 ## 13 · Deliberately deferred (not TBDs — decided *against* for v1)
 
@@ -543,7 +579,9 @@ a shorter history) is *not* a schema event.
   (`source-data-dictionary.md`), so it is not deferred but impossible.
 - **`trailing_1` window** (last-week heatmap/distributions): additive when wanted; heavy
   suppression expected at one week of data.
-- **`prompt_tokens` / session-context growth view**: additive when wanted.
+- **Token views** (`completion_tokens` reply length, `prompt_tokens` session-context
+  growth): both additive when wanted. Reply length was published in 1.0.0–1.4.0 and
+  withdrawn in 1.5.0 (§7.4) — it describes the model, not the student.
 - **Arbitrary date ranges**: excluded by invariant 4 by design; presets = windows.
 - **Bin edges**: pipeline config at implementation (declared per-file in the data).
 - **User-class SQL**: pinned at implementation against the Stage-2 manuscript definitions,

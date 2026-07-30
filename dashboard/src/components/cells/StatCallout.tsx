@@ -28,16 +28,30 @@ export function StatCallout({
       </p>
     );
   }
-  const parts = [
+  // A per-student distribution counts students in its bins, so n_total and n_students are
+  // the same people counted twice ("n = 132 students · 132 students"). Drop the total there.
+  const totalRepeatsN =
+    unit === "students" && nTotal.status === "ok" && nTotal.value === summary.n_students;
+  const before = [
     `n = ${formatCount(summary.n_students)} students`,
-    total,
+    ...(totalRepeatsN ? [] : [total]),
     `median ${formatStat(summary.median)}`,
-    `IQR ${formatStat(summary.p25)}–${formatStat(summary.p75)}`,
   ];
-  if (summary.mean != null) {
-    parts.push(
-      `mean ${formatStat(summary.mean)}${summary.sd != null ? ` (SD ${formatStat(summary.sd)})` : ""}`,
-    );
-  }
-  return <p className="mt-2 text-xs tabular-nums text-ink-2">{parts.join(" · ")}</p>;
+  const after =
+    summary.mean != null
+      ? [`mean ${formatStat(summary.mean)}${summary.sd != null ? ` (SD ${formatStat(summary.sd)})` : ""}`]
+      : [];
+  return (
+    <p className="mt-2 text-xs tabular-nums text-ink-2">
+      {before.join(" · ")}
+      {" · "}
+      {/* "IQR" is methods vocabulary on a page written for educators reading as
+          administrators. The plain reading leads; the term stays available on hover
+          so a number here can still be matched to the thesis text. */}
+      <span title="Interquartile range (IQR): the 25th to 75th percentile.">
+        middle 50% {formatStat(summary.p25)}–{formatStat(summary.p75)}
+      </span>
+      {after.length > 0 ? ` · ${after.join(" · ")}` : null}
+    </p>
+  );
 }

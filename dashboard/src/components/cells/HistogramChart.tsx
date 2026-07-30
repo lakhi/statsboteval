@@ -7,6 +7,7 @@
 import {
   Bar,
   CartesianGrid,
+  Cell,
   ComposedChart,
   ResponsiveContainer,
   Scatter,
@@ -47,14 +48,22 @@ function HistTooltip({
   );
 }
 
+/** A lighter tint of the accent, never gray: gray is reserved for suppression. */
+const MUTED_BAR = "color-mix(in srgb, var(--color-accent) 38%, var(--color-card))";
+
 export function HistogramChart({
   histogram,
   floorN,
   height = 190,
+  mutedBins,
 }: {
   histogram: Histogram;
   floorN: number;
   height?: number;
+  /** Bin indices drawn in the lighter tint — used to separate a qualitatively
+   *  different first bin ("tried it once") from the rest without inventing a
+   *  second data series. */
+  mutedBins?: readonly number[];
 }) {
   const rows: Row[] = histogram.bins.map((bin) => ({
     label: binLabel(bin),
@@ -89,7 +98,13 @@ export function HistogramChart({
             maxBarSize={24}
             radius={[4, 4, 0, 0]}
             isAnimationActive={false}
-          />
+          >
+            {mutedBins
+              ? rows.map((row, i) => (
+                  <Cell key={row.label} fill={mutedBins.includes(i) ? MUTED_BAR : "var(--color-accent)"} />
+                ))
+              : null}
+          </Bar>
           <Scatter dataKey="__mark" fill="var(--color-suppressed)" isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>

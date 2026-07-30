@@ -630,12 +630,60 @@
       "title": "OkSummaryStats",
       "type": "object"
     },
+    "PerStudentSection": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PerStudentWindow"
+          },
+          "title": "Per Window",
+          "type": "object"
+        }
+      },
+      "required": [
+        "per_window"
+      ],
+      "title": "PerStudentSection",
+      "type": "object"
+    },
+    "PerStudentWindow": {
+      "description": "Engagement breadth: one observation per student, not per session (1.5.0, D-53).\n\nThe `sessions` section above bins sessions; these bin the students behind them.\nNothing here is derivable from that section or from `usage_context.totals`:\ndividing two floored totals yields a mean and says nothing about the spread,\nwhich for every one of these three is where the finding lives (invariant 4).",
+      "properties": {
+        "messages_per_student": {
+          "$ref": "#/$defs/Histogram"
+        },
+        "sessions_per_student": {
+          "$ref": "#/$defs/Histogram"
+        },
+        "weeks_active_per_student": {
+          "$ref": "#/$defs/Histogram"
+        }
+      },
+      "required": [
+        "sessions_per_student",
+        "weeks_active_per_student",
+        "messages_per_student"
+      ],
+      "title": "PerStudentWindow",
+      "type": "object"
+    },
     "Sections": {
       "properties": {
         "language": {
           "anyOf": [
             {
               "$ref": "#/$defs/LanguageSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "per_student": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerStudentSection"
             },
             {
               "type": "null"
@@ -658,17 +706,6 @@
           "anyOf": [
             {
               "$ref": "#/$defs/TemporalUsage"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "tokens": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TokensSection"
             },
             {
               "type": "null"
@@ -872,34 +909,6 @@
         "activity_heatmap"
       ],
       "title": "TemporalUsageWindow",
-      "type": "object"
-    },
-    "TokensSection": {
-      "properties": {
-        "per_window": {
-          "additionalProperties": {
-            "$ref": "#/$defs/TokensWindow"
-          },
-          "title": "Per Window",
-          "type": "object"
-        }
-      },
-      "required": [
-        "per_window"
-      ],
-      "title": "TokensSection",
-      "type": "object"
-    },
-    "TokensWindow": {
-      "properties": {
-        "completion_tokens_per_message": {
-          "$ref": "#/$defs/Histogram"
-        }
-      },
-      "required": [
-        "completion_tokens_per_message"
-      ],
-      "title": "TokensWindow",
       "type": "object"
     },
     "TopicDistribution": {

@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "1.5.0"
 
 FootnoteId = str
 
@@ -281,12 +281,22 @@ class SessionsSection(BaseModel):
     per_window: dict[str, SessionsWindow]
 
 
-class TokensWindow(BaseModel):
-    completion_tokens_per_message: Histogram
+class PerStudentWindow(BaseModel):
+    """Engagement breadth: one observation per student, not per session (1.5.0, D-53).
+
+    The `sessions` section above bins sessions; these bin the students behind them.
+    Nothing here is derivable from that section or from `usage_context.totals`:
+    dividing two floored totals yields a mean and says nothing about the spread,
+    which for every one of these three is where the finding lives (invariant 4).
+    """
+
+    sessions_per_student: Histogram
+    weeks_active_per_student: Histogram
+    messages_per_student: Histogram
 
 
-class TokensSection(BaseModel):
-    per_window: dict[str, TokensWindow]
+class PerStudentSection(BaseModel):
+    per_window: dict[str, PerStudentWindow]
 
 
 class MessagesByLanguage(BaseModel):
@@ -489,7 +499,10 @@ class Sections(BaseModel):
     temporal_usage: TemporalUsage | None = None
     usage_context: UsageContext | None = None
     sessions: SessionsSection | None = None
-    tokens: TokensSection | None = None
+    # 1.5.0 (D-53): `tokens` (completion tokens per message) was removed here. It measured
+    # the model's verbosity rather than student engagement, and no view rendered it. The
+    # column still lands in the corpus, so reinstating the section is aggregation-only.
+    per_student: PerStudentSection | None = None
     language: LanguageSection | None = None
     topics: TopicsSection | None = None  # Phase B (schema 1.1.0); 1.0.0 readers ignore it
     trends: TrendsSection | None = None  # schema 1.3.0 (D-49); 1.2.0 readers ignore it
@@ -545,7 +558,7 @@ class Aggregates(BaseModel):
     def _per_window_maps(self) -> Iterator[tuple[str, dict[str, Any]]]:
         s = self.sections
         # Every per_window-shaped section must be listed, or its window ids go unchecked.
-        for name in ("temporal_usage", "usage_context", "sessions", "tokens", "language", "topics", "trends"):
+        for name in ("temporal_usage", "usage_context", "sessions", "per_student", "language", "topics", "trends"):
             section = getattr(s, name)
             if section is not None:
                 yield name, section.per_window

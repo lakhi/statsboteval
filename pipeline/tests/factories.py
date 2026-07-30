@@ -15,6 +15,8 @@ from statsboteval_pipeline.contract import (
     LanguageWeekly,
     LanguageWindow,
     MessagesByLanguage,
+    PerStudentSection,
+    PerStudentWindow,
     SCHEMA_VERSION,
     Sections,
     SemesterWindow,
@@ -23,8 +25,6 @@ from statsboteval_pipeline.contract import (
     TemporalUsage,
     TemporalUsageWeekly,
     TemporalUsageWindow,
-    TokensSection,
-    TokensWindow,
     TrailingWindow,
     TrendsSection,
     TrendsWindow,
@@ -49,6 +49,7 @@ FOOTNOTES = {
     "language_heuristic": Footnote(text="Language detected locally by a statistical heuristic (lang-heuristic-v1)."),
     "user_class_definitions": Footnote(text="One-time/monthly/sporadic per the Bergmann Stage-2 definitions."),
     "duration_definition": Footnote(text="Duration = last minus first server timestamp; single-message sessions = 0."),
+    "weeks_active_window": Footnote(text="Weeks active counts only the weeks inside the selected window."),
     "trend_method": Footnote(text="Findings are selected by relevance among changes that cleared a noise gate."),
     "cohort_turnover": Footnote(text="Each semester draws a largely different cohort of students."),
 }
@@ -156,7 +157,14 @@ def make_synthetic_aggregates() -> Aggregates:
         )
         for wid in WINDOW_IDS
     }
-    per_window_tokens = {wid: TokensWindow(completion_tokens_per_message=histogram("messages")) for wid in WINDOW_IDS}
+    per_window_per_student = {
+        wid: PerStudentWindow(
+            sessions_per_student=histogram("students", ["chat_fragmentation"]),
+            weeks_active_per_student=histogram("students", ["weeks_active_window"]),
+            messages_per_student=histogram("students"),
+        )
+        for wid in WINDOW_IDS
+    }
     per_window_language = {
         wid: LanguageWindow(totals=LanguageTotals(de=ok(280), en=ok(120), other=ok(0), undetermined=suppressed()))
         for wid in WINDOW_IDS
@@ -203,7 +211,7 @@ def make_synthetic_aggregates() -> Aggregates:
                 per_window=per_window_usage,
             ),
             sessions=SessionsSection(per_window=per_window_sessions),
-            tokens=TokensSection(per_window=per_window_tokens),
+            per_student=PerStudentSection(per_window=per_window_per_student),
             language=LanguageSection(
                 weekly=LanguageWeekly(
                     messages_by_language=MessagesByLanguage(

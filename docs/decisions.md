@@ -1230,3 +1230,90 @@ returns), so no dashboard/API bundle needed rebuilding.
 Filed as an idea-level follow-up (issue #3): once a real extraction records the first
 watermark, revisit whether extraction lag should be surfaced more visibly in the UI, rather
 than only silently capping the axis.
+
+## D-53 — 2026-07-30: Engagement tab measures students, not just sessions; schema 1.5.0
+
+**Context.** A read-through of the Engagement tab (owner + assistant, 2026-07-30) found it
+answering only half its own question. Every card binned *sessions* — messages per session,
+session duration, reply length — so the tab could say how a conversation went but not how
+much any student used StatsBot, or whether they ever came back. The three obvious
+per-student distributions had already been flagged as deferred in D-50's consequences.
+Two smaller problems came up in the same pass: "IQR 1–3" is methods vocabulary on a page
+written for educators reading as administrators, and the tab said *session* while its own
+footnote and the whole Trends tab said *conversation*.
+
+**Decision.** Publish a new **`per_student`** section under **schema 1.5.0** (additive minor;
+1.4.0 is live), withdraw the `tokens` section, and rebuild the tab around five cards.
+
+- **`sessions_per_student` / `weeks_active_per_student` / `messages_per_student`** — the
+  same `Histogram` primitive as `sessions`, but one observation per student. Bin edges reuse
+  the session ruler (1 · 2–3 · 4–7 · 8+) for the first two; messages per student needs a
+  wider one (1–2 · 3–5 · 6–10 · 11–25 · 26+) because a student's total spans an order of
+  magnitude more than a session's.
+- **`tokens` removed.** Completion tokens measure the model's verbosity, not the student's
+  engagement — a tall bar there reads as "deep engagement" and means "GPT-4o was wordy".
+- **Card order** (owner set the first two, the rest by weight): conversations per student ·
+  conversation length · weeks active per student · messages per student · messages per
+  conversation. The Bergmann-comparable turn count goes last: it is the measure most
+  inflated by the `chat_fragmentation` caveat, and it is kept for comparability (their
+  1.8/2.5) rather than for what it tells an educator.
+- **Vocabulary unified on *conversation*** (D-08's unit) in every card title; field names
+  keep `session`.
+- **"IQR p25–p75" renders as "middle 50%"**, with the term on hover so a number here can
+  still be matched to the thesis text. Display-only: `p25`/`p75` are unchanged in the
+  document.
+
+**Why these three had to be published rather than derived.** Invariant 4. An educator (or a
+dashboard) dividing `totals.messages` by `totals.active_students` gets a mean and nothing
+else — and on this data the mean and the median disagree sharply: 2026S is mean 7.5 against
+median 5, because a long tail of heavy users pulls it. The skew *is* the finding, and no
+arithmetic on published totals recovers it.
+
+**What the real corpus says** (2026S, 132 active students, verified against the corpus
+2026-07-30): conversations per student 52 · 42 · 27 · 11 with a maximum of 21 and median 2;
+weeks active 66 · 55 · 11 · 0, i.e. **half the cohort wrote in exactly one week**; messages
+per student 35 · 33 · 30 · 31 · 3, median 5, mean 7.5. The one-week half is what the tab
+now says out loud.
+
+**"Tried it" vs "adopted it" is stated, not left to the reader.** The weeks-active card
+draws its single-week bin in a lighter tint of the accent (never gray — gray is
+suppression), and leads with the sentence "66 of 132 students (50%) wrote in only one week".
+That sentence is one published cell divided by another, which is the display math invariant 4
+allows. It deliberately never states the complement: "students who came back" would be
+`n_total` minus the bins, and a subtraction across bins is exactly how a suppressed bin's
+value gets recovered. Both the sentence and the note are suppressed-safe — in a window where
+the single-week bin falls under the floor, neither renders.
+
+**Weeks, not days.** Days-active separates the middle of the distribution better (2026S:
+55 · 53 · 22 · 2 against 66 · 55 · 11 · 0) but the ISO week is the unit the whole document
+is built in (invariant 3), and "came back in three different weeks" is the adoption
+sentence an educator wants. Days remain additive if the finer resolution is ever needed.
+
+**Accepted: the differencing residual, declined secondary suppression.** These bins
+partition the students that `n_total` counts, so `n_total` minus the published bins recovers
+what the suppressed ones hold — exactly, when only one bin is suppressed, and there the
+recovered number is a *student count*, the very quantity the floor protects. (Live example
+at the time of writing: `trailing_4` weeks-active, 24 students, 23 in the single-week bin.)
+The standard remedy is secondary suppression — never leave exactly one suppressed cell under
+a published total. The owner declined it as over-engineering for a cohort-wide teaching
+dashboard: the leak is bounded at 1–2 students, the floor stays per-cell here as everywhere
+else, and the cost (a nearly empty chart in every short window) is real. Pinned by
+`test_per_student_bins_floor_on_their_own_count` so the behaviour is deliberate rather than
+accidental. This joins the differencing exposure D-50 left open for `by_status`.
+
+**Removing a published section is treated as a minor bump.** §10 forbids removals within a
+major version; `tokens` is withdrawn anyway, and §10 now carries the one narrow exception
+that licenses it: an *optional section no reader renders* may go, because invariant 5 already
+required every reader to tolerate its absence, and archived documents that still carry it
+keep validating (readers ignore unknown fields — the exported schema sets no
+`additionalProperties: false`, checked before deciding). Removing a *field from a section
+that stays* is still a major break. `completion_tokens` remains in the corpus, so the view
+can return additively.
+
+**Consequences.**
+- `_Message` no longer carries `completion_tokens`; `read_corpus_view` stopped selecting it.
+  Extraction still stores it — reinstating reply length is aggregation-only work.
+- Requires a re-aggregate + republish **and** a bundle redeploy: a schema bump needs both, or
+  the deployed dashboard silently ignores the new section (D-51).
+- Still deferred: Bergmann's `one_time_project_user` flag, days-active, and a Trends
+  candidate for the per-student measures (the pool still compares only session medians).
