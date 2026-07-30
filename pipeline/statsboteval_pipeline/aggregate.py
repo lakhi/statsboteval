@@ -66,6 +66,7 @@ from .contract import (
 )
 from .classify.codebook import DEDUCTIVE_CATEGORY_NAMES, category_code
 from .contract import TopicDistribution, TopicGroup, TopicItem, TopicsSection, TopicsWindowEntry
+from .extract import read_last_extracted_at
 from .language import LABEL_VERSION as LANGUAGE_LABEL_VERSION
 from .stats import classify_user, is_frequent, quantile_type2
 from .status import read_status, resolve_status
@@ -326,10 +327,17 @@ def read_corpus_view(
         raise ValueError("corpus has no messages; nothing to aggregate")
 
     # Axis: complete ISO weeks only (invariant 3). data_through_week = the last week
-    # fully elapsed before `now` (extract time) in Vienna. Trailing quiet weeks were
-    # measured (extraction covered them, found nothing) -> they publish as ok(0);
-    # clipping them off would misencode a measured zero as "absent" (invariant 2).
-    now_week_monday = week_monday(date_to_week(now.astimezone(VIENNA).date()))
+    # fully elapsed before extraction last actually ran, in Vienna. Trailing quiet
+    # weeks were measured (extraction covered them, found nothing) -> they publish as
+    # ok(0); clipping them off would misencode a measured zero as "absent" (invariant
+    # 2). That reasoning only holds against the real extraction watermark, not
+    # wall-clock `now` at aggregate time: a re-aggregate with no fresh extract (e.g.
+    # erase-student, or iterating on a new tab) would otherwise publish weeks past the
+    # data as if they'd been measured, when extraction never reached them. Corpora
+    # that never went through extract_new_rows (synthetic fixtures, tests) have no
+    # watermark yet, so `now` is the honest fallback.
+    extraction_time = read_last_extracted_at(con) or now
+    now_week_monday = week_monday(date_to_week(extraction_time.astimezone(VIENNA).date()))
     through = date_to_week(now_week_monday - timedelta(days=7))
     through_monday = week_monday(through)
 

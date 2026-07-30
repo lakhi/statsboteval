@@ -184,7 +184,7 @@ def make_synthetic_aggregates() -> Aggregates:
                 coverage={"from": "2025-W11", "through": "2025-W14"},
             ),
             TrailingWindow(
-                kind="trailing", id="trailing_4", label="Last 4 weeks",
+                kind="trailing", id="trailing_4", label="Last Avl. 4 weeks",
                 weeks=WEEKS, coverage={"from": "2025-W11", "through": "2025-W14"},
             ),
         ],

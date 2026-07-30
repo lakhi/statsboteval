@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
@@ -21,6 +21,7 @@ from statsboteval_pipeline.extract import (
     PepperMismatchError,
     extract_new_rows,
     pseudonymize,
+    read_last_extracted_at,
 )
 
 PEPPER = "test-pepper-not-a-real-secret"
@@ -138,6 +139,18 @@ def test_empty_delta_is_a_noop(tmp_path: Path) -> None:
     assert extract_new_rows(con, source, pepper=PEPPER) == 1
     assert extract_new_rows(con, source, pepper=PEPPER) == 0
     assert con.execute("SELECT count(*) FROM messages").fetchone()[0] == 1
+
+
+def test_extraction_time_recorded_even_on_a_quiet_run(tmp_path: Path) -> None:
+    con = fresh_corpus(tmp_path)
+    source = StubSource(students=[("u:alice", datetime(2026, 4, 1))], history=[msg(1)])
+    first_run = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    assert extract_new_rows(con, source, pepper=PEPPER, now=first_run) == 1
+    assert read_last_extracted_at(con) == first_run
+
+    second_run = datetime(2026, 5, 8, tzinfo=timezone.utc)  # a week later, nothing new arrived
+    assert extract_new_rows(con, source, pepper=PEPPER, now=second_run) == 0
+    assert read_last_extracted_at(con) == second_run  # watermark still advances on a quiet run
 
 
 def test_pepper_mismatch_fails_before_touching_the_source(tmp_path: Path) -> None:

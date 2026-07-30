@@ -115,7 +115,7 @@
     {
       "id": "trailing_4",
       "kind": "trailing",
-      "label": "Last 4 weeks",
+      "label": "Last Avl. 4 weeks",
       "weeks": [
         "2026-W24",
         "2026-W25",

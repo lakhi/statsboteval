@@ -9,6 +9,7 @@ import pytest
 from statsboteval_pipeline.aggregate import build_aggregates
 from statsboteval_pipeline.contract import dump_doc
 from statsboteval_pipeline.corpus import open_corpus
+from statsboteval_pipeline.extract import record_extraction_time
 
 SCHEMA = json.loads((Path(__file__).resolve().parents[2] / "schema" / "aggregates.schema.json").read_text())
 
@@ -148,6 +149,22 @@ def test_incomplete_current_week_excluded(con: duckdb.DuckDBPyConnection) -> Non
 def test_empty_corpus_rejected(con: duckdb.DuckDBPyConnection) -> None:
     with pytest.raises(ValueError, match="no messages"):
         build_aggregates(con, floor_n=3, now=NOW, provenance="synthetic", pipeline_version="0.1.0")
+
+
+def test_stale_reaggregate_does_not_outrun_last_extraction(con: duckdb.DuckDBPyConnection) -> None:
+    """A re-aggregate with no fresh extract (e.g. iterating on a new tab, or
+    erase-student) must not publish weeks past the last real extraction as if they
+    were measured zeros -- extraction never reached them."""
+    hand_corpus(con)
+    record_extraction_time(con, NOW)  # extraction really ran through W13 (invariant 2 holds)
+
+    much_later = datetime(2025, 6, 1, tzinfo=timezone.utc)  # weeks later, no re-extract in between
+    doc = dump_doc(
+        build_aggregates(con, floor_n=3, now=much_later, provenance="synthetic", pipeline_version="0.1.0")
+    )
+    assert doc["data_through_week"] == "2025-W13"  # bounded by the watermark, not by `now`
+    assert "2025-W14" not in cells(doc, "messages")
+    assert doc["generated_at"] == "2025-06-01T00:00:00Z"  # publish instant still reflects the real `now`
 
 
 # ---- GL4: full Phase A section set -----------------------------------------

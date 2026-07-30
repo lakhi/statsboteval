@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 
 import duckdb
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     import pymysql.connections
 
 _PEPPER_KEY = "pepper_sha256"
+_LAST_EXTRACTED_AT_KEY = "last_extracted_at"
 _BATCH_SIZE = 500
 
 _STUDENTS_SQL = "SELECT uid, created_at FROM students"
@@ -72,6 +74,29 @@ def verify_pepper(con: duckdb.DuckDBPyConnection, pepper: str) -> None:
         )
 
 
+def record_extraction_time(con: duckdb.DuckDBPyConnection, now: datetime) -> None:
+    """Persist when extraction last actually queried the source DB (even a quiet run).
+
+    This is the only trustworthy anchor for "how far does the corpus really reach":
+    read_corpus_view derives the published axis boundary from this, not from wall-clock
+    `now` at aggregate time, so a later re-aggregate without a fresh extract (e.g.
+    erase-student, or iterating on a new tab) can't silently publish weeks past the
+    data as if they were measured zeros.
+    """
+    value = now.astimezone(timezone.utc).isoformat()
+    row = con.execute("SELECT 1 FROM meta WHERE key = ?", [_LAST_EXTRACTED_AT_KEY]).fetchone()
+    if row is None:
+        con.execute("INSERT INTO meta VALUES (?, ?)", [_LAST_EXTRACTED_AT_KEY, value])
+    else:
+        con.execute("UPDATE meta SET value = ? WHERE key = ?", [value, _LAST_EXTRACTED_AT_KEY])
+
+
+def read_last_extracted_at(con: duckdb.DuckDBPyConnection) -> datetime | None:
+    """The stored extraction watermark, or None if extract_new_rows has never run."""
+    row = con.execute("SELECT value FROM meta WHERE key = ?", [_LAST_EXTRACTED_AT_KEY]).fetchone()
+    return datetime.fromisoformat(row[0]) if row is not None else None
+
+
 def connect_source(settings: ExtractSettings) -> pymysql.connections.Connection:
     """Open the production connection: read-only session, server-default timezone."""
     import pymysql
@@ -89,7 +114,13 @@ def connect_source(settings: ExtractSettings) -> pymysql.connections.Connection:
     )
 
 
-def extract_new_rows(con: duckdb.DuckDBPyConnection, source: SourceConnection, *, pepper: str) -> int:
+def extract_new_rows(
+    con: duckdb.DuckDBPyConnection,
+    source: SourceConnection,
+    *,
+    pepper: str,
+    now: datetime | None = None,
+) -> int:
     """Ingest source rows above the corpus watermark; return the count of new messages.
 
     Incremental and idempotent: the watermark is MAX(messages.history_id) and history
@@ -130,4 +161,5 @@ def extract_new_rows(con: duckdb.DuckDBPyConnection, source: SourceConnection, *
             )
         con.executemany("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?)", rows)
         total += len(rows)
+    record_extraction_time(con, now or datetime.now(timezone.utc))
     return total

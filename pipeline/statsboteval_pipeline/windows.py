@@ -95,7 +95,7 @@ def build_windows(axis: Sequence[str]) -> list[Window]:
         TrailingWindow(
             kind="trailing",
             id="trailing_4",
-            label="Last 4 weeks",
+            label="Last Avl. 4 weeks",
             weeks=trailing,
             coverage=Coverage(from_=trailing[0], through=trailing[-1]),
         )

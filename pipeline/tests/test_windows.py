@@ -67,7 +67,7 @@ def test_trailing_is_last_four_axis_weeks() -> None:
     axis = weeks_range("2025-W20", "2026-W02")
     w = window(build_windows(axis), "trailing_4")
     assert isinstance(w, TrailingWindow)
-    assert w.label == "Last 4 weeks"
+    assert w.label == "Last Avl. 4 weeks"
     assert w.weeks == ["2025-W51", "2025-W52", "2026-W01", "2026-W02"]
     assert (w.coverage.from_, w.coverage.through) == ("2025-W51", "2026-W02")
 

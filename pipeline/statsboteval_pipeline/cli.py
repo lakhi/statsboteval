@@ -174,12 +174,13 @@ def main(argv: list[str] | None = None) -> int:
 
         settings = ExtractSettings(_env_file=args.env_file)
         con = open_corpus(args.corpus)
+        now = datetime.now(timezone.utc)
         if args.skip_extract:
             n_new = 0
         else:
             source = connect_source(settings)
             try:
-                n_new = extract_new_rows(con, source, pepper=settings.pseudonym_pepper)
+                n_new = extract_new_rows(con, source, pepper=settings.pseudonym_pepper, now=now)
             finally:
                 source.close()
         n_labeled = detect_languages(con)
@@ -207,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
         doc = build_aggregates(
             con,
             floor_n=args.floor_n,
-            now=datetime.now(timezone.utc),
+            now=now,
             provenance="production",
             pipeline_version=version("statsboteval-pipeline"),
             axis_start=args.axis_start,

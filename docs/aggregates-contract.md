@@ -162,7 +162,7 @@ last-week heatmaps/distributions, additively).
     "start_date": "2025-03-01", "end_date": "2025-06-30",
     "weeks": ["2025-W10", "…", "2025-W26"],
     "coverage": { "from": "2025-W11", "through": "2025-W26" } },
-  { "id": "trailing_4", "kind": "trailing", "label": "Last 4 weeks",
+  { "id": "trailing_4", "kind": "trailing", "label": "Last Avl. 4 weeks",
     "weeks": ["2026-W24", "2026-W25", "2026-W26", "2026-W27"],
     "coverage": { "from": "2026-W24", "through": "2026-W27" } }
 ]

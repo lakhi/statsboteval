@@ -43,7 +43,9 @@ def env_file(tmp_path: Path) -> Path:
 def stages(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     calls: list[str] = []
     monkeypatch.setattr(extract_module, "connect_source", lambda settings: FakeSource())
-    monkeypatch.setattr(extract_module, "extract_new_rows", lambda con, source, pepper: (calls.append("extract"), 0)[1])
+    monkeypatch.setattr(
+        extract_module, "extract_new_rows", lambda con, source, pepper, now=None: (calls.append("extract"), 0)[1]
+    )
     monkeypatch.setattr(language_module, "detect_languages", lambda con: (calls.append("detect"), 0)[1])
     monkeypatch.setattr(
         classify_step_module, "run_classification", lambda con, *, env_file: (calls.append("classify"), 0)[1]
@@ -188,7 +190,7 @@ def test_run_weekly_axis_start_is_forwarded(
     corpus: Path, env_file: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(extract_module, "connect_source", lambda settings: FakeSource())
-    monkeypatch.setattr(extract_module, "extract_new_rows", lambda con, source, pepper: 0)
+    monkeypatch.setattr(extract_module, "extract_new_rows", lambda con, source, pepper, now=None: 0)
     monkeypatch.setattr(language_module, "detect_languages", lambda con: 0)
     seen: dict = {}
     real_build = cli.build_aggregates
