@@ -24,6 +24,10 @@ import duckdb
 
 from .contract import (
     Aggregates,
+    Daypart,
+    DaypartCell,
+    DaypartGrid,
+    DaypartTotals,
     Footnote,
     HeatmapCell,
     HeatmapGrid,
@@ -40,6 +44,8 @@ from .contract import (
     PerStudentWindow,
     SCHEMA_VERSION,
     Sections,
+    SemesterProfile,
+    SemesterProfilePoint,
     SessionsSection,
     SessionsWindow,
     SummaryStats,
@@ -86,6 +92,33 @@ SESSION_DURATION_BINS: list[tuple[int, int | None]] = [(0, 1), (2, 5), (6, 15), 
 SESSIONS_PER_STUDENT_BINS: list[tuple[int, int | None]] = [(1, 1), (2, 3), (4, 7), (8, None)]
 WEEKS_ACTIVE_BINS: list[tuple[int, int | None]] = [(1, 1), (2, 3), (4, 7), (8, None)]
 MESSAGES_PER_STUDENT_BINS: list[tuple[int, int | None]] = [(1, 2), (3, 5), (6, 10), (11, 25), (26, None)]
+
+# Dayparts (1.6.0, D-54). Four EQUAL six-hour blocks, and the equality is the point: bar
+# height reads as intensity, so unequal bins invert the finding. The rejected 6-block draft
+# put 09-12 at 1,010 messages against 14-18 at 1,560 — which says "afternoons are far
+# busier" while the per-hour rates are 337 and 390, and the shortest bar (12-14, 2 h) was
+# the densest period of the day at 408/h. Equal widths also mean nothing wraps midnight
+# and _daypart_of is `hour // 6`. Suppression is a bonus: 7x4 hides 3 of 4,419 messages
+# all-time where 7x24 hides 85, and trailing_4 goes from 76% hidden to 14%.
+DAYPARTS: list[Daypart] = [
+    Daypart(id="night", label="Night", from_hour=0, to_hour=6),
+    Daypart(id="morning", label="Morning", from_hour=6, to_hour=12),
+    Daypart(id="afternoon", label="Afternoon", from_hour=12, to_hour=18),
+    Daypart(id="evening", label="Evening", from_hour=18, to_hour=24),
+]
+
+def _daypart_of(hour: int) -> str:
+    """Vienna-local hour -> daypart id, [from_hour, to_hour).
+
+    A scan rather than `hour // 6`: the division is only correct while every block is six
+    hours wide, and that is a *display* property of the current registry, not a law. If
+    the blocks are ever re-cut, this keeps working and the charts just stop being equal-
+    width. Four comparisons per message is not a cost worth that trap.
+    """
+    for part in DAYPARTS:
+        if part.from_hour <= hour < part.to_hour:
+            return part.id
+    raise ValueError(f"hour {hour} falls in no daypart; registry does not tile the day")
 
 # Footnote catalog texts are pinned in docs/aggregates-contract.md §6.2.
 FOOTNOTES = {
@@ -139,6 +172,21 @@ FOOTNOTES = {
         text="Weeks active counts only the ISO weeks inside the selected window, so a shorter "
         "window necessarily yields fewer weeks per student; the shares are not comparable "
         "between windows of different length."
+    ),
+    # 1.6.0 (D-54). The "equal blocks" clause is not decoration: it tells the reader the
+    # bar heights are directly comparable, which is the whole reason the blocks are equal.
+    "daypart_definition": Footnote(
+        text="Times are Vienna local. The day is split into four equal six-hour blocks — "
+        "night 00–06, morning 06–12, afternoon 12–18, evening 18–24 — so the bars are "
+        "directly comparable. Each block counts the messages sent inside it, so a chat "
+        "that runs past a boundary contributes to both."
+    ),
+    "semester_week_alignment": Footnote(
+        text="Week 1 is the semester's first ISO week (the first week whose Thursday falls "
+        "inside the semester), so the curves line up on teaching week rather than calendar "
+        "date. Semesters draw largely different cohorts and differ in course structure — "
+        "summer and winter especially — so compare the shape of a curve rather than its "
+        "height. A semester still in progress ends where the data does."
     ),
     "duration_definition": Footnote(
         text="Session duration = last minus first server timestamp in the session; "
@@ -506,10 +554,26 @@ def build_aggregates(
 
         heat_counts: dict[tuple[int, int], int] = defaultdict(int)
         heat_students: dict[tuple[int, int], set[str]] = defaultdict(set)
+        # 1.6.0 (D-54): the coarse grid and the daypart totals, accumulated in the same
+        # pass — one walk of w_msgs, no second corpus read.
+        dp_counts: dict[tuple[int, str], int] = defaultdict(int)
+        dp_students: dict[tuple[int, str], set[str]] = defaultdict(set)
+        part_counts: dict[str, int] = defaultdict(int)
+        part_students: dict[str, set[str]] = defaultdict(set)
+        span_counts: dict[str, int] = defaultdict(int)
+        span_students: dict[str, set[str]] = defaultdict(set)
         for m in w_msgs:
-            key = (m.local.isoweekday(), m.local.hour)
-            heat_counts[key] += 1
-            heat_students[key].add(m.pseudonym)
+            dow, hour = m.local.isoweekday(), m.local.hour
+            heat_counts[(dow, hour)] += 1
+            heat_students[(dow, hour)].add(m.pseudonym)
+            part = _daypart_of(hour)
+            dp_counts[(dow, part)] += 1
+            dp_students[(dow, part)].add(m.pseudonym)
+            part_counts[part] += 1
+            part_students[part].add(m.pseudonym)
+            span = "weekend" if dow >= 6 else "weekday"
+            span_counts[span] += 1
+            span_students[span].add(m.pseudonym)
         temporal_windows[window.id] = TemporalUsageWindow(
             activity_heatmap=HeatmapGrid(
                 cells=[
@@ -523,7 +587,40 @@ def build_aggregates(
                     for dow in range(1, 8)
                     for hour in range(24)
                 ]
-            )
+            ),
+            daypart_heatmap=DaypartGrid(
+                cells=[
+                    DaypartCell(
+                        dow=dow,
+                        daypart=part.id,
+                        cell=floored_count(
+                            dp_counts.get((dow, part.id), 0),
+                            len(dp_students.get((dow, part.id), set())),
+                            floor_n,
+                        ),
+                    )
+                    for dow in range(1, 8)
+                    for part in DAYPARTS
+                ],
+                footnote_ids=["daypart_definition"],
+            ),
+            daypart_totals=DaypartTotals(
+                by_daypart={
+                    part.id: floored_count(
+                        part_counts.get(part.id, 0), len(part_students.get(part.id, set())), floor_n
+                    )
+                    for part in DAYPARTS
+                },
+                # Floored on their own student sets. Never weekday = total − weekend: that
+                # subtraction would recover a suppressed side exactly (invariant 4).
+                weekend=floored_count(
+                    span_counts.get("weekend", 0), len(span_students.get("weekend", set())), floor_n
+                ),
+                weekday=floored_count(
+                    span_counts.get("weekday", 0), len(span_students.get("weekday", set())), floor_n
+                ),
+                footnote_ids=["daypart_definition"],
+            ),
         )
 
         active = {m.pseudonym for m in w_msgs}
@@ -642,6 +739,38 @@ def build_aggregates(
             lang_totals[code] = floored_count(len(in_code), len({m.pseudonym for m in in_code}), floor_n)
         language_windows[window.id] = LanguageWindow(totals=LanguageTotals(**lang_totals))
 
+    # ---- semester profiles (1.6.0, D-54) ------------------------------------
+    # Each semester re-indexed to teaching week so the curves overlay. Week 1 is
+    # window.weeks[0] — the registry's full Thursday-rule membership, NOT the covered
+    # subset: indexing on coverage would slide a semester with a quiet opening week one
+    # week left and silently misalign every comparison the chart exists to make.
+    # Weeks past the axis are simply absent; an in-progress semester ends where data does.
+    axis_set = set(axis)
+    semester_profiles = [
+        SemesterProfile(
+            window_id=window.id,
+            label=window.label,
+            kind="summer" if window.id.endswith("S") else "winter",
+            points=[
+                SemesterProfilePoint(
+                    semester_week=index,
+                    week=week,
+                    messages=floored_count(
+                        msg_counts.get(week, 0), len(msg_students.get(week, set())), floor_n
+                    ),
+                    active_students=floored_count(
+                        len(msg_students.get(week, set())), len(msg_students.get(week, set())), floor_n
+                    ),
+                )
+                for index, week in enumerate(window.weeks, start=1)
+                if week in axis_set
+            ],
+            footnote_ids=["semester_week_alignment", "cohort_turnover"],
+        )
+        for window in windows
+        if window.kind == "semester"
+    ]
+
     lang_weekly = {}
     for code in LANGUAGE_CODES:
         counts, students = tally([(m.pseudonym, m.week) for m in msgs if m.lang == code])
@@ -742,6 +871,7 @@ def build_aggregates(
         data_provenance=provenance,
         pipeline_version=pipeline_version,
         windows=windows,
+        dayparts=DAYPARTS,
         footnotes=FOOTNOTES,
         sections=Sections(
             temporal_usage=TemporalUsage(
@@ -751,6 +881,7 @@ def build_aggregates(
                     active_students=active_series,
                 ),
                 per_window=temporal_windows,
+                semester_profiles=semester_profiles or None,
             ),
             usage_context=UsageContext(
                 weekly=UsageContextWeekly(

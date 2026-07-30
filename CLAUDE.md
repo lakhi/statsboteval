@@ -17,7 +17,9 @@ course performance), (3) master's thesis. See `docs/research-context.md`.
 since 2026-07-17 (D-37); Phase B classification complete (D-42/D-43/D-44). The weekly
 pipeline extracts from the production DB, classifies, aggregates under the N=3 floor, and
 publishes; the dashboard serves five educator-question tabs plus Topics and **Trends**
-(period comparisons, schema 1.3.0, D-49 — built 2026-07-30, not yet published). Corpus scale:
+(period comparisons, schema 1.3.0, D-49 — built 2026-07-30, not yet published). Timing was
+rebuilt on schema 1.6.0 (D-54): dayparts replace the 168-cell hour grid, a semester-rhythm
+overlay renders under All-time, and week axes read as month anchors. Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 
@@ -105,6 +107,15 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
   partition and sum to `active_students`; `frequent` never adds to them.
 - **`created_at` is THE temporal axis** (weeks, windows, heatmap). `session_started` is a
   client clock — a session *key*, plus status-at-usage-time resolution, never an axis.
+- **Dayparts are four *equal* six-hour blocks, and the equality is load-bearing** (D-54).
+  Bar length reads as intensity, so unequal bins invert the finding — the rejected 2–8 h
+  draft made the densest period of the day (12–14 at 408 msg/h) the shortest bar on the
+  chart. Re-cutting them unevenly silently lies. `_daypart_of` is a scan, not `hour // 6`,
+  so a re-cut degrades the chart instead of corrupting the buckets.
+- **`semester_week` indexes a semester's full Thursday-rule membership, never its
+  coverage** (D-54). A semester whose opening weeks fall outside the axis must still start
+  at the week it really started, or every curve in the overlay slides left by the number of
+  missing weeks — invisibly, since each curve still looks plausible on its own.
 - **One label version never mixes models or inference settings** (D-41). Changing either
   means a new version and a full re-classify. **`CLASSIFIER_BATCH_SIZE` is an inference
   setting, not a throughput knob** (D-45): it sets how many decisions one call is asked

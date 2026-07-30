@@ -512,3 +512,128 @@ def test_a_measured_zero_does_not_trigger_complementary_suppression(
     totals = build2(con2, floor_n=3)["sections"]["usage_context"]["per_window"]["all_time"]["totals"]
     assert totals["new_users"] == {"status": "ok", "value": 3}
     assert totals["returning_users"] == {"status": "ok", "value": 0}
+
+
+# --- dayparts + semester profiles (schema 1.6.0, D-54) ----------------------
+
+
+def test_daypart_totals_and_grid_bucket_the_same_messages(con2: duckdb.DuckDBPyConnection) -> None:
+    """con2's traffic is 7 morning messages (Mon) and 1 evening one (Tue), Vienna local."""
+    window = build2(con2, floor_n=3)["sections"]["temporal_usage"]["per_window"]["all_time"]
+    totals = window["daypart_totals"]
+    assert totals["by_daypart"] == {
+        "night": {"status": "ok", "value": 0},  # measured zero, not withheld
+        "morning": {"status": "ok", "value": 7},  # 6 at local 10:00 + 1 at local 09:00
+        "afternoon": {"status": "ok", "value": 0},
+        "evening": {"status": "suppressed"},  # 1 message, 1 student (syn-0003)
+    }
+    # Every message is Mon/Tue, so the weekend side is a measured zero.
+    assert totals["weekday"] == {"status": "ok", "value": 8}
+    assert totals["weekend"] == {"status": "ok", "value": 0}
+
+    grid = {(c["dow"], c["daypart"]): c["cell"] for c in window["daypart_heatmap"]["cells"]}
+    assert len(grid) == 28
+    assert grid[(1, "morning")] == {"status": "ok", "value": 7}
+    assert grid[(2, "evening")] == {"status": "suppressed"}
+    assert grid[(1, "night")] == {"status": "ok", "value": 0}
+    # The grid and the totals partition the same messages: published morning cells sum
+    # to the published morning total (they all clear the floor in this corpus).
+    assert sum(grid[(d, "morning")].get("value", 0) for d in range(1, 8)) == 7
+
+
+def test_weekend_and_weekday_are_floored_independently(con: duckdb.DuckDBPyConnection) -> None:
+    """Never weekday = total - weekend: that subtraction recovers a suppressed side."""
+    from datetime import date
+
+    # 3 students on a Tuesday (publishes), 1 student on the Sunday (must be withheld).
+    insert(
+        con,
+        [
+            (1, "syn-0001", 1000, datetime(2025, 3, 11, 9, 0)),
+            (2, "syn-0002", 2000, datetime(2025, 3, 11, 9, 0)),
+            (3, "syn-0003", 3000, datetime(2025, 3, 11, 9, 0)),
+            (4, "syn-0004", 4000, datetime(2025, 3, 16, 9, 0)),
+        ],
+    )
+    record_extraction_time(con, datetime(2025, 3, 19, 6, 0, tzinfo=timezone.utc))
+    doc = dump_doc(
+        build_aggregates(
+            con,
+            floor_n=3,
+            now=datetime(2025, 3, 19, 6, 0, tzinfo=timezone.utc),
+            provenance="synthetic",
+            pipeline_version="0.1.0",
+            axis_start=date(2025, 3, 1),
+        )
+    )
+    totals = doc["sections"]["temporal_usage"]["per_window"]["all_time"]["daypart_totals"]
+    assert totals["weekday"] == {"status": "ok", "value": 3}
+    assert totals["weekend"] == {"status": "suppressed"}  # 1 student, withheld not zeroed
+
+
+@pytest.mark.parametrize(
+    ("utc_hour", "expected"),
+    [
+        (4, "night"),  # local 05:00 - last hour of night
+        (5, "morning"),  # local 06:00 - first hour of morning
+        (10, "morning"),  # local 11:00
+        (11, "afternoon"),  # local 12:00
+        (16, "afternoon"),  # local 17:00
+        (17, "evening"),  # local 18:00
+        (22, "evening"),  # local 23:00 - last hour of the day
+    ],
+)
+def test_daypart_boundaries_are_half_open(
+    con: duckdb.DuckDBPyConnection, utc_hour: int, expected: str
+) -> None:
+    """[from_hour, to_hour) in Vienna local time. March 2025 is CET, so local = UTC + 1."""
+    from datetime import date
+
+    insert(
+        con,
+        [(i, f"syn-{i:04d}", 1000 + i, datetime(2025, 3, 11, utc_hour, 0)) for i in range(1, 4)],
+    )
+    record_extraction_time(con, datetime(2025, 3, 19, 6, 0, tzinfo=timezone.utc))
+    doc = dump_doc(
+        build_aggregates(
+            con,
+            floor_n=3,
+            now=datetime(2025, 3, 19, 6, 0, tzinfo=timezone.utc),
+            provenance="synthetic",
+            pipeline_version="0.1.0",
+            axis_start=date(2025, 3, 1),
+        )
+    )
+    by_daypart = doc["sections"]["temporal_usage"]["per_window"]["all_time"]["daypart_totals"]["by_daypart"]
+    assert by_daypart[expected] == {"status": "ok", "value": 3}
+    for other in ("night", "morning", "afternoon", "evening"):
+        if other != expected:
+            assert by_daypart[other] == {"status": "ok", "value": 0}, other
+
+
+def test_semester_profile_indexes_full_membership_not_coverage(con2: duckdb.DuckDBPyConnection) -> None:
+    """Week 1 is window.weeks[0] (2025-W10), so W10 is teaching week 1 and W11 is 2.
+
+    Indexing on the covered subset instead would slide any semester whose opening weeks
+    are off-axis one week left, silently misaligning the overlay it exists to serve.
+    """
+    profiles = build2(con2, floor_n=1)["sections"]["temporal_usage"]["semester_profiles"]
+    assert [p["window_id"] for p in profiles] == ["2025S"]
+    profile = profiles[0]
+    assert profile["kind"] == "summer"
+    assert profile["footnote_ids"] == ["semester_week_alignment", "cohort_turnover"]
+    # 2025S spans W10..W26 but the axis stops at W11, so only two points exist.
+    assert [(p["semester_week"], p["week"]) for p in profile["points"]] == [
+        (1, "2025-W10"),
+        (2, "2025-W11"),
+    ]
+    assert profile["points"][0]["messages"] == {"status": "ok", "value": 6}
+    assert profile["points"][0]["active_students"] == {"status": "ok", "value": 3}
+
+
+def test_semester_profile_messages_match_the_weekly_series(con2: duckdb.DuckDBPyConnection) -> None:
+    """One source of truth: the overlay reuses the tallies the weekly line is built from."""
+    temporal = build2(con2, floor_n=3)["sections"]["temporal_usage"]
+    weekly = {e["week"]: e["cell"] for e in temporal["weekly"]["messages"]["series"]}
+    for point in temporal["semester_profiles"][0]["points"]:
+        assert point["messages"] == weekly[point["week"]], point["week"]

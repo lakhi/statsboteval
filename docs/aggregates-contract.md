@@ -197,6 +197,8 @@ Initial catalog:
 | `retention_definition` | new = first-ever message inside the window, returning = wrote before it, the two summing to active users; the baseline includes pre-`axis_start` pilot use, and in `all_time` "returning" is the pilot cohort (schema 1.4.0) |
 | `signup_activation` | "sent at least 1 msg" is window-scoped on both sides; a late signup counts in the window they first wrote in (schema 1.4.0) |
 | `status_multi` | a BA→MA transitioner active on both sides of the boundary is counted under both levels, so student counts can exceed the total (schema 1.4.0) |
+| `daypart_definition` | Vienna local; four **equal** six-hour blocks (00–06, 06–12, 12–18, 18–24) so bar length is directly comparable; a chat crossing a boundary counts in both (schema 1.6.0 — D-54) |
+| `semester_week_alignment` | week 1 is the semester's first ISO week (Thursday rule); cohorts and course structure differ between semesters, so compare shape not height; an in-progress semester ends where the data does (schema 1.6.0 — D-54) |
 | `duration_definition` | session duration = last − first server `created_at` in the session; single-message sessions = 0 |
 | `weeks_active_window` | weeks active counts only the weeks inside the selected window, so the shares are not comparable between windows of different length (schema 1.5.0 — D-53) |
 | `multi_label` | a message may carry several categories/themes; topic counts do not sum to the message total (schema 1.1.0) |
@@ -207,6 +209,36 @@ Initial catalog:
 | `cohort_turnover` | each semester draws a largely different cohort; a between-semester change may reflect who enrolled (schema 1.3.0) |
 
 Adding a footnote or attaching an existing id to a metric is additive.
+
+### 6.3 Dayparts (schema 1.6.0 — D-54)
+
+Named blocks of the day that `daypart_heatmap` and `daypart_totals` key on. `from_hour` is
+inclusive, `to_hour` exclusive, and the registry must tile 0..24 contiguously — so nothing
+wraps midnight and every hour lands in exactly one block.
+
+```json
+"dayparts": [
+  { "id": "night",     "label": "Night",     "from_hour": 0,  "to_hour": 6  },
+  { "id": "morning",   "label": "Morning",   "from_hour": 6,  "to_hour": 12 },
+  { "id": "afternoon", "label": "Afternoon", "from_hour": 12, "to_hour": 18 },
+  { "id": "evening",   "label": "Evening",   "from_hour": 18, "to_hour": 24 }
+]
+```
+
+**Why the boundaries live in the document.** Same reason footnote texts do: a definition is
+versioned with the numbers it governs, so an archived blob still says what its own cells
+meant, and the dashboard holds no daypart definitions of its own — it renders whatever the
+registry declares, including the labels.
+
+**Why the blocks are equal.** Bar length reads as intensity, so unequal bins invert the
+finding. A six-block draft with 2–8 hour widths put 09–12 at 1,010 messages against 14–18
+at 1,560 — "afternoons are far busier" — while the per-hour rates were 337 and 390, and the
+2-hour midday block, the *shortest bar on the chart*, was the densest period of the day at
+408/h. Equal widths make the bars comparable without per-hour normalization, which is what
+the `daypart_definition` footnote tells the reader.
+
+Optional: absent in documents that publish no daypart cells. Present whenever any are
+published (validated at document root, since only the root sees both).
 
 ## 7 · Sections
 
@@ -220,8 +252,32 @@ only; A/B/C (topics) arrive with Phase B (§8).
 { "weekly": { "messages":        { "series": [ … ] },
               "sessions":        { "series": [ … ], "footnote_ids": ["chat_fragmentation"] },
               "active_students": { "series": [ … ] } },
-  "per_window": { "<window_id>": { "activity_heatmap": HeatmapGrid } } }
+  "per_window": { "<window_id>": { "activity_heatmap": HeatmapGrid,
+                                   "daypart_heatmap": DaypartGrid,      // 1.6.0
+                                   "daypart_totals":  DaypartTotals } },// 1.6.0
+  "semester_profiles": [ SemesterProfile ] }                            // 1.6.0
 ```
+
+**`activity_heatmap` is published but no longer rendered (1.6.0, D-54).** The dashboard
+draws `daypart_heatmap` instead: 7 × 24 = 168 cells was too fine for this corpus and the
+floor ate it (52 of 84 non-empty cells suppressed in 2025W, 29 of 139 all-time), while
+7 × 4 suppresses 3 and 2 respectively and preserves the weekday × daypart interaction the
+grid exists to show. The field stays because it is a **required field of a section that
+stays**, and §10 forbids removing that within a major version — the 1.5.0 exception covers
+withdrawing a whole optional section only. It is also the rollback path.
+
+**`daypart_totals`** carries `by_daypart` (one cell per registry id), plus `weekend` and
+`weekday`, each floored on its own contributing-student set. They are never derived from
+one another: `weekday = total − weekend` would recover a suppressed side exactly.
+
+**`semester_profiles`** is deliberately *not* per-window — it exists to compare windows, so
+the window picker cannot apply to it, and the dashboard renders it under `all_time` only.
+Each entry re-indexes one semester to teaching week: `semester_week` is the 1-based index
+into the window's **full** Thursday-rule membership, not into the weeks that happen to
+carry data. Indexing on coverage would slide a semester whose opening weeks are off-axis
+one week left and silently misalign every comparison the overlay exists to make. Weeks past
+the axis are absent rather than zero-filled, so an in-progress semester ends where the data
+does. Both `messages` and `active_students` are published; the dashboard plots messages.
 
 ### 7.2 `usage_context` — adoption, KPI totals, Bergmann-comparable user classes
 
@@ -522,6 +578,12 @@ remains a major break.
       "weeks": ["2026-W10", "2026-W11", "2026-W12", "…", "2026-W26"],
       "coverage": { "from": "2026-W10", "through": "2026-W26" } }
   ],
+  "dayparts": [
+    { "id": "night", "label": "Night", "from_hour": 0, "to_hour": 6 },
+    { "id": "morning", "label": "Morning", "from_hour": 6, "to_hour": 12 },
+    { "id": "afternoon", "label": "Afternoon", "from_hour": 12, "to_hour": 18 },
+    { "id": "evening", "label": "Evening", "from_hour": 18, "to_hour": 24 }
+  ],
   "footnotes": {
     "chat_fragmentation": { "text": "The credit-limit UI nudges students toward starting new chats; conversation counts may overstate distinct dialogues." }
   },
@@ -537,11 +599,37 @@ remains a major break.
         "active_students": { "series": ["…"] }
       },
       "per_window": {
-        "2026S": { "activity_heatmap": { "cells": [
-          { "dow": 1, "hour": 8, "cell": { "status": "ok", "value": 41 } },
-          { "dow": 7, "hour": 3, "cell": { "status": "suppressed" } }
-        ] } }
-      }
+        "2026S": {
+          "activity_heatmap": { "cells": [
+            { "dow": 1, "hour": 8, "cell": { "status": "ok", "value": 41 } },
+            { "dow": 7, "hour": 3, "cell": { "status": "suppressed" } }
+          ] },
+          "daypart_heatmap": { "cells": [
+            { "dow": 1, "daypart": "morning", "cell": { "status": "ok", "value": 159 } },
+            { "dow": 7, "daypart": "night",   "cell": { "status": "suppressed" } }
+          ], "footnote_ids": ["daypart_definition"] },
+          "daypart_totals": {
+            "by_daypart": {
+              "night":     { "status": "ok", "value": 18 },
+              "morning":   { "status": "ok", "value": 278 },
+              "afternoon": { "status": "ok", "value": 510 },
+              "evening":   { "status": "ok", "value": 180 }
+            },
+            "weekend": { "status": "ok", "value": 219 },
+            "weekday": { "status": "ok", "value": 767 },
+            "footnote_ids": ["daypart_definition"]
+          }
+        }
+      },
+      "semester_profiles": [
+        { "window_id": "2026S", "label": "Summer semester 2026", "kind": "summer",
+          "points": [
+            { "semester_week": 1, "week": "2026-W10",
+              "messages": { "status": "ok", "value": 49 },
+              "active_students": { "status": "ok", "value": 12 } }
+          ],
+          "footnote_ids": ["semester_week_alignment", "cohort_turnover"] }
+      ]
     },
     "sessions": {
       "per_window": {

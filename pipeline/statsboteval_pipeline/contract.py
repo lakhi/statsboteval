@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.5.0"
+SCHEMA_VERSION = "1.6.0"
 
 FootnoteId = str
 
@@ -160,6 +160,61 @@ class HeatmapGrid(BaseModel):
         return self
 
 
+class Daypart(BaseModel):
+    """One block of the day, in the registry at document root (1.6.0, D-54).
+
+    Boundaries live in the document rather than in dashboard code for the same reason
+    footnote texts do: a definition is versioned with the numbers it governs, and an
+    archived blob must still say what its own cells meant. `from_hour` is inclusive,
+    `to_hour` exclusive; the registry partitions 0..24 contiguously, so no block wraps
+    midnight and `hour // width` is a valid lookup.
+    """
+
+    id: str
+    label: str
+    from_hour: int = Field(ge=0, le=23)
+    to_hour: int = Field(ge=1, le=24)
+
+    @model_validator(mode="after")
+    def _forward(self) -> "Daypart":
+        if self.to_hour <= self.from_hour:
+            raise ValueError(f"daypart {self.id!r}: to_hour must be after from_hour (no midnight wrap)")
+        return self
+
+
+class DaypartCell(BaseModel):
+    dow: int = Field(ge=1, le=7)  # ISO: Monday = 1
+    daypart: str  # resolves against the document's dayparts registry
+    cell: CountCell
+
+
+class DaypartGrid(BaseModel):
+    """Weekday x daypart activity (1.6.0, D-54) — the coarse twin of HeatmapGrid.
+
+    Density is checked at document root, not here: it is 7 x len(dayparts) and only the
+    root knows the registry. HeatmapGrid can self-check because 24 is a constant.
+    """
+
+    cells: list[DaypartCell]
+    footnote_ids: list[FootnoteId] | None = None
+
+    @model_validator(mode="after")
+    def _unique_pairs(self) -> "DaypartGrid":
+        seen = {(c.dow, c.daypart) for c in self.cells}
+        if len(seen) != len(self.cells):
+            raise ValueError("daypart grid contains duplicate (dow, daypart) cells")
+        return self
+
+
+class DaypartTotals(BaseModel):
+    # weekend/weekday are floored on their own contributing-student sets, never derived
+    # from each other — a difference across a suppressed cell would leak it (invariant 4).
+    by_daypart: dict[str, CountCell]
+    weekend: CountCell
+    weekday: CountCell
+    footnote_ids: list[FootnoteId] | None = None
+
+
 class Coverage(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -212,12 +267,45 @@ class TemporalUsageWeekly(BaseModel):
 
 
 class TemporalUsageWindow(BaseModel):
+    # 1.6.0 (D-54): the dashboard renders `daypart_heatmap`; `activity_heatmap` stays
+    # published and unread. It is a *required field of a section that stays*, and §10
+    # forbids removing that within a major version — the 1.5.0 exception covers
+    # withdrawing a whole optional section only. Also the rollback path.
     activity_heatmap: HeatmapGrid
+    daypart_heatmap: DaypartGrid | None = None
+    daypart_totals: DaypartTotals | None = None
+
+
+class SemesterProfilePoint(BaseModel):
+    semester_week: int = Field(ge=1)
+    week: WeekId  # the real ISO week behind the index, so the tooltip can name it
+    messages: CountCell
+    active_students: CountCell
+
+
+class SemesterProfile(BaseModel):
+    """One semester re-indexed to teaching week, for the cross-semester overlay (1.6.0).
+
+    `messages` is what the dashboard plots; `active_students` rides along because cohorts
+    differ in size (2025S 165 vs 2026S 117) and it is the size-robust read — publishing
+    both means a later toggle is a dashboard change, not another schema bump.
+    """
+
+    window_id: str  # resolves against the windows registry; must be a semester window
+    label: str
+    kind: Literal["summer", "winter"]
+    points: list[SemesterProfilePoint]
+    # Repeated on every profile, as UsageContextByStatus does: the note belongs to the
+    # figure, and a bare list of profiles has no other place to hang it.
+    footnote_ids: list[FootnoteId] | None = None
 
 
 class TemporalUsage(BaseModel):
     weekly: TemporalUsageWeekly
     per_window: dict[str, TemporalUsageWindow]
+    # Deliberately not per_window: the whole point is comparing across windows, so the
+    # window picker does not apply. The dashboard renders it under all_time only (D-54).
+    semester_profiles: list[SemesterProfile] | None = None
 
 
 class UsageContextTotals(BaseModel):
@@ -539,6 +627,9 @@ class Aggregates(BaseModel):
     data_provenance: Literal["synthetic", "production"]
     pipeline_version: str
     windows: list[Window]
+    # 1.6.0 (D-54). Optional so a 1.5.0-shaped document still validates; required in
+    # practice whenever any daypart cell is published (checked in _check_dayparts).
+    dayparts: list[Daypart] | None = None
     footnotes: dict[FootnoteId, Footnote]
     sections: Sections
 
@@ -600,6 +691,70 @@ class Aggregates(BaseModel):
                             f"references unknown window {point.window_id!r}"
                         )
 
+    def _check_dayparts(self) -> None:
+        """Registry partitions the day, and every daypart cell resolves against it.
+
+        The grid's own validator cannot do this — density is 7 x len(dayparts) and only
+        the root sees the registry (the same reason trends' floor checks live here).
+        """
+        temporal = self.sections.temporal_usage
+        windows_with_dayparts = (
+            [(wid, w) for wid, w in temporal.per_window.items() if w.daypart_heatmap or w.daypart_totals]
+            if temporal is not None
+            else []
+        )
+        if not windows_with_dayparts:
+            return
+        if not self.dayparts:
+            raise ValueError("daypart cells are published but the dayparts registry is missing")
+
+        ids = [d.id for d in self.dayparts]
+        if len(set(ids)) != len(ids):
+            raise ValueError("daypart ids must be unique")
+        cursor = 0
+        for part in sorted(self.dayparts, key=lambda d: d.from_hour):
+            if part.from_hour != cursor:
+                raise ValueError(f"dayparts must tile 0..24 contiguously: gap or overlap at hour {cursor}")
+            cursor = part.to_hour
+        if cursor != 24:
+            raise ValueError(f"dayparts must cover the whole day: coverage ends at hour {cursor}")
+
+        known = set(ids)
+        for window_id, window in windows_with_dayparts:
+            grid = window.daypart_heatmap
+            if grid is not None:
+                unknown = {c.daypart for c in grid.cells} - known
+                if unknown:
+                    raise ValueError(
+                        f"temporal_usage.per_window.{window_id}.daypart_heatmap references "
+                        f"unknown dayparts: {sorted(unknown)}"
+                    )
+                if len(grid.cells) != 7 * len(known):
+                    raise ValueError(
+                        f"temporal_usage.per_window.{window_id}.daypart_heatmap must hold exactly "
+                        f"{7 * len(known)} cells (7 weekdays x {len(known)} dayparts), got {len(grid.cells)}"
+                    )
+            totals = window.daypart_totals
+            if totals is not None and set(totals.by_daypart) != known:
+                raise ValueError(
+                    f"temporal_usage.per_window.{window_id}.daypart_totals.by_daypart must hold "
+                    f"exactly the registry ids {sorted(known)}"
+                )
+
+    def _check_semester_profiles(self, window_ids: set[str]) -> None:
+        temporal = self.sections.temporal_usage
+        if temporal is None or temporal.semester_profiles is None:
+            return
+        semesters = {w.id for w in self.windows if w.kind == "semester"}
+        for profile in temporal.semester_profiles:
+            if profile.window_id not in window_ids:
+                raise ValueError(f"semester_profiles references unknown window {profile.window_id!r}")
+            if profile.window_id not in semesters:
+                raise ValueError(f"semester_profiles.{profile.window_id} is not a semester window")
+            indices = [p.semester_week for p in profile.points]
+            if indices != sorted(indices) or len(set(indices)) != len(indices):
+                raise ValueError(f"semester_profiles.{profile.window_id}: semester_week must ascend uniquely")
+
     @model_validator(mode="after")
     def _cross_document_consistency(self) -> "Aggregates":
         if week_sunday(self.data_through_week) != self.data_through_date:
@@ -612,6 +767,8 @@ class Aggregates(BaseModel):
             if unknown:
                 raise ValueError(f"sections.{name}.per_window references unknown windows: {sorted(unknown)}")
         self._check_trends(window_ids)
+        self._check_dayparts()
+        self._check_semester_profiles(window_ids)
         referenced = set(_iter_footnote_ids(dump_doc(self.sections)))
         unknown_footnotes = referenced - set(self.footnotes)
         if unknown_footnotes:

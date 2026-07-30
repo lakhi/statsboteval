@@ -1337,3 +1337,93 @@ idle) returned nothing, and the heredoc parsed an empty body. The upload itself 
 succeeded — re-curling immediately returned schema 1.5.0. Cosmetic, but the script would
 read better if the verify curl retried once after a cold start instead of failing loudly
 about a publish that worked.
+
+## D-54 — 2026-07-30: Timing tab — dayparts replace the hour grid, semester rhythms overlay, week axis reads in months; schema 1.6.0
+
+**Context.** An audit of the Timing tab found four problems: "Messages per week" never said
+that one message is one *exchange* (a `history` row holds both `sent` and `received`),
+"Active students per week" stated neither its ≥ 1-message rule nor the fact that it double-
+counts across weeks, the 168-cell heatmap was being eaten by the privacy floor, and the
+x-axis read `W10`, which no educator parses as "early March".
+
+**The heatmap was the right chart at the wrong granularity.** 7 × 24 = 168 cells is too
+fine for this corpus, and the stripes read as a privacy feature rather than a design
+mistake. Non-empty cells suppressed, per published window: all_time 29/139, 2025S 40/122,
+**2025W 52/84 (62%)**, 2026S 45/111.
+
+The first fix considered was to publish the two *margins* (an hour profile and a weekday
+profile), which barely suppress at all. **Testing killed it.** The weekday × daypart
+interaction is real and is exactly the pedagogically interesting part — observed ÷
+expected-under-independence over the published axis gives chi-square 160 on 18 df (critical
+28.9), with **Saturday 00–06 at 3.77×**, Sunday evening 1.62×, against Friday evening 0.53
+and Monday 0.68, and Wednesday small hours 0.28. Sunday's *daily total* is unremarkable
+next to Friday's; the entire story is *when* on Sunday. Margins would have erased it.
+
+So the grid stays and its hour axis coarsens to the dayparts: 7 × 4 = 28 cells, suppressing
+2/28 all-time and 3/21 in 2025W. What is lost is the fine hour peak (11:00) becoming
+"morning". Accepted.
+
+**Four equal six-hour blocks, not six uneven ones — the owner's call, and it caught a real
+defect.** The drafted registry used 2–8 hour blocks (06–09, 09–12, 12–14, 14–18, 18–22,
+22–06). Bar length reads as intensity, so unequal bins invert the finding: that scheme puts
+09–12 at 1,010 messages against 14–18 at 1,560, which says "afternoons are far busier",
+while the per-hour rates are 337 and 390 — and the 2-hour midday block, *the shortest bar on
+the chart*, is the densest period of the day at 408/h. Equal widths make the bars comparable
+with no per-hour normalization. They also won on every other axis measured: least
+suppression of any scheme tried (7 × 6 equal, 7 × 6 uneven, 7 × 8 all worse), a sharper
+interaction, and no block wrapping midnight — which deleted a validator, a footnote clause
+and a test case, because 00–06 starts the day instead of continuing the previous one.
+
+**The dayparts registry ships in the document**, beside `windows` and `footnotes` (§6.3).
+Same reason footnote texts do: a definition is versioned with the numbers it governs, and
+the dashboard holds no daypart definitions of its own — labels and boundaries both come
+from the blob. `_daypart_of` is a scan rather than `hour // 6`: the division is only correct
+while every block is six hours wide, and that is a display property of today's registry,
+not a law.
+
+**Semester overlay renders under All-time only.** Re-indexing each semester to teaching week
+answers "does the end-of-term surge repeat, and when?" — 2025S ramps to a week-17 peak of
+218 messages, 2026S peaks at week 14 with 167. Nothing else on the dashboard asks that;
+Trends compares *aggregates* between periods, not *shapes within* them. The chart cannot
+honour the window picker, so rather than sit there ignoring a filter every neighbouring card
+obeys, it renders only under `all_time` and is absent otherwise — the picker's meaning stays
+exact. Deliberately not a `WindowGap`: that component says "not available for this window",
+which would frame a design decision as missing data.
+
+`semester_week` indexes the window's **full** Thursday-rule membership, not the covered
+subset — this is the load-bearing line. Indexing on coverage would slide any semester whose
+opening weeks are off-axis one week left and silently misalign every comparison the overlay
+exists to make. Pinned by `test_semester_profile_indexes_full_membership_not_coverage`.
+Both `messages` and `active_students` are published (cohorts differ in size — 2025S 165
+active students vs 2026S 117 — so the latter is the size-robust read); the dashboard plots
+messages, and a toggle is now a dashboard change rather than another schema bump.
+
+**Week axis: month anchors, with Monday dates below 8 points.** `MMM-W#` was rejected on
+measurement: **9 of the 24 months in 2025–26 hold five ISO weeks** (April 2026 and May 2025
+among them, both on screen), the Monday and Thursday rules disagree on boundary weeks
+(2026-W14 is `Mar-W5` or `Apr-W1`), `Mar-W1` repeats unqualified across years on the
+74-week all_time axis, and going from 3 to 6 characters makes recharts drop *more* ticks
+than today. The hierarchical axis — coarse unit named once at its boundary, fine unit
+positional — is what every serious time-series axis does. Thursday rule for month ownership,
+matching `windows.py:_semester_of`; the year rides on January and on the first tick, which
+is what disambiguates the two `Mar`s. Short windows fall back to `02 Mar` on every tick
+because a 4-week window need not contain a month boundary, and an axis with no labels is
+worse than one with four. Tooltip and data table gained the exact range
+(`W23 · 01–07 Jun 2026`), so precision moved rather than disappeared.
+
+**Consequences.**
+- `activity_heatmap` is still published and no longer rendered (~840 unread cells across
+  five windows). It is a required field of a section that stays, and §10 forbids removing
+  that within a major version — the 1.5.0 exception covers whole optional sections only.
+  Also the rollback path.
+- Requires a re-aggregate **and** a bundle redeploy in the same sitting (D-51).
+- `TrendChart` now sets `interval={0}` / `minTickGap={0}`: the formatter already decides
+  which weeks carry a label, and letting recharts thin them again would drop month anchors
+  at random.
+- Deferred, not rejected: **intra-session turnaround** (median 3.0 min, IQR 1.4–8.3, stable
+  across both semesters — students read and re-ask in about three minutes, which is lookup
+  rather than study). It is a session-depth measure and belongs beside Engagement's duration
+  histogram. Also rejected: return latency (re-measures `user_classes`/`weeks_active`) and
+  signup→first-message, which is degenerate — **364 of 443 students wrote within an hour of
+  registering**, so Adoption's "signed up" and "sent at least 1 msg" tiles are near-identical
+  by construction rather than by onboarding success.

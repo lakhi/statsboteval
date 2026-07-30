@@ -56,8 +56,9 @@ def test_schema_version_bumped_minor() -> None:
     # Deliberate tripwire: every additive section bump edits this line, which forces the
     # bump to be a decision rather than a side effect. 1.3.0 adds trends (D-49); 1.4.0 adds
     # the Adoption additions — retention, signup activation, frequent, by_status (D-50);
-    # 1.5.0 adds per_student and withdraws tokens (D-53).
-    assert SCHEMA_VERSION == "1.5.0"
+    # 1.5.0 adds per_student and withdraws tokens (D-53); 1.6.0 adds the dayparts registry,
+    # the coarse daypart heatmap/totals and semester profiles (D-54).
+    assert SCHEMA_VERSION == "1.6.0"
 
 
 def test_description_optional_and_absent_not_null() -> None:

@@ -48,6 +48,193 @@
       "title": "Coverage",
       "type": "object"
     },
+    "Daypart": {
+      "description": "One block of the day, in the registry at document root (1.6.0, D-54).\n\nBoundaries live in the document rather than in dashboard code for the same reason\nfootnote texts do: a definition is versioned with the numbers it governs, and an\narchived blob must still say what its own cells meant. `from_hour` is inclusive,\n`to_hour` exclusive; the registry partitions 0..24 contiguously, so no block wraps\nmidnight and `hour // width` is a valid lookup.",
+      "properties": {
+        "from_hour": {
+          "maximum": 23,
+          "minimum": 0,
+          "title": "From Hour",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "to_hour": {
+          "maximum": 24,
+          "minimum": 1,
+          "title": "To Hour",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "from_hour",
+        "to_hour"
+      ],
+      "title": "Daypart",
+      "type": "object"
+    },
+    "DaypartCell": {
+      "properties": {
+        "cell": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Cell"
+        },
+        "daypart": {
+          "title": "Daypart",
+          "type": "string"
+        },
+        "dow": {
+          "maximum": 7,
+          "minimum": 1,
+          "title": "Dow",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dow",
+        "daypart",
+        "cell"
+      ],
+      "title": "DaypartCell",
+      "type": "object"
+    },
+    "DaypartGrid": {
+      "description": "Weekday x daypart activity (1.6.0, D-54) \u2014 the coarse twin of HeatmapGrid.\n\nDensity is checked at document root, not here: it is 7 x len(dayparts) and only the\nroot knows the registry. HeatmapGrid can self-check because 24 is a constant.",
+      "properties": {
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/DaypartCell"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        }
+      },
+      "required": [
+        "cells"
+      ],
+      "title": "DaypartGrid",
+      "type": "object"
+    },
+    "DaypartTotals": {
+      "properties": {
+        "by_daypart": {
+          "additionalProperties": {
+            "discriminator": {
+              "mapping": {
+                "ok": "#/$defs/OkCell",
+                "suppressed": "#/$defs/SuppressedCell"
+              },
+              "propertyName": "status"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/OkCell"
+              },
+              {
+                "$ref": "#/$defs/SuppressedCell"
+              }
+            ]
+          },
+          "title": "By Daypart",
+          "type": "object"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "weekday": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Weekday"
+        },
+        "weekend": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Weekend"
+        }
+      },
+      "required": [
+        "by_daypart",
+        "weekend",
+        "weekday"
+      ],
+      "title": "DaypartTotals",
+      "type": "object"
+    },
     "Finding": {
       "properties": {
         "baseline": {
@@ -750,6 +937,115 @@
       "title": "Sections",
       "type": "object"
     },
+    "SemesterProfile": {
+      "description": "One semester re-indexed to teaching week, for the cross-semester overlay (1.6.0).\n\n`messages` is what the dashboard plots; `active_students` rides along because cohorts\ndiffer in size (2025S 165 vs 2026S 117) and it is the size-robust read \u2014 publishing\nboth means a later toggle is a dashboard change, not another schema bump.",
+      "properties": {
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "kind": {
+          "enum": [
+            "summer",
+            "winter"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/SemesterProfilePoint"
+          },
+          "title": "Points",
+          "type": "array"
+        },
+        "window_id": {
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "window_id",
+        "label",
+        "kind",
+        "points"
+      ],
+      "title": "SemesterProfile",
+      "type": "object"
+    },
+    "SemesterProfilePoint": {
+      "properties": {
+        "active_students": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Active Students"
+        },
+        "messages": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Messages"
+        },
+        "semester_week": {
+          "minimum": 1,
+          "title": "Semester Week",
+          "type": "integer"
+        },
+        "week": {
+          "pattern": "^\\d{4}-W\\d{2}$",
+          "title": "Week",
+          "type": "string"
+        }
+      },
+      "required": [
+        "semester_week",
+        "week",
+        "messages",
+        "active_students"
+      ],
+      "title": "SemesterProfilePoint",
+      "type": "object"
+    },
     "SemesterWindow": {
       "properties": {
         "coverage": {
@@ -868,6 +1164,21 @@
           "title": "Per Window",
           "type": "object"
         },
+        "semester_profiles": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SemesterProfile"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Semester Profiles"
+        },
         "weekly": {
           "$ref": "#/$defs/TemporalUsageWeekly"
         }
@@ -903,6 +1214,28 @@
       "properties": {
         "activity_heatmap": {
           "$ref": "#/$defs/HeatmapGrid"
+        },
+        "daypart_heatmap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DaypartGrid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "daypart_totals": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DaypartTotals"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1789,6 +2122,21 @@
       "pattern": "^\\d{4}-W\\d{2}$",
       "title": "Data Through Week",
       "type": "string"
+    },
+    "dayparts": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Daypart"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dayparts"
     },
     "first_week": {
       "pattern": "^\\d{4}-W\\d{2}$",

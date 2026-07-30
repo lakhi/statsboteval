@@ -5,6 +5,10 @@ from datetime import date, datetime, timezone
 from statsboteval_pipeline.contract import (
     Aggregates,
     AllTimeWindow,
+    Daypart,
+    DaypartCell,
+    DaypartGrid,
+    DaypartTotals,
     Footnote,
     HeatmapCell,
     HeatmapGrid,
@@ -19,6 +23,8 @@ from statsboteval_pipeline.contract import (
     PerStudentWindow,
     SCHEMA_VERSION,
     Sections,
+    SemesterProfile,
+    SemesterProfilePoint,
     SemesterWindow,
     SessionsSection,
     SessionsWindow,
@@ -52,7 +58,18 @@ FOOTNOTES = {
     "weeks_active_window": Footnote(text="Weeks active counts only the weeks inside the selected window."),
     "trend_method": Footnote(text="Findings are selected by relevance among changes that cleared a noise gate."),
     "cohort_turnover": Footnote(text="Each semester draws a largely different cohort of students."),
+    "daypart_definition": Footnote(text="Vienna local time, four equal six-hour blocks; bars are comparable."),
+    "semester_week_alignment": Footnote(text="Week 1 is the semester's first ISO week; compare shape, not height."),
 }
+
+# Mirrors aggregate.DAYPARTS — the fixture must publish the same registry the pipeline does,
+# or the design fixture and the real document disagree about what a bar means.
+DAYPARTS = [
+    Daypart(id="night", label="Night", from_hour=0, to_hour=6),
+    Daypart(id="morning", label="Morning", from_hour=6, to_hour=12),
+    Daypart(id="afternoon", label="Afternoon", from_hour=12, to_hour=18),
+    Daypart(id="evening", label="Evening", from_hour=18, to_hour=24),
+]
 
 
 def series(values: list[int | None], footnote_ids: list[str] | None = None) -> WeeklySeries:
@@ -69,6 +86,52 @@ def grid() -> HeatmapGrid:
         for h in range(24)
     ]
     return HeatmapGrid(cells=cells)
+
+
+def daypart_grid() -> DaypartGrid:
+    """Sunday night suppressed, so the design fixture exercises the striped cell."""
+    cells = [
+        DaypartCell(
+            dow=d,
+            daypart=p.id,
+            cell=suppressed() if (d == 7 and p.id == "night") else ok((d * (i + 2)) % 17),
+        )
+        for d in range(1, 8)
+        for i, p in enumerate(DAYPARTS)
+    ]
+    return DaypartGrid(cells=cells, footnote_ids=["daypart_definition"])
+
+
+def daypart_totals() -> DaypartTotals:
+    return DaypartTotals(
+        by_daypart={"night": ok(12), "morning": ok(118), "afternoon": ok(214), "evening": ok(68)},
+        weekend=ok(94),
+        weekday=ok(318),
+        footnote_ids=["daypart_definition"],
+    )
+
+
+def semester_profiles() -> list[SemesterProfile]:
+    """2025S runs W10-W26 but the fixture axis is W11-W14, so the profile starts at
+    semester_week 2 and stops at 5 — the partial-coverage path the real July break hits."""
+    values = [(2, "2025-W11", 41, 12), (3, "2025-W12", None, None), (4, "2025-W13", 0, 0), (5, "2025-W14", 87, 19)]
+    return [
+        SemesterProfile(
+            window_id="2025S",
+            label="Summer semester 2025",
+            kind="summer",
+            points=[
+                SemesterProfilePoint(
+                    semester_week=i,
+                    week=w,
+                    messages=suppressed() if msgs is None else ok(msgs),
+                    active_students=suppressed() if students is None else ok(students),
+                )
+                for i, w, msgs, students in values
+            ],
+            footnote_ids=["semester_week_alignment", "cohort_turnover"],
+        )
+    ]
 
 
 def histogram(unit: str, footnote_ids: list[str] | None = None) -> Histogram:
@@ -140,7 +203,12 @@ def window_totals() -> UsageContextTotals:
 
 
 def make_synthetic_aggregates() -> Aggregates:
-    per_window_temporal = {wid: TemporalUsageWindow(activity_heatmap=grid()) for wid in WINDOW_IDS}
+    per_window_temporal = {
+        wid: TemporalUsageWindow(
+            activity_heatmap=grid(), daypart_heatmap=daypart_grid(), daypart_totals=daypart_totals()
+        )
+        for wid in WINDOW_IDS
+    }
     per_window_usage = {
         wid: UsageContextWindow(
             totals=window_totals(),
@@ -196,6 +264,7 @@ def make_synthetic_aggregates() -> Aggregates:
                 weeks=WEEKS, coverage={"from": "2025-W11", "through": "2025-W14"},
             ),
         ],
+        dayparts=DAYPARTS,
         footnotes=FOOTNOTES,
         sections=Sections(
             temporal_usage=TemporalUsage(
@@ -205,6 +274,7 @@ def make_synthetic_aggregates() -> Aggregates:
                     active_students=series([12, None, 0, 19], ["bachelor_onboarding"]),
                 ),
                 per_window=per_window_temporal,
+                semester_profiles=semester_profiles(),
             ),
             usage_context=UsageContext(
                 weekly=UsageContextWeekly(registrations=series([9, 4, 0, None])),

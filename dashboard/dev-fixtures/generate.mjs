@@ -141,6 +141,78 @@ function heatmap(id) {
   return { cells };
 }
 
+// 1.6.0 (D-54). Four equal six-hour blocks; the registry ships in the document so the
+// dashboard holds no daypart definitions of its own. Mirrors aggregate.DAYPARTS.
+const DAYPARTS = [
+  { id: "night", label: "Night", from_hour: 0, to_hour: 6 },
+  { id: "morning", label: "Morning", from_hour: 6, to_hour: 12 },
+  { id: "afternoon", label: "Afternoon", from_hour: 12, to_hour: 18 },
+  { id: "evening", label: "Evening", from_hour: 18, to_hour: 24 },
+];
+// Shape follows the real corpus: afternoon dominates, night is thin, and weekends
+// tilt later in the day — so the fixture exercises the interaction the grid exists for.
+const DAYPART_WEIGHT = { night: 0.03, morning: 0.3, afternoon: 0.52, evening: 0.15 };
+
+function daypartHeatmap(id) {
+  const n = windowStudents[id];
+  const cells = [];
+  for (let dow = 1; dow <= 7; dow++) {
+    const weekend = dow >= 6;
+    for (const part of DAYPARTS) {
+      const tilt = weekend && (part.id === "evening" || part.id === "night") ? 1.9 : weekend ? 0.6 : 1;
+      const st = Math.min(FLOOR_N + 20, Math.round(n * 0.5 * DAYPART_WEIGHT[part.id] * tilt * (0.6 + rnd() * 0.8)));
+      cells.push({
+        dow,
+        daypart: part.id,
+        cell: cell(st, st === 0 ? 0 : st * (2 + Math.floor(rnd() * 6))),
+      });
+    }
+  }
+  return { cells, footnote_ids: ["daypart_definition"] };
+}
+
+function daypartTotals(id) {
+  const n = windowStudents[id];
+  const msgs = rowsFor(id).reduce((a, r) => a + r.messages, 0);
+  const by_daypart = Object.fromEntries(
+    DAYPARTS.map((part) => {
+      const st = Math.round(n * DAYPART_WEIGHT[part.id] * (0.7 + rnd() * 0.5));
+      return [part.id, cell(st, Math.round(msgs * DAYPART_WEIGHT[part.id]))];
+    }),
+  );
+  const weekendStudents = Math.round(n * 0.42);
+  return {
+    by_daypart,
+    weekend: cell(weekendStudents, Math.round(msgs * 0.23)),
+    weekday: cell(Math.round(n * 0.92), Math.round(msgs * 0.77)),
+    footnote_ids: ["daypart_definition"],
+  };
+}
+
+// Each semester re-indexed to teaching week. semester_week is the 1-based index into the
+// semester's FULL membership, so a semester whose opening weeks are off-axis still starts
+// where it really started — the fixture's 2025S does exactly that.
+function semesterProfiles() {
+  const byWeek = new Map(weekly.map((r) => [r.week, r]));
+  return windows
+    .filter((w) => w.kind === "semester")
+    .map((w) => ({
+      window_id: w.id,
+      label: w.label,
+      kind: w.id.endsWith("S") ? "summer" : "winter",
+      points: w.weeks
+        .map((week, i) => ({ week, i: i + 1, row: byWeek.get(week) }))
+        .filter((p) => p.row)
+        .map((p) => ({
+          semester_week: p.i,
+          week: p.week,
+          messages: cell(p.row.students, p.row.messages),
+          active_students: cell(p.row.students, p.row.students),
+        })),
+      footnote_ids: ["semester_week_alignment", "cohort_turnover"],
+    }));
+}
+
 function histogram(id, unit, edges, spread, summaryBase, footnote_ids) {
   const n = windowStudents[id];
   const scale = Math.max(1, Math.round(n * 2.8));
@@ -395,7 +467,7 @@ const trends = {
 };
 
 const doc = {
-  schema_version: "1.4.0",
+  schema_version: "1.6.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),
@@ -406,6 +478,7 @@ const doc = {
   data_provenance: "synthetic",
   pipeline_version: "0.1.0+design-fixture",
   windows,
+  dayparts: DAYPARTS,
   footnotes: {
     chat_fragmentation: {
       text: "The credit-limit UI nudges students toward starting new chats; conversation counts may overstate distinct dialogues.",
@@ -430,6 +503,12 @@ const doc = {
     },
     status_multi: {
       text: "A student who moved from bachelor to master inside the selected window is counted under both levels, so the student counts can exceed the window total by a few.",
+    },
+    daypart_definition: {
+      text: "Times are Vienna local. The day is split into four equal six-hour blocks — night 00–06, morning 06–12, afternoon 12–18, evening 18–24 — so the bars are directly comparable. Each block counts the messages sent inside it, so a chat that runs past a boundary contributes to both.",
+    },
+    semester_week_alignment: {
+      text: "Week 1 is the semester's first ISO week (the first week whose Thursday falls inside the semester), so the curves line up on teaching week rather than calendar date. Semesters draw largely different cohorts and differ in course structure — summer and winter especially — so compare the shape of a curve rather than its height. A semester still in progress ends where the data does.",
     },
     duration_definition: {
       text: "Session duration = last minus first server timestamp in the session; single-message sessions count as 0 minutes.",
@@ -463,7 +542,12 @@ const doc = {
         },
         active_students: series(weekly, (r) => cell(r.students, r.students)),
       },
-      per_window: perWindow((id) => ({ activity_heatmap: heatmap(id) })),
+      per_window: perWindow((id) => ({
+        activity_heatmap: heatmap(id),
+        daypart_heatmap: daypartHeatmap(id),
+        daypart_totals: daypartTotals(id),
+      })),
+      semester_profiles: semesterProfiles(),
     },
     usage_context: {
       weekly: {

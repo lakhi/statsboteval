@@ -16,7 +16,13 @@ import {
   YAxis,
 } from "recharts";
 import type { WeeklyEntry } from "@/lib/aggregates.gen";
-import { formatCount, weekShort } from "@/lib/format";
+import {
+  formatCount,
+  SHORT_AXIS_POINTS,
+  weekMonthAnchor,
+  weekRangeLabel,
+  weekStartLabel,
+} from "@/lib/format";
 
 export type TrendSeries = {
   id: string;
@@ -57,7 +63,8 @@ function TrendTooltip({
   const row = payload[0].payload;
   return (
     <div className="rounded border border-edge bg-card px-2.5 py-1.5 text-xs shadow-sm">
-      <div className="font-medium text-ink">{label}</div>
+      {/* The axis is deliberately approximate now, so the tooltip is exact. */}
+      <div className="font-medium text-ink">{label ? weekRangeLabel(label) : ""}</div>
       {series.map((s) => (
         <div key={s.id} className="mt-0.5 flex items-center gap-1.5 tabular-nums text-ink-2">
           {series.length > 1 ? (
@@ -91,6 +98,14 @@ export function TrendChart({
       row.__mark = row[`${series[0].id}__suppressed`] ? 0 : null;
     }
   }
+  // Month anchors on a long axis, Monday dates on a short one: a 4-week window can
+  // contain no month boundary at all, and an axis with no labels is worse than one
+  // with four. Anchors need the previous week, so this is indexed, not per-value.
+  const weeks = rows.map((r) => r.week as string);
+  const shortAxis = weeks.length < SHORT_AXIS_POINTS;
+  const tickFor = new Map(
+    weeks.map((week, i) => [week, shortAxis ? weekStartLabel(week) : weekMonthAnchor(week, weeks[i - 1])]),
+  );
   return (
     <div>
       {!single && (
@@ -111,8 +126,11 @@ export function TrendChart({
             tick={{ fontSize: 11, fill: "var(--color-ink-3)" }}
             tickLine={false}
             axisLine={{ stroke: "var(--color-baseline)" }}
-            tickFormatter={weekShort}
-            minTickGap={28}
+            tickFormatter={(week: string) => tickFor.get(week) ?? ""}
+            // 0: the formatter already decides which weeks carry a label, and letting
+            // recharts thin them again would drop month anchors at random.
+            minTickGap={0}
+            interval={0}
           />
           <YAxis
             allowDecimals={false}
@@ -148,11 +166,13 @@ export function TrendChart({
   );
 }
 
-/** Table twin rows for one or more weekly series ("suppressed" spelled out). */
+/** Table twin rows for one or more weekly series ("suppressed" spelled out).
+ *  Keeps the machine-readable week id and adds the dates the axis no longer shows —
+ *  the table is the precision twin of the figure. */
 export function trendTableRows(series: TrendSeries[]): (string | number)[][] {
   const rows = buildRows(series);
   return rows.map((row) => [
-    row.week as string,
+    `${row.week as string} (${weekRangeLabel(row.week as string).split(" · ")[1]})`,
     ...series.map((s) =>
       row[`${s.id}__suppressed`] ? "suppressed" : formatCount((row[s.id] as number) ?? 0),
     ),

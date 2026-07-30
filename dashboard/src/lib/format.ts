@@ -38,6 +38,58 @@ export function isoWeekMonday(week: string): Date {
 export const isoWeekSunday = (week: string): Date =>
   new Date(isoWeekMonday(week).getTime() + 6 * MS_PER_DAY);
 
+// --- Week axis labels (D-54) ------------------------------------------------
+// "W10" told an educator nothing. The replacement is a hierarchical axis — the
+// month named once at its boundary, the weeks between it positional — which is
+// what every serious time-series axis does (ggplot date_breaks, Plot's tick
+// reduction, financial charts). The rejected alternative was "Mar-W1" on every
+// tick: 9 of the 24 months in 2025-26 hold five ISO weeks (April 2026 and May
+// 2025 among them), the Monday and Thursday rules disagree on boundary weeks,
+// "Mar-W1" repeats unqualified across years on the 74-week all_time axis, and
+// doubling the label width makes recharts drop MORE ticks than it does today.
+
+/** The month owning a week: the one containing its Thursday. Same rule as
+ *  windows.py:_semester_of, so a week never belongs to one month here and a
+ *  different semester there. */
+const weekThursday = (week: string): Date =>
+  new Date(isoWeekMonday(week).getTime() + 3 * MS_PER_DAY);
+
+/**
+ * Month anchor for a dense axis: the month name at each month boundary, "" in
+ * between. January also carries the year, which is what disambiguates the two
+ * "Mar"s on the all_time axis; so does the very first tick (prev === undefined).
+ */
+export function weekMonthAnchor(week: string, prev?: string): string {
+  const thursday = weekThursday(week);
+  const month = thursday.getUTCMonth();
+  if (prev !== undefined && weekThursday(prev).getUTCMonth() === month) return "";
+  const label = MONTHS[month];
+  const showYear = month === 0 || prev === undefined;
+  return showYear ? `${label} ${String(thursday.getUTCFullYear()).slice(2)}` : label;
+}
+
+/** "02 Mar" — the week's Monday. Every tick self-describing, for short axes
+ *  where month anchors could produce no labels at all (a 4-week window need
+ *  not contain a month boundary). */
+export const weekStartLabel = (week: string): string => formatDay(isoWeekMonday(week)).slice(0, 6);
+
+/** "W23 · 01–07 Jun 2026" — tooltips and table rows, where there is room to be
+ *  exact and the axis itself has been made approximate. */
+export function weekRangeLabel(week: string): string {
+  const monday = isoWeekMonday(week);
+  const sunday = isoWeekSunday(week);
+  const day = (d: Date) => String(d.getUTCDate()).padStart(2, "0");
+  const span =
+    monday.getUTCMonth() === sunday.getUTCMonth()
+      ? `${day(monday)}–${day(sunday)} ${MONTHS[sunday.getUTCMonth()]}`
+      : `${day(monday)} ${MONTHS[monday.getUTCMonth()]} – ${day(sunday)} ${MONTHS[sunday.getUTCMonth()]}`;
+  return `W${week.slice(6)} · ${span} ${sunday.getUTCFullYear()}`;
+}
+
+/** Below this many points, month anchors risk labelling nothing, so every tick
+ *  gets its Monday date instead. trailing_4 (4 points) is the case in hand. */
+export const SHORT_AXIS_POINTS = 8;
+
 /** "02 Mar 26"; `longYear` gives "02 Mar 2026". Reads UTC fields — pair it with
  *  a Date built in UTC (isoWeekMonday) or with viennaDate below. */
 export function formatDay(d: Date, { longYear = false }: { longYear?: boolean } = {}): string {

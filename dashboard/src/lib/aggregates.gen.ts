@@ -8,6 +8,11 @@
 export type DataProvenance = "synthetic" | "production";
 export type DataThroughDate = string;
 export type DataThroughWeek = string;
+export type Dayparts = Daypart[] | null;
+export type FromHour = number;
+export type Id = string;
+export type Label = string;
+export type ToHour = number;
 export type FirstWeek = string;
 export type Text = string;
 export type GeneratedAt = string;
@@ -47,23 +52,41 @@ export type Dow = number;
 export type Hour = number;
 export type Cells = HeatmapCell[];
 export type FootnoteIds3 = string[] | null;
+export type Cell3 = OkCell | SuppressedCell;
+export type Daypart1 = string;
+export type Dow1 = number;
+export type Cells1 = DaypartCell[];
+export type FootnoteIds4 = string[] | null;
+export type FootnoteIds5 = string[] | null;
+export type Weekday = OkCell | SuppressedCell;
+export type Weekend = OkCell | SuppressedCell;
+export type SemesterProfiles = SemesterProfile[] | null;
+export type FootnoteIds6 = string[] | null;
+export type Kind = "summer" | "winter";
+export type Label1 = string;
+export type ActiveStudents = OkCell | SuppressedCell;
+export type Messages = OkCell | SuppressedCell;
+export type SemesterWeek = number;
+export type Week1 = string;
+export type Points = SemesterProfilePoint[];
+export type WindowId = string;
 export type ByStatus = {
   [k: string]: TopicGroup;
 } | null;
-export type FootnoteIds4 = string[] | null;
-export type Cell3 = OkCell | SuppressedCell;
+export type FootnoteIds7 = string[] | null;
+export type Cell4 = OkCell | SuppressedCell;
 export type Description = string | null;
-export type Label = string;
+export type Label2 = string;
 export type Items = TopicItem[];
 export type NTotal1 = OkCell | SuppressedCell;
 export type ThemeSetVersion = string | null;
 export type Baseline = (WindowBaseline | WeeksBaseline | TrajectoryBaseline) | null;
-export type Kind = "window";
-export type WindowId = string;
+export type Kind1 = "window";
+export type WindowId1 = string;
 export type From = string;
-export type Kind1 = "weeks";
+export type Kind2 = "weeks";
 export type Through = string;
-export type Kind2 = "trajectory";
+export type Kind3 = "trajectory";
 /**
  * @maxItems 5
  */
@@ -78,9 +101,9 @@ export type NStudents1 = number;
 export type Value1 = number;
 export type Delta = number;
 export type Evidence = "robust" | "indicative";
-export type FootnoteIds5 = string[] | null;
-export type Id = string;
-export type Kind3 = "rate" | "share" | "median";
+export type FootnoteIds8 = string[] | null;
+export type Id1 = string;
+export type Kind4 = "rate" | "share" | "median";
 export type Measure = string;
 export type Method = string;
 export type Tab = "topics" | "adoption" | "engagement" | "timing" | "language";
@@ -88,24 +111,24 @@ export type Title = string;
 export type Trajectory = TrajectoryPoint[] | null;
 export type NStudents2 = number;
 export type Value2 = number;
-export type WindowId1 = string;
+export type WindowId2 = string;
 export type Unit1 = string;
 export type InsufficientData = boolean;
 export type ByStatus1 = {
   [k: string]: UsageContextByStatus;
 } | null;
-export type ActiveStudents = OkCell | SuppressedCell;
-export type FootnoteIds6 = string[] | null;
-export type Messages = OkCell | SuppressedCell;
 export type ActiveStudents1 = OkCell | SuppressedCell;
-export type FootnoteIds7 = string[] | null;
+export type FootnoteIds9 = string[] | null;
 export type Messages1 = OkCell | SuppressedCell;
+export type ActiveStudents2 = OkCell | SuppressedCell;
+export type FootnoteIds10 = string[] | null;
+export type Messages2 = OkCell | SuppressedCell;
 export type NewRegistrations = OkCell | SuppressedCell;
 export type NewRegistrationsActive = (OkCell | SuppressedCell) | null;
 export type NewUsers = (OkCell | SuppressedCell) | null;
 export type ReturningUsers = (OkCell | SuppressedCell) | null;
 export type Sessions = OkCell | SuppressedCell;
-export type FootnoteIds8 = string[] | null;
+export type FootnoteIds11 = string[] | null;
 export type Frequent = (OkCell | SuppressedCell) | null;
 export type Monthly = OkCell | SuppressedCell;
 export type OneTime = OkCell | SuppressedCell;
@@ -113,18 +136,18 @@ export type Sporadic = OkCell | SuppressedCell;
 export type Timezone = string;
 export type From1 = string;
 export type Through1 = string;
-export type Id1 = string;
-export type Kind4 = "all_time";
-export type Label1 = string;
-export type EndDate = string;
 export type Id2 = string;
-export type Kind5 = "semester";
-export type Label2 = string;
+export type Kind5 = "all_time";
+export type Label3 = string;
+export type EndDate = string;
+export type Id3 = string;
+export type Kind6 = "semester";
+export type Label4 = string;
 export type StartDate = string;
 export type Weeks = string[];
-export type Id3 = string;
-export type Kind6 = "trailing";
-export type Label3 = string;
+export type Id4 = string;
+export type Kind7 = "trailing";
+export type Label5 = string;
 export type Weeks1 = string[];
 export type Windows = (AllTimeWindow | SemesterWindow | TrailingWindow)[];
 
@@ -135,6 +158,7 @@ export interface Aggregates {
   data_provenance: DataProvenance;
   data_through_date: DataThroughDate;
   data_through_week: DataThroughWeek;
+  dayparts?: Dayparts;
   first_week: FirstWeek;
   footnotes: Footnotes;
   generated_at: GeneratedAt;
@@ -145,6 +169,22 @@ export interface Aggregates {
   sections: Sections;
   timezone: Timezone;
   windows: Windows;
+  [k: string]: unknown;
+}
+/**
+ * One block of the day, in the registry at document root (1.6.0, D-54).
+ *
+ * Boundaries live in the document rather than in dashboard code for the same reason
+ * footnote texts do: a definition is versioned with the numbers it governs, and an
+ * archived blob must still say what its own cells meant. `from_hour` is inclusive,
+ * `to_hour` exclusive; the registry partitions 0..24 contiguously, so no block wraps
+ * midnight and `hour // width` is a valid lookup.
+ */
+export interface Daypart {
+  from_hour: FromHour;
+  id: Id;
+  label: Label;
+  to_hour: ToHour;
   [k: string]: unknown;
 }
 export interface Footnotes {
@@ -280,6 +320,7 @@ export interface SessionsWindow {
 }
 export interface TemporalUsage {
   per_window: PerWindow3;
+  semester_profiles?: SemesterProfiles;
   weekly: TemporalUsageWeekly;
   [k: string]: unknown;
 }
@@ -288,6 +329,8 @@ export interface PerWindow3 {
 }
 export interface TemporalUsageWindow {
   activity_heatmap: HeatmapGrid;
+  daypart_heatmap?: DaypartGrid | null;
+  daypart_totals?: DaypartTotals | null;
   [k: string]: unknown;
 }
 export interface HeatmapGrid {
@@ -299,6 +342,55 @@ export interface HeatmapCell {
   cell: Cell2;
   dow: Dow;
   hour: Hour;
+  [k: string]: unknown;
+}
+/**
+ * Weekday x daypart activity (1.6.0, D-54) — the coarse twin of HeatmapGrid.
+ *
+ * Density is checked at document root, not here: it is 7 x len(dayparts) and only the
+ * root knows the registry. HeatmapGrid can self-check because 24 is a constant.
+ */
+export interface DaypartGrid {
+  cells: Cells1;
+  footnote_ids?: FootnoteIds4;
+  [k: string]: unknown;
+}
+export interface DaypartCell {
+  cell: Cell3;
+  daypart: Daypart1;
+  dow: Dow1;
+  [k: string]: unknown;
+}
+export interface DaypartTotals {
+  by_daypart: ByDaypart;
+  footnote_ids?: FootnoteIds5;
+  weekday: Weekday;
+  weekend: Weekend;
+  [k: string]: unknown;
+}
+export interface ByDaypart {
+  [k: string]: OkCell | SuppressedCell;
+}
+/**
+ * One semester re-indexed to teaching week, for the cross-semester overlay (1.6.0).
+ *
+ * `messages` is what the dashboard plots; `active_students` rides along because cohorts
+ * differ in size (2025S 165 vs 2026S 117) and it is the size-robust read — publishing
+ * both means a later toggle is a dashboard change, not another schema bump.
+ */
+export interface SemesterProfile {
+  footnote_ids?: FootnoteIds6;
+  kind: Kind;
+  label: Label1;
+  points: Points;
+  window_id: WindowId;
+  [k: string]: unknown;
+}
+export interface SemesterProfilePoint {
+  active_students: ActiveStudents;
+  messages: Messages;
+  semester_week: SemesterWeek;
+  week: Week1;
   [k: string]: unknown;
 }
 export interface TemporalUsageWeekly {
@@ -331,15 +423,15 @@ export interface TopicGroup {
   [k: string]: unknown;
 }
 export interface TopicDistribution {
-  footnote_ids?: FootnoteIds4;
+  footnote_ids?: FootnoteIds7;
   items: Items;
   n_total: NTotal1;
   [k: string]: unknown;
 }
 export interface TopicItem {
-  cell: Cell3;
+  cell: Cell4;
   description?: Description;
-  label: Label;
+  label: Label2;
   [k: string]: unknown;
 }
 export interface TrendsSection {
@@ -356,18 +448,18 @@ export interface TrendsWindow {
   [k: string]: unknown;
 }
 export interface WindowBaseline {
-  kind: Kind;
-  window_id: WindowId;
+  kind: Kind1;
+  window_id: WindowId1;
   [k: string]: unknown;
 }
 export interface WeeksBaseline {
   from: From;
-  kind: Kind1;
+  kind: Kind2;
   through: Through;
   [k: string]: unknown;
 }
 export interface TrajectoryBaseline {
-  kind: Kind2;
+  kind: Kind3;
   [k: string]: unknown;
 }
 export interface Finding {
@@ -375,9 +467,9 @@ export interface Finding {
   current: MeasureValue;
   delta: Delta;
   evidence: Evidence;
-  footnote_ids?: FootnoteIds5;
-  id: Id;
-  kind: Kind3;
+  footnote_ids?: FootnoteIds8;
+  id: Id1;
+  kind: Kind4;
   measure: Measure;
   method: Method;
   tab: Tab;
@@ -394,7 +486,7 @@ export interface MeasureValue {
 export interface TrajectoryPoint {
   n_students: NStudents2;
   value: Value2;
-  window_id: WindowId1;
+  window_id: WindowId2;
   [k: string]: unknown;
 }
 export interface UsageContext {
@@ -415,15 +507,15 @@ export interface UsageContextWindow {
  * Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).
  */
 export interface UsageContextByStatus {
-  active_students: ActiveStudents;
-  footnote_ids?: FootnoteIds6;
-  messages: Messages;
+  active_students: ActiveStudents1;
+  footnote_ids?: FootnoteIds9;
+  messages: Messages1;
   [k: string]: unknown;
 }
 export interface UsageContextTotals {
-  active_students: ActiveStudents1;
-  footnote_ids?: FootnoteIds7;
-  messages: Messages1;
+  active_students: ActiveStudents2;
+  footnote_ids?: FootnoteIds10;
+  messages: Messages2;
   new_registrations: NewRegistrations;
   new_registrations_active?: NewRegistrationsActive;
   new_users?: NewUsers;
@@ -432,7 +524,7 @@ export interface UsageContextTotals {
   [k: string]: unknown;
 }
 export interface UserClasses {
-  footnote_ids?: FootnoteIds8;
+  footnote_ids?: FootnoteIds11;
   frequent?: Frequent;
   monthly: Monthly;
   one_time: OneTime;
@@ -445,9 +537,9 @@ export interface UsageContextWeekly {
 }
 export interface AllTimeWindow {
   coverage: Coverage;
-  id: Id1;
-  kind: Kind4;
-  label: Label1;
+  id: Id2;
+  kind: Kind5;
+  label: Label3;
   [k: string]: unknown;
 }
 export interface Coverage {
@@ -458,18 +550,18 @@ export interface Coverage {
 export interface SemesterWindow {
   coverage: Coverage;
   end_date: EndDate;
-  id: Id2;
-  kind: Kind5;
-  label: Label2;
+  id: Id3;
+  kind: Kind6;
+  label: Label4;
   start_date: StartDate;
   weeks: Weeks;
   [k: string]: unknown;
 }
 export interface TrailingWindow {
   coverage: Coverage;
-  id: Id3;
-  kind: Kind6;
-  label: Label3;
+  id: Id4;
+  kind: Kind7;
+  label: Label5;
   weeks: Weeks1;
   [k: string]: unknown;
 }
