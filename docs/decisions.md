@@ -1317,3 +1317,23 @@ can return additively.
   the deployed dashboard silently ignores the new section (D-51).
 - Still deferred: Bergmann's `one_time_project_user` flag, days-active, and a Trends
   candidate for the per-student measures (the pool still compares only session medians).
+
+**Publish record (D-53).** Went live the same day: blob
+`v1/aggregates_2026-W30_20260730T151834Z.json` (+ `latest.json`), schema **1.5.0**,
+`data_provenance: "production"`, axis 2025-W09 → 2026-W30, floor N=3, labels
+`statsboteval-v2` / `lang-heuristic-v1`. Mode: **re-aggregate only**
+(`--skip-extract --skip-classify`) — the corpus watermark stays at 2026-07-14, and mixing a
+refresh into a schema change would have meant reviewing new numbers and a new tab at once.
+Reviewed before uploading by diffing every `usage_context.totals` against the previous
+publish: identical in all five windows, which is the claim this change makes about itself.
+Bundle redeployed in the same session, as a schema bump requires (D-51): between the blob
+upload and the deploy, the live site served 1.5.0 data to a 1.4.0 bundle, which renders the
+withdrawn `tokens` card as "not in this data release yet" — harmless for the few minutes it
+lasted, but it is why the two halves belong in one sitting.
+
+`04_publish_production.sh` threw a `JSONDecodeError` in its own verify step: its second
+`curl -sf` (the aggregates read, right behind the healthz request that wakes the F1 app from
+idle) returned nothing, and the heredoc parsed an empty body. The upload itself had already
+succeeded — re-curling immediately returned schema 1.5.0. Cosmetic, but the script would
+read better if the verify curl retried once after a cold start instead of failing loudly
+about a publish that worked.
