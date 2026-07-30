@@ -1,8 +1,13 @@
 #!/bin/bash
 # Local end-to-end: Azurite -> synthetic publish -> API -> assertions.
 # Requires: pipeline/.venv and api/.venv installed (uv pip install -e ".[dev]"), node/npx.
-# Manual follow-up for eyeballing the page:
-#   cd dashboard && NEXT_PUBLIC_API_BASE=http://localhost:8123 pnpm dev
+# Manual follow-up for eyeballing the page: build the bundle and let the API serve it,
+# which is also how production works (D-26). `next dev` + NEXT_PUBLIC_API_BASE fails in a
+# browser — the API sets no CORS headers, because same-origin is the only shape it ships in.
+#   cd dashboard && npm run build
+#   cd api && AZURE_STORAGE_CONNECTION_STRING="$CONN" DASHBOARD_DIST=../dashboard/out \
+#     .venv/bin/uvicorn app.main:create_app --factory --port 8123
+#   open http://localhost:8123/
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
