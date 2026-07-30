@@ -1133,3 +1133,52 @@ kept them as a third category.
 - Still deferred: their `one_time_project_user` flag (subset of sporadic, 77 all-time),
   sessions-per-student and weeks-active distributions, and the registration→first-use lag
   (median 0 days — it would only confirm there is no onboarding friction).
+
+## D-51 — 2026-07-30: `go-live` skill; production publish script; D-50 live on schema 1.4.0
+
+**Publish record.** The D-50 Adoption work went live the same day: blob
+`v1/aggregates_2026-W30_20260730T114248Z.json` (+ `latest.json`), schema 1.4.0,
+`data_provenance: "production"`, axis 2025-W09 → 2026-W30, floor N=3, labels
+`statsboteval-v2` / `lang-heuristic-v1`. Mode: **re-aggregate only**
+(`--skip-extract --skip-classify`) — the presentation change moved no numbers, and mixing a
+data refresh into it would have meant reviewing two things at once. The corpus extract
+watermark therefore stays at 2026-07-14; the next refresh run picks that up. The bundle was
+redeployed in the same session, which a schema bump requires: an older bundle ignores new
+fields silently, which reads as "my change didn't deploy".
+
+**Two gaps this exposed, both closed.**
+
+1. **There was no production publish script.** `infra/scripts/` had
+   `03_publish_synthetic.sh` and nothing for real data, so every real publish since D-37 has
+   been an ad-hoc `AZURE_STORAGE_CONNECTION_STRING=$(az …) run-weekly --upload` typed from
+   memory. Added `04_publish_production.sh`, same credential posture (D-28: connection
+   string fetched ad hoc, never written to disk), plus two guards the ad-hoc form lacked: it
+   **refuses a document whose `data_provenance` is not `production`**, and it curls the live
+   URL back afterwards.
+2. **`run-weekly --upload` cannot publish the document you reviewed.** It re-aggregates, so
+   the uploaded bytes are a second, freshly computed document — normally identical, but not
+   provably so (a run crossing an ISO-week boundary changes the axis). The script's
+   `--from FILE` mode loads a reviewed document, re-runs the publish guard on those exact
+   bytes, and uploads them. The D-37 review gate now means what it says.
+
+**The `go-live` skill** (`.claude/skills/go-live/SKILL.md`) is the first skill in this repo.
+It encodes the operator knowledge that was previously only in `infra/README.md` and one
+person's head: the data/code split and why a schema bump needs both; the F1
+`QuotaExceeded` state that no amount of redeploying fixes; the 5-minute API blob cache, so a
+stale read is not diagnosed too early; that `NEXT_PUBLIC_DATA_SOURCE=fixture` inlines the
+synthetic fixture at *build* time and must never be set for a deploy build; and that the
+dashboard's lockfile is pnpm's.
+
+**Extract and classify are opt-in, never implied** (owner, 2026-07-30). The skill must ask
+which `run-weekly` mode to use and fall back to `--skip-extract --skip-classify` when the
+operator does not choose, stating in the question that the default publishes the corpus as it
+stands and pulls in no newer StatsBot activity. Grounds: the two opt-in modes each carry a
+precondition the operator may not have met (VPN to the production DB) or a real cost
+(per-message Azure OpenAI), so neither may happen by accident — and silence must not read as
+"refresh everything", which is discovered only afterwards, from the numbers.
+
+**Incidental fix:** `scripts/e2e_local.sh` advertised
+`next dev` + `NEXT_PUBLIC_API_BASE` for eyeballing the page locally. That cannot work in a
+browser — the API sets no CORS headers, because same-origin (API serves the built bundle,
+D-26) is the only shape it ships in. `curl` against the API works, which is how the stale
+recipe survived. Corrected to the build-and-serve recipe, which was verified end to end.
