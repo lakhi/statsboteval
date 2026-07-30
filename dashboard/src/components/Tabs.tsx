@@ -51,7 +51,7 @@ export function Tabs({
             tabIndex={selected ? 0 : -1}
             onClick={() => onSelect(t.id)}
             onKeyDown={onKeyDown}
-            className={`whitespace-nowrap border-b-2 px-4 py-2.5 text-sm transition-colors ${
+            className={`cursor-pointer whitespace-nowrap border-b-2 px-4 py-2.5 text-sm transition-colors ${
               selected
                 ? "border-accent font-semibold text-ink"
                 : "border-transparent font-medium text-ink-2 hover:border-baseline hover:text-ink"
