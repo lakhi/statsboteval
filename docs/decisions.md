@@ -1348,15 +1348,15 @@ x-axis read `W10`, which no educator parses as "early March".
 
 **The heatmap was the right chart at the wrong granularity.** 7 × 24 = 168 cells is too
 fine for this corpus, and the stripes read as a privacy feature rather than a design
-mistake. Non-empty cells suppressed, per published window: all_time 29/139, 2025S 40/122,
+mistake. Non-empty cells suppressed, per published window: all_time 28/138, 2025S 40/122,
 **2025W 52/84 (62%)**, 2026S 45/111.
 
 The first fix considered was to publish the two *margins* (an hour profile and a weekday
 profile), which barely suppress at all. **Testing killed it.** The weekday × daypart
 interaction is real and is exactly the pedagogically interesting part — observed ÷
-expected-under-independence over the published axis gives chi-square 160 on 18 df (critical
-28.9), with **Saturday 00–06 at 3.77×**, Sunday evening 1.62×, against Friday evening 0.53
-and Monday 0.68, and Wednesday small hours 0.28. Sunday's *daily total* is unremarkable
+expected-under-independence over the published axis gives chi-square 159 on 18 df (critical
+28.9), with **Saturday 00–06 at 3.75×**, Sunday evening 1.61×, against Friday evening 0.54
+and Monday 0.69, and Wednesday small hours 0.28. Sunday's *daily total* is unremarkable
 next to Friday's; the entire story is *when* on Sunday. Margins would have erased it.
 
 So the grid stays and its hour axis coarsens to the dayparts: 7 × 4 = 28 cells, suppressing
@@ -1427,3 +1427,31 @@ worse than one with four. Tooltip and data table gained the exact range
   signup→first-message, which is degenerate — **364 of 443 students wrote within an hour of
   registering**, so Adoption's "signed up" and "sent at least 1 msg" tiles are near-identical
   by construction rather than by onboarding success.
+
+**Publish record (D-54).** Went live the same day: blob
+`v1/aggregates_2026-W30_20260730T213152Z.json` (+ `latest.json`), schema **1.6.0**,
+`data_provenance: "production"`, axis 2025-W09 → 2026-W30, floor N=3, labels
+`statsboteval-v2` / `lang-heuristic-v1`, all-time 379 active users / 3,528 messages. Mode:
+**re-aggregate only** (`--skip-extract --skip-classify`) — the corpus watermark stays at
+2026-07-14, because a schema-and-presentation change must not move a number and mixing a
+refresh in would mean reviewing new numbers and a redesigned tab at once (the D-53 lesson).
+
+The review gate was that claim, checked mechanically: every pre-existing section
+(`usage_context`, `sessions`, `per_student`, `language`, `topics`, `trends`),
+`temporal_usage.weekly`, and `activity_heatmap` in all five windows came back
+**byte-identical** to the previous publish. Only the three new 1.6.0 blocks differ.
+Bundle redeployed in the same sitting as a schema bump requires (D-51), and the deployed
+chunk was verified to carry the new card titles rather than trusting the deploy's own
+success message.
+
+`04_publish_production.sh` threw the same cosmetic `JSONDecodeError` in its verify step
+that D-53 recorded — the aggregates curl right behind the healthz wake-up returns an empty
+body on a cold start, and the heredoc parses it. The upload had already succeeded; a
+re-curl five seconds later returned 1.6.0. **Second occurrence, so it is systematic rather
+than bad luck**: the verify curl should retry once after a cold start instead of failing
+loudly about a publish that worked.
+
+**One number in this ADR was corrected before the publish.** The exploratory figures were
+measured with a hand-picked `axis_start` of 2025-02-24; `run-weekly` defaults to
+**2025-03-01**, which excludes four days of week 09 — 3,528 published messages, not 3,552.
+Every table in this entry and in the plan now quotes the built document.

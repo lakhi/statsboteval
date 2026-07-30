@@ -5,7 +5,8 @@
 > **Figures corrected at implementation.** The exploratory numbers below were first
 > measured over the whole corpus (4,419 messages, including the 2024/25 pilot) and over
 > ad-hoc date ranges. Everything is now restated over the **published axis** (2025-W09 →
-> 2026-W30, 3,552 messages) and the **real window registry**. Two corrections matter: the
+> 2026-W30, 3,528 messages — `axis_start` is 2025-03-01, so four days of week 09 are
+> corpus-only) and the **real window registry**. Two corrections matter: the
 > drafting note that `trailing_4` held 167 messages was wrong — the real trailing window is
 > W27–W30, the July break, holding about ten messages, every cell sub-floor either way. The
 > window the coarsening actually rescues is **2025W** (52/84 suppressed → 3/21). The
@@ -29,7 +30,7 @@ Four separate problems on one tab, found while auditing it on 2026-07-30:
 
    | window | non-empty cells suppressed |
    |---|---|
-   | all_time | 29 / 139 |
+   | all_time | 28 / 138 |
    | 2025S | 40 / 122 |
    | **2025W** | **52 / 84 (62%)** |
    | 2026S | 45 / 111 |
@@ -53,7 +54,7 @@ Messages published per block, real windows (verified against the built document)
 
 | window | 00–06 Night | 06–12 Morning | 12–18 Afternoon | 18–24 Evening |
 |---|---|---|---|---|
-| all_time | 66 | 941 | 1,901 | 644 |
+| all_time | 66 | 923 | 1,895 | 644 |
 | 2025S | 38 | 327 | 790 | 297 |
 | 2026S | 18 | 278 | 510 | 180 |
 | trailing_4 | 0 | *suppressed* | *suppressed* | 0 |
@@ -72,7 +73,7 @@ students per cell. Non-empty cells suppressed, measured on the real published wi
 
 | scheme | all_time | 2025S | 2025W | 2026S |
 |---|---|---|---|---|
-| 7 × 24 (today) | 29/139 | 40/122 | **52/84** | 45/111 |
+| 7 × 24 (today) | 28/138 | 40/122 | **52/84** | 45/111 |
 | **7 × 4 (chosen)** | **2/28** | **4/26** | **3/21** | **3/25** |
 
 **2025W is the window this rescues**: 62% of its non-empty cells were striped, now 14%.
@@ -87,18 +88,18 @@ Observed ÷ expected-under-independence at 7 × 4, over the published axis:
 
 ```
         00-06   06-12   12-18   18-24
-Mon      0.95    1.06    1.08    0.68
-Tue      0.78    1.15    0.93    1.01
+Mon      0.96    1.05    1.08    0.69
+Tue      0.78    1.17    0.92    1.01
 Wed      0.28    0.98    1.09    0.84
-Thu      0.50    0.97    0.98    1.16
-Fri      0.36    1.13    1.12    0.53
-Sat      3.77    0.79    0.92    1.26
-Sun      1.48    0.80    0.87    1.62
+Thu      0.50    0.95    0.98    1.17
+Fri      0.37    1.13    1.12    0.54
+Sat      3.75    0.80    0.91    1.25
+Sun      1.47    0.81    0.87    1.61
 ```
 
-chi-square 160 on 18 df (critical 28.9 at p < .05). **Saturday 00–06 runs at 3.77×** —
+chi-square 159 on 18 df (critical 28.9 at p < .05). **Saturday 00–06 runs at 3.75×** —
 Friday-night-into-Saturday work, the sharpest single cell in the corpus. Sunday evening
-1.62×, against Friday 0.53 and Monday 0.68. Wednesday small hours 0.28.
+1.61×, against Friday 0.54 and Monday 0.69. Wednesday small hours 0.28.
 
 None of this is visible in the margins: Sunday's daily total is unremarkable next to
 Friday's, and the whole story is *when* on Sunday. Publishing only an hour profile and a
