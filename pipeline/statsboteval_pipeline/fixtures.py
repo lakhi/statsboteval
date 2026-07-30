@@ -178,14 +178,35 @@ def seed_synthetic(
     # Trends tabs read. It also gives the fixture a genuine `undetermined` share, which a
     # hand-assigned mapping would have had to invent.
     detect_languages(con)
+    # Roster statuses belong to the corpus, not to the labels: Adoption publishes a
+    # program-level split (D-50) that must render in an unclassified synthetic run too.
+    _seed_synthetic_statuses(con, seed=seed)
+
+
+def _seed_synthetic_statuses(con: duckdb.DuckDBPyConnection, *, seed: int) -> None:
+    """Invented roster rows, including deliberate gaps that resolve to 'unknown'."""
+    rng = Random(seed)
+    statuses: list[tuple[str, str, str | None, str]] = []
+    for (pseudonym,) in con.execute("SELECT pseudonym FROM students ORDER BY pseudonym").fetchall():
+        roll = rng.random()
+        if roll < 0.35:
+            statuses.append((pseudonym, "bachelor", None, "synthetic-roster"))
+        elif roll < 0.45:  # BA→MA transitioner: resolves per session at usage time
+            statuses.append((pseudonym, "bachelor", "2025W", "synthetic-roster"))
+        elif roll < 0.92:
+            statuses.append((pseudonym, "master", None, "synthetic-roster"))
+        elif roll < 0.97:
+            statuses.append((pseudonym, "staff", None, "synthetic-roster"))
+        # else: no row -> resolves to 'unknown' (exercises the unknown group)
+    con.executemany("INSERT OR REPLACE INTO student_status VALUES (?, ?, ?, ?)", statuses)
 
 
 def seed_synthetic_labels(con: duckdb.DuckDBPyConnection, *, seed: int = 42) -> None:
-    """Deterministic synthetic labels (all four domains) + status rows for E2E/demo.
+    """Deterministic synthetic labels (all four domains) for E2E/demo.
 
     Deductive uses the public category names with explicit 0/1 per message
-    (mirroring the runner); themes and statuses are invented. Lets the Topics
-    tab render fully populated — including by_status — without any API call.
+    (mirroring the runner); themes are invented. Lets the Topics tab render fully
+    populated — including by_status — without any API call.
     """
     rng = Random(seed)
     codes = [category_code(name) for name in DEDUCTIVE_CATEGORY_NAMES]
@@ -222,16 +243,3 @@ def seed_synthetic_labels(con: duckdb.DuckDBPyConnection, *, seed: int = 42) -> 
             for theme in _EMERGENT_THEMES
         ],
     )
-    statuses: list[tuple[str, str, str | None, str]] = []
-    for (pseudonym,) in con.execute("SELECT pseudonym FROM students ORDER BY pseudonym").fetchall():
-        roll = rng.random()
-        if roll < 0.35:
-            statuses.append((pseudonym, "bachelor", None, "synthetic-roster"))
-        elif roll < 0.45:  # BA→MA transitioner: resolves per session at usage time
-            statuses.append((pseudonym, "bachelor", "2025W", "synthetic-roster"))
-        elif roll < 0.92:
-            statuses.append((pseudonym, "master", None, "synthetic-roster"))
-        elif roll < 0.97:
-            statuses.append((pseudonym, "staff", None, "synthetic-roster"))
-        # else: no row -> resolves to 'unknown' (exercises the unknown group)
-    con.executemany("INSERT OR REPLACE INTO student_status VALUES (?, ?, ?, ?)", statuses)

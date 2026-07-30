@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.3.0"
+SCHEMA_VERSION = "1.4.0"
 
 FootnoteId = str
 
@@ -225,18 +225,42 @@ class UsageContextTotals(BaseModel):
     messages: CountCell
     sessions: CountCell
     new_registrations: CountCell
+    # 1.4.0 (D-50). `new_registrations` keeps its name and meaning — accounts created
+    # in the window — because renaming a published field is a major break; the tab
+    # relabels it "New signups". The two additions below are the numbers a reader
+    # would otherwise be tempted to derive by subtracting cells (invariant 4).
+    new_registrations_active: CountCell | None = None  # of those, sent >=1 message in-window
+    new_users: CountCell | None = None  # actives whose first-ever message is in this window
+    returning_users: CountCell | None = None  # actives who were active before it
+    footnote_ids: list[FootnoteId] | None = None  # notes for the tiles that need one
 
 
 class UserClasses(BaseModel):
     one_time: CountCell
     monthly: CountCell
     sporadic: CountCell
+    # 1.4.0 (D-50): a sub-count of `monthly`, not a fourth class — see stats.is_frequent.
+    # The three above still sum to active_students; this one does not add to them.
+    frequent: CountCell | None = None
+    footnote_ids: list[FootnoteId] | None = None
+
+
+class UsageContextByStatus(BaseModel):
+    """Adoption by program level (1.4.0, D-50; the D-39 usage-time rule)."""
+
+    active_students: CountCell
+    messages: CountCell
+    # Repeated on every status entry, as TopicDistribution does: the note belongs to the
+    # figure, and a dict-of-groups has no other place to hang it.
     footnote_ids: list[FootnoteId] | None = None
 
 
 class UsageContextWindow(BaseModel):
     totals: UsageContextTotals
     user_classes: UserClasses
+    # Keyed by 'bachelor' | 'master' | 'staff' | 'unknown'; absent when no roster is
+    # imported, exactly as topics.by_status is (D-39).
+    by_status: dict[str, UsageContextByStatus] | None = None
 
 
 class UsageContextWeekly(BaseModel):

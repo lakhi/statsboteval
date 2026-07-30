@@ -395,7 +395,7 @@ const trends = {
 };
 
 const doc = {
-  schema_version: "1.3.0",
+  schema_version: "1.4.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),
@@ -417,7 +417,19 @@ const doc = {
       text: "Language is detected by a local heuristic (lang-heuristic-v1); very short or mixed-language messages may be misclassified.",
     },
     user_class_definitions: {
-      text: "One-time / monthly / sporadic follow the Bergmann et al. Stage-2 operational definitions.",
+      text: "Classes follow the operational definitions of Bergmann et al. (2026), applied to the selected window: one-time = all messages within 24 hours and spanning under 3 days; monthly = active over 30 days or more with no gap of 30 days or longer; sporadic = everything else. Frequent counts the monthly users who additionally never paused for 14 days, so it is a subset of monthly and is not added to the other three.",
+    },
+    user_class_window: {
+      text: "Each student is classified from their activity inside the selected window only, so a window shorter than 30 days cannot contain a monthly user by definition.",
+    },
+    retention_definition: {
+      text: "New = the student's first-ever message falls inside the selected window; returning = they had already used StatsBot before it. The two add up to the active users. First use is counted from the whole recorded history, including the 2024/25 pilot months that the charts above do not show, so a student who tried StatsBot during the pilot and came back counts as returning. In the all-time window there is no earlier period except that pilot, so returning there names the pilot cohort rather than semester-to-semester loyalty.",
+    },
+    signup_activation: {
+      text: "Counts the students who signed up in this window and sent at least one message within the same window; someone who signed up late and first wrote afterwards is counted in the window they wrote in.",
+    },
+    status_multi: {
+      text: "A student who moved from bachelor to master inside the selected window is counted under both levels, so the student counts can exceed the window total by a few.",
     },
     duration_definition: {
       text: "Session duration = last minus first server timestamp in the session; single-message sessions count as 0 minutes.",
@@ -473,19 +485,56 @@ const doc = {
         const sess = rows.reduce((a, r) => a + r.sessions, 0);
         const oneTime = Math.round(n * 0.55);
         const monthly = Math.round(n * 0.1);
+        const signups = Math.round(n * 0.8);
+        const activated = Math.round(signups * 0.72);
+        const newUsers = Math.round(n * 0.68);
+        // Mirrors the pipeline's complementary suppression: new + returning = active, so a
+        // published part beside a suppressed one would leak by subtraction. Keeping the rule
+        // here too means the fixture can never show a shape the pipeline cannot emit.
+        const retention =
+            Math.min(newUsers, n - newUsers) < FLOOR_N && Math.min(newUsers, n - newUsers) > 0
+              ? { new_users: { status: "suppressed" }, returning_users: { status: "suppressed" } }
+              : { new_users: cell(newUsers, newUsers), returning_users: cell(n - newUsers, n - newUsers) };
+        // 1.4.0: `frequent` is a subset of monthly, so it is deliberately not subtracted
+        // from anything; the fixture keeps it small but non-zero to exercise the tile that
+        // production currently publishes as a measured 0.
+        const frequent = Math.min(monthly, Math.round(n * 0.02));
         return {
           totals: {
             active_students: cell(n, n),
             messages: cell(n, msgs),
             sessions: cell(n, sess),
-            new_registrations: cell(n, Math.round(n * 0.8)),
+            new_registrations: cell(n, signups),
+            new_registrations_active: cell(activated, activated),
+            ...retention,
+            footnote_ids: ["retention_definition", "signup_activation"],
           },
           user_classes: {
             one_time: cell(oneTime, oneTime),
             monthly: cell(monthly, monthly),
             sporadic: cell(n - oneTime - monthly, n - oneTime - monthly),
-            footnote_ids: ["user_class_definitions"],
+            frequent: cell(frequent, frequent),
+            footnote_ids: ["user_class_definitions", "user_class_window"],
           },
+          by_status: Object.fromEntries(
+            [
+              ["bachelor", 0.42],
+              ["master", 0.46],
+              ["staff", 0.08],
+              ["unknown", 0.04],
+            ].map(([status, share]) => {
+              const students = Math.round(n * share);
+              const messages = Math.round(msgs * share);
+              return [
+                status,
+                {
+                  active_students: cell(students, students),
+                  messages: cell(students, messages),
+                  footnote_ids: ["status_rule", "status_multi"],
+                },
+              ];
+            }),
+          ),
         };
       }),
     },

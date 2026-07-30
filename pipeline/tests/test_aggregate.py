@@ -266,7 +266,46 @@ def test_usage_context_totals_and_registrations(con2: duckdb.DuckDBPyConnection)
         "sessions": {"status": "ok", "value": 5},
         # syn-0003 registered in W07, outside the axis: not a new registration here.
         "new_registrations": {"status": "ok", "value": 3},
+        # syn-0004 registered in W11 and never wrote -> a signup that did not activate.
+        "new_registrations_active": {"status": "ok", "value": 2},
+        # No corpus message predates this window, so every active student is new.
+        "new_users": {"status": "ok", "value": 3},
+        "returning_users": {"status": "ok", "value": 0},
+        "footnote_ids": ["retention_definition", "signup_activation"],
     }
+
+
+def test_retention_baseline_reads_behind_axis_start(con2: duckdb.DuckDBPyConnection) -> None:
+    """A pilot-era user who comes back is returning, not new (D-50).
+
+    Guards the one ordering that makes this correct: first_seen is built before the
+    axis_start filter, so unpublishable weeks still count as prior use.
+    """
+    # syn-0000 already has a 2025-02-10 pilot message; give it a message inside the axis.
+    insert_full(con2, [(101, "syn-0000", 6000, datetime(2025, 3, 10, 9, 0), 60)])
+    totals = build2(con2, floor_n=1)["sections"]["usage_context"]["per_window"]["all_time"]["totals"]
+    assert totals["active_students"] == {"status": "ok", "value": 4}
+    assert totals["new_users"] == {"status": "ok", "value": 3}
+    assert totals["returning_users"] == {"status": "ok", "value": 1}
+
+
+def test_usage_context_by_status(con2: duckdb.DuckDBPyConnection) -> None:
+    """Adoption's program-level split does not require any classification (D-50)."""
+    con2.executemany(
+        "INSERT INTO student_status VALUES (?, ?, ?, 'synthetic-roster')",
+        [("syn-0001", "bachelor", None), ("syn-0002", "master", None)],
+    )
+    win = build2(con2, floor_n=1)["sections"]["usage_context"]["per_window"]["all_time"]
+    # syn-0003 has no roster row -> 'unknown'; the group exists only because it is published.
+    assert set(win["by_status"]) == {"bachelor", "master", "unknown"}
+    assert win["by_status"]["bachelor"]["active_students"] == {"status": "ok", "value": 1}
+    assert win["by_status"]["bachelor"]["messages"] == {"status": "ok", "value": 3}  # ids 1, 2, 7
+    assert win["by_status"]["master"]["messages"] == {"status": "ok", "value": 3}  # ids 3, 4, 5
+    assert win["by_status"]["unknown"]["messages"] == {"status": "ok", "value": 2}  # ids 6, 8
+    assert win["by_status"]["unknown"]["footnote_ids"] == ["status_rule", "status_multi"]
+    # No roster at all -> the section publishes no split rather than an "unknown" bucket.
+    con2.execute("DELETE FROM student_status")
+    assert build2(con2, floor_n=1)["sections"]["usage_context"]["per_window"]["all_time"].get("by_status") is None
     suppressed_doc = build2(con2, floor_n=3)
     weekly3 = {
         e["week"]: e["cell"] for e in suppressed_doc["sections"]["usage_context"]["weekly"]["registrations"]["series"]
@@ -282,7 +321,11 @@ def test_user_classes_bergmann_rules(con2: duckdb.DuckDBPyConnection) -> None:
     assert classes["one_time"] == {"status": "ok", "value": 1}
     assert classes["monthly"] == {"status": "ok", "value": 0}
     assert classes["sporadic"] == {"status": "ok", "value": 2}
-    assert classes["footnote_ids"] == ["user_class_definitions"]
+    # frequent needs span > 30; nobody here reaches it, and a measured 0 publishes as ok(0).
+    assert classes["frequent"] == {"status": "ok", "value": 0}
+    assert classes["footnote_ids"] == ["user_class_definitions", "user_class_window"]
+    # The three-way partition covers every active student; frequent is outside it.
+    assert classes["one_time"]["value"] + classes["monthly"]["value"] + classes["sporadic"]["value"] == 3
     classes3 = build2(con2, floor_n=3)["sections"]["usage_context"]["per_window"]["all_time"]["user_classes"]
     assert classes3["one_time"] == {"status": "suppressed"}
     assert classes3["monthly"] == {"status": "ok", "value": 0}
@@ -389,3 +432,31 @@ def test_semester_window_matches_all_time_here(con2: duckdb.DuckDBPyConnection) 
     uc = doc["sections"]["usage_context"]["per_window"]
     assert uc["2025S"] == uc["all_time"]
     assert uc["trailing_4"] == uc["all_time"]  # trailing_4 clamps to the 2-week axis
+
+
+def test_retention_pair_suppresses_complementarily(con2: duckdb.DuckDBPyConnection) -> None:
+    """new + returning = active_students, so one published side would leak the other (D-50).
+
+    con2 has 3 actives, all first seen inside the axis. Giving one of them a pilot-era
+    message makes the split 2 new / 1 returning: at N=3 both sides must go, because
+    publishing new=2 beside a suppressed returning would hand the reader 3 - 2 = 1.
+    """
+    insert_full(con2, [(102, "syn-0001", 700, datetime(2025, 2, 5, 9, 0), 40)])
+    totals = build2(con2, floor_n=3)["sections"]["usage_context"]["per_window"]["all_time"]["totals"]
+    assert totals["active_students"] == {"status": "ok", "value": 3}
+    assert totals["new_users"] == {"status": "suppressed"}
+    assert totals["returning_users"] == {"status": "suppressed"}
+    # At N=1 the same corpus publishes the split it measured.
+    lenient = build2(con2, floor_n=1)["sections"]["usage_context"]["per_window"]["all_time"]["totals"]
+    assert lenient["new_users"] == {"status": "ok", "value": 2}
+    assert lenient["returning_users"] == {"status": "ok", "value": 1}
+
+
+def test_a_measured_zero_does_not_trigger_complementary_suppression(
+    con2: duckdb.DuckDBPyConnection,
+) -> None:
+    # All 3 actives are new, returning is a measured 0: ok(0) is not identifying, so the
+    # pair publishes normally at N=3 (invariant 2).
+    totals = build2(con2, floor_n=3)["sections"]["usage_context"]["per_window"]["all_time"]["totals"]
+    assert totals["new_users"] == {"status": "ok", "value": 3}
+    assert totals["returning_users"] == {"status": "ok", "value": 0}

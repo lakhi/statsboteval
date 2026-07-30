@@ -8,16 +8,7 @@ import { formatCount } from "@/lib/format";
 import { CategoryBars, categoryTableRows, type CategoryRow } from "../cells/CategoryBars";
 import { ChartCard, DataTable } from "../cells/ChartCard";
 import { SectionPending, WindowGap } from "../cells/EmptyState";
-import { PanelIntro, type TabProps } from "./shared";
-
-// Closed key set from the contract (D-39); "unknown" appears only when published.
-const STATUS_ORDER = ["bachelor", "master", "staff", "unknown"] as const;
-const STATUS_LABELS: Record<string, string> = {
-  bachelor: "Bachelor",
-  master: "Master",
-  staff: "Staff",
-  unknown: "Unknown",
-};
+import { PanelIntro, STATUS_LABELS, STATUS_ORDER, type TabProps } from "./shared";
 
 type CardDef = {
   key: keyof TopicGroup & string;

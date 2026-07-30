@@ -1261,6 +1261,68 @@
       "title": "UsageContext",
       "type": "object"
     },
+    "UsageContextByStatus": {
+      "description": "Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).",
+      "properties": {
+        "active_students": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Active Students"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
+        },
+        "messages": {
+          "discriminator": {
+            "mapping": {
+              "ok": "#/$defs/OkCell",
+              "suppressed": "#/$defs/SuppressedCell"
+            },
+            "propertyName": "status"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OkCell"
+            },
+            {
+              "$ref": "#/$defs/SuppressedCell"
+            }
+          ],
+          "title": "Messages"
+        }
+      },
+      "required": [
+        "active_students",
+        "messages"
+      ],
+      "title": "UsageContextByStatus",
+      "type": "object"
+    },
     "UsageContextTotals": {
       "properties": {
         "active_students": {
@@ -1280,6 +1342,21 @@
             }
           ],
           "title": "Active Students"
+        },
+        "footnote_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footnote Ids"
         },
         "messages": {
           "discriminator": {
@@ -1316,6 +1393,84 @@
             }
           ],
           "title": "New Registrations"
+        },
+        "new_registrations_active": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkCell",
+                  "suppressed": "#/$defs/SuppressedCell"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkCell"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedCell"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Registrations Active"
+        },
+        "new_users": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkCell",
+                  "suppressed": "#/$defs/SuppressedCell"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkCell"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedCell"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Users"
+        },
+        "returning_users": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkCell",
+                  "suppressed": "#/$defs/SuppressedCell"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkCell"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedCell"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returning Users"
         },
         "sessions": {
           "discriminator": {
@@ -1359,6 +1514,21 @@
     },
     "UsageContextWindow": {
       "properties": {
+        "by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/UsageContextByStatus"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By Status"
+        },
         "totals": {
           "$ref": "#/$defs/UsageContextTotals"
         },
@@ -1389,6 +1559,32 @@
           ],
           "default": null,
           "title": "Footnote Ids"
+        },
+        "frequent": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkCell",
+                  "suppressed": "#/$defs/SuppressedCell"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkCell"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedCell"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frequent"
         },
         "monthly": {
           "discriminator": {

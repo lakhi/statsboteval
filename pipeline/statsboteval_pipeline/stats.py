@@ -47,24 +47,65 @@ def median(values: Sequence[float]) -> float:
 UserClass = Literal["one_time", "monthly", "sporadic"]
 
 
-def classify_user(stamps: Sequence[datetime]) -> UserClass:
-    """Bergmann Stage-2 engagement typology (pinned operationalizations).
+class _Usage(NamedTuple):
+    """The three quantities every Bergmann typology rule is written in terms of."""
 
-    Shared with trends.py so the one-time-user share compared between periods is the
-    same quantity the Adoption tab publishes.
-    """
+    span_days: int  # calendar-day span, inclusive (their max_day - min_day + 1)
+    within_24h: bool  # their timedif <= 24 (a difftime; the intent is 24 hours)
+    gaps: list[int]  # their diff(days_since): day gaps between consecutive messages
+
+
+def _usage(stamps: Sequence[datetime]) -> _Usage:
     if not stamps:
         raise ValueError("cannot classify a user with no activity")
     ordered = sorted(stamps)
     days = [s.date() for s in ordered]
-    span_days = (days[-1] - days[0]).days + 1
-    within_24h = ordered[-1] - ordered[0] <= timedelta(hours=24)
-    gaps = [(b - a).days for a, b in zip(days, days[1:], strict=False)]
-    if span_days < 3 and within_24h:
+    return _Usage(
+        span_days=(days[-1] - days[0]).days + 1,
+        within_24h=ordered[-1] - ordered[0] <= timedelta(hours=24),
+        gaps=[(b - a).days for a, b in zip(days, days[1:], strict=False)],
+    )
+
+
+def classify_user(stamps: Sequence[datetime]) -> UserClass:
+    """Bergmann engagement typology, the three classes that partition the users.
+
+    Verified verbatim against OSF script `30_Analysis Step 3 - Table K1 & subgroup
+    analysis.R` (Bergmann et al., 2026; re-checked 2026-07-30):
+
+        one_time_user   <- all(span_days < 3) & all(timedif <= 24)
+        occasional_user <- all(diffs < 30) & span_days >= 30      # the paper's "monthly"
+        sporadic_user   <- one_time_user == 0 & occasional_user == 0
+
+    Their script sets five *independent indicator flags*, not one exclusive class.
+    These three happen to partition the users (one-time needs span < 3, occasional
+    needs span >= 30, and sporadic is defined as the complement of both), which is
+    why a single-valued classifier reproduces their counts exactly. `frequent` does
+    NOT partition — see is_frequent.
+
+    Shared with trends.py so the one-time-user share compared between periods is the
+    same quantity the Adoption tab publishes.
+    """
+    usage = _usage(stamps)
+    if usage.span_days < 3 and usage.within_24h:
         return "one_time"
-    if all(g < 30 for g in gaps) and span_days >= 30:
+    if all(g < 30 for g in usage.gaps) and usage.span_days >= 30:
         return "monthly"
     return "sporadic"
+
+
+def is_frequent(stamps: Sequence[datetime]) -> bool:
+    """Bergmann's `frequent_user <- all(diffs < 14) & span_days > 30`.
+
+    A *sub-count of* monthly, not a fourth class: all gaps < 14 implies all gaps < 30,
+    and span > 30 implies span >= 30, so every frequent user is also one of their
+    occasional (= our monthly) users. Publishing it as an exclusive class would make
+    our "monthly" stop meaning their `occasional_user` the moment one exists. n = 0 in
+    their data and in ours; published so a future non-zero is visible rather than
+    silently folded in.
+    """
+    usage = _usage(stamps)
+    return all(g < 14 for g in usage.gaps) and usage.span_days > 30
 
 
 def normal_sf(z: float) -> float:

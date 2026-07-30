@@ -192,7 +192,11 @@ Initial catalog:
 | `chat_fragmentation` | credit-limit UI nudges new-chat clicks; conversation counts may overstate distinct dialogues (D-08) |
 | `bachelor_onboarding` | bachelor cohort exists only from 2025-05-16; cross-boundary trends partly reflect composition |
 | `language_heuristic` | language detected by local heuristic (`lang-heuristic-v1`); short/mixed messages may misclassify |
-| `user_class_definitions` | one-time/monthly/sporadic per the Bergmann Stage-2 operational definitions |
+| `user_class_definitions` | the class rules in days, per Bergmann et al. (2026); states that `frequent` is a subset of monthly (schema 1.4.0 — D-50) |
+| `user_class_window` | classes are computed from in-window activity only, so a sub-30-day window cannot contain a monthly user (schema 1.4.0) |
+| `retention_definition` | new = first-ever message inside the window, returning = wrote before it, the two summing to active users; the baseline includes pre-`axis_start` pilot use, and in `all_time` "returning" is the pilot cohort (schema 1.4.0) |
+| `signup_activation` | "sent at least 1 msg" is window-scoped on both sides; a late signup counts in the window they first wrote in (schema 1.4.0) |
+| `status_multi` | a BA→MA transitioner active on both sides of the boundary is counted under both levels, so student counts can exceed the total (schema 1.4.0) |
 | `duration_definition` | session duration = last − first server `created_at` in the session; single-message sessions = 0 |
 | `multi_label` | a message may carry several categories/themes; topic counts do not sum to the message total (schema 1.1.0) |
 | `label_provenance` | topics come from automated classification; `label_versions.classification` names the exact version (schema 1.1.0) |
@@ -224,16 +228,48 @@ only; A/B/C (topics) arrive with Phase B (§8).
 { "weekly": { "registrations": { "series": [ … ] } },
   "per_window": { "<window_id>": {
       "totals": { "active_students": CountCell, "messages": CountCell,
-                  "sessions": CountCell, "new_registrations": CountCell },
+                  "sessions": CountCell, "new_registrations": CountCell,
+                  "new_registrations_active": CountCell,          // 1.4.0
+                  "new_users": CountCell, "returning_users": CountCell,
+                  "footnote_ids": ["retention_definition", "signup_activation"] },
       "user_classes": { "one_time": CountCell, "monthly": CountCell,
                         "sporadic": CountCell,
-                        "footnote_ids": ["user_class_definitions"] } } } }
+                        "frequent": CountCell,                    // 1.4.0, subset of monthly
+                        "footnote_ids": ["user_class_definitions", "user_class_window"] },
+      "by_status": { "<bachelor|master|staff|unknown>": {         // 1.4.0, absent w/o roster
+                        "active_students": CountCell, "messages": CountCell,
+                        "footnote_ids": ["status_rule", "status_multi"] } } } } }
 ```
 
-`totals` feeds the KPI tiles for the selected window (invariant 4: never client-summed).
-`user_classes` uses the Stage-2 manuscript's operational definitions verbatim; the exact
-SQL is pinned at implementation with a validation test against the published reference
-(56.6 % one-time / 12 monthly / 67 sporadic on their window).
+`totals` feeds the KPI tiles for the selected window (invariant 4: never client-summed) —
+which is exactly why the 1.4.0 additions have to be published rather than derived: a client
+subtracting two floored cells to get "returning" would have no idea how many students back
+the difference.
+
+**Field semantics (1.4.0, D-50).** `new_registrations` still counts accounts created in the
+window, whether or not they were ever used; it keeps its name because renaming a published
+field is a *major* break, and the dashboard relabels it "New signups". `new_registrations_active`
+is the subset who also wrote at least one message **inside the same window** — both sides
+window-scoped, so a published window never changes value on a later republish.
+`new_users` / `returning_users` partition `active_students` by whether the student's
+first-ever message falls inside the window; that baseline reads the **whole corpus,
+including pre-`axis_start` pilot months**, so a returning pilot user is not miscounted as
+new. This pair carries **complementary suppression**: a two-part partition of a published
+total is recoverable by subtraction, so if either side is sub-floor neither is published
+(a measured zero is `ok(0)` and does not trigger it). It is the only cell pair in the
+document where the floor is applied jointly rather than per cell. `by_status` resolves program level per session (D-39): messages partition exactly,
+students do not — a bachelor→master transitioner active on both sides of their semester
+boundary appears under both levels, which `status_multi` states.
+
+`user_classes` reproduces the operational definitions of Bergmann et al. (2026), verified
+verbatim against OSF script `30_Analysis Step 3 - Table K1 & subgroup analysis.R`
+(2026-07-30). Their script sets five *independent indicator flags*, not one exclusive class.
+`one_time` / `monthly` (their `occasional_user`) / `sporadic` happen to partition the users
+and sum to `active_students`; **`frequent` does not** — `all(diffs < 14) & span_days > 30`
+implies their occasional condition, so every frequent user is also a monthly one. It is
+published as a sub-count so that a future non-zero is visible instead of being silently
+folded into monthly. Reference check on our 2025S window: 111 one-time / 12 monthly /
+67 sporadic against their published 12 monthly / 67 sporadic / 56.6 % one-time.
 
 ### 7.3 `sessions` — engagement depth
 
@@ -499,16 +535,23 @@ a shorter history) is *not* a schema event.
 
 ## 13 · Deliberately deferred (not TBDs — decided *against* for v1)
 
-- **Segmentation** (per-course via `lv`, program level via `Status`): cohort-wide only.
-  Blocked on unresolved sources anyway (`open-questions.md`); would arrive as additive
-  dimensions inside sections.
+- **Segmentation** (per-course via `lv`, program level via `Status`): cohort-wide only —
+  **partly reversed.** Program level arrived exactly as predicted, "as additive dimensions
+  inside sections": `topics.by_status` in schema 1.1.0 (D-39) and `usage_context.by_status`
+  in 1.4.0 (D-50), both fed by the roster import rather than by `Status`. Per-course
+  segmentation stays deferred — `students.lv` does not exist in production
+  (`source-data-dictionary.md`), so it is not deferred but impossible.
 - **`trailing_1` window** (last-week heatmap/distributions): additive when wanted; heavy
   suppression expected at one week of data.
 - **`prompt_tokens` / session-context growth view**: additive when wanted.
 - **Arbitrary date ranges**: excluded by invariant 4 by design; presets = windows.
 - **Bin edges**: pipeline config at implementation (declared per-file in the data).
 - **User-class SQL**: pinned at implementation against the Stage-2 manuscript definitions,
-  with a validation test against their published counts.
+  with a validation test against their published counts. **Done** — pinned in
+  `stats.classify_user` / `stats.is_frequent` against the OSF R script itself, unit-tested
+  per condition (`tests/test_stats.py`). Their `one_time_project_user` flag (not one-time
+  and span ≤ 30 days) is still unpublished; it is a subset of sporadic and additive when
+  wanted (77 students all-time).
 
 ## Related decisions
 

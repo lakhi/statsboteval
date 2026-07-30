@@ -1029,3 +1029,107 @@ adds Phase B Task 21.)
   ran language detection, so every synthetic corpus was 100% `undetermined` and the
   dev-fixture Language tab was empty. It now runs the real local heuristic, as the real
   pipeline does before aggregation.
+
+## D-50 — 2026-07-30: Adoption tab answers "who came back" and "which level"; schema 1.4.0
+
+**Context.** A read-through of the Adoption tab (owner + assistant, 2026-07-30) found the
+numbers correct but under-specified for the educator reading them: "Messages 986" does not
+say a message is one exchange; "New registrations 119" counts accounts created, of which
+32 never sent anything; "Active students" silently includes the 46 roster-labeled staff;
+and the tab could not distinguish a returning student from a first-time one. Meanwhile
+program level had existed in the corpus since D-39 but was wired into **Topics only** — an
+inconsistency across tabs rather than a deliberate boundary.
+
+**Decision.** Publish four additions under **schema 1.4.0** (additive minor; 1.3.0 is live)
+and relabel the tab.
+
+- **`usage_context.by_status`** — active students and messages per program level, reusing
+  D-39's usage-time resolution. §13's "cohort-wide only" is thereby *partly* reversed for
+  Adoption, as §13 itself anticipated ("would arrive as additive dimensions inside
+  sections"). Per-course segmentation stays out — `students.lv` does not exist in prod.
+- **`new_users` / `returning_users`** — the retention pair, partitioning `active_students`.
+- **`new_registrations_active`** — of the window's signups, those who also wrote in it.
+  `new_registrations` keeps its name (renaming a published field is a major break) and the
+  tab renders the pair as "New signups: N signed up / M sent at least 1 msg".
+- **`user_classes.frequent`** — Bergmann's fourth flag, published as a **sub-count of
+  monthly**, not a fourth class.
+
+**Why each of those is a pipeline change and not copy.** Invariant 4: `totals` feeds the
+KPI tiles and is never client-summed. A dashboard deriving "returning" as
+`active − new` would be subtracting two floored cells with no knowledge of how many
+students back the difference — the floor tests *distinct contributing students*, so a
+derived cell can bypass it. Three of the seven requested items (the message caption, the
+class rules in the note, the "Bergmann et al. (2026)" wording) genuinely were copy and are
+copy.
+
+**`frequent` is a subset, and finding that out changed the design.** The plan initially had
+it as an exclusive fourth class checked before monthly. Fetching the actual OSF script
+(`30_Analysis Step 3 - Table K1 & subgroup analysis.R`, verified 2026-07-30) showed the
+typology is **five independent indicator flags**, not an ordered if-else:
+
+```r
+one_time_user   <- ifelse(all(span_days < 3) & all(timedif <= 24), 1, 0)
+frequent_user   <- ifelse(all(diffs < 14) & span_days > 30, 1, 0)
+occasional_user <- ifelse(all(diffs < 30) & span_days >= 30, 1, 0)   # the paper's "monthly"
+sporadic_user   <- ifelse(all(one_time_user==0) & all(occasional_user==0), 1, 0)
+```
+
+`all(diffs < 14) & span > 30` implies `all(diffs < 30) & span >= 30`, so every frequent user
+is also an occasional one. Making it exclusive would have quietly redefined our `monthly`
+away from their `occasional_user` the first time a frequent user existed. n = 0 in their
+data and in all four of our windows, so no published number moves — the failure would have
+been invisible until it mattered. `one_time` / `monthly` / `sporadic` do partition and still
+sum to `active_students`; `frequent` is rendered dimmed and last, labeled "frequent (of
+monthly)".
+
+**The retention baseline reads behind `axis_start`.** `first_seen` is built from every
+corpus message, including the 2024/25 pilot months that no chart shows, because a student
+who wrote in November 2024 is not a new user in 2025S. Cost: with the alternative
+(axis-scoped) baseline, 2025S would read 190 new / 0 returning; with this one it reads
+150/38. For `all_time`, "returning" necessarily means "was active before 2025-03-01" — the
+55-student pilot cohort — which `retention_definition` states.
+
+**Signup activation is window-scoped on both sides.** "Sent at least 1 msg" counts messages
+inside the same window, not ever. The "ever" variant differs by only ~3 students per
+semester but would make a *published historical window change value on republish* — an
+unwanted property for a thesis artifact.
+
+**The retention pair needs complementary suppression — found in review, not in design.**
+`new + returning = active_students` with all three published is the one shape where
+per-cell flooring is not enough: rendering the `trailing_4` window showed "Active users 4 /
+3 new / — returning", i.e. the withheld cell recoverable by subtraction. Fixed in
+`aggregate.py`: if either side is sub-floor, **neither** is published. A measured zero is
+`ok(0)` and never triggers it (invariant 2). The dev-fixture generator carries the same rule
+so the fixture cannot show a shape the pipeline cannot emit.
+
+**Open, larger than this decision: differencing exposure elsewhere.** The same subtraction
+argument applies wherever a published total and its published parts leave exactly one part
+suppressed — `topics.by_status` message counts against the all-students group (live since
+1.1.0 / D-39), and `usage_context.by_status` messages, which sum to `totals.messages`.
+Deliberately **not** changed here: it predates this decision, touches Topics' floor
+reasoning (D-24, D-47), and warrants its own review rather than a side effect of an
+Adoption relabel. Flagged to the owner 2026-07-30; `open-questions.md` if it is not taken up
+promptly.
+
+**Accepted overlap.** Program level resolves per session, so a BA→MA transitioner active on
+both sides of their semester boundary is counted under both levels: 6 students all-time,
+zero in any semester window. The owner accepted the duplication over a tie-break rule
+(2026-07-30); `status_multi` states it, and messages still partition exactly.
+
+**"Active students" → "Active users".** The tile includes the 46 roster-labeled staff
+(faculty pre/postdocs — Bergmann's "Other"), which the new program-level table now makes
+visible. Renaming was chosen over filtering: they are real users of the tool, and Bergmann
+kept them as a third category.
+
+**Consequences.**
+- Status resolution moved out of the topics block into `read_corpus_view`, so Adoption's
+  split no longer depends on whether Phase B labels exist. Synthetic roster seeding moved
+  out of `seed_synthetic_labels` into `seed_synthetic` for the same reason.
+- A re-aggregate + republish is required for any of this to appear; the numbers themselves
+  did not change, only what is published about them.
+- Bergmann replication strengthened incidentally: our 2025S window reproduces their
+  63 bachelor students exactly, and 111/12/67 user classes against their published
+  12 monthly / 67 sporadic / 56.6 % one-time.
+- Still deferred: their `one_time_project_user` flag (subset of sporadic, 77 all-time),
+  sessions-per-student and weeks-active distributions, and the registration→first-use lag
+  (median 0 days — it would only confirm there is no onboarding friction).

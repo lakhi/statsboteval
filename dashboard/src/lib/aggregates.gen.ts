@@ -91,11 +91,22 @@ export type Value2 = number;
 export type WindowId1 = string;
 export type Unit1 = string;
 export type InsufficientData = boolean;
+export type ByStatus1 = {
+  [k: string]: UsageContextByStatus;
+} | null;
 export type ActiveStudents = OkCell | SuppressedCell;
-export type Messages = OkCell | SuppressedCell;
-export type NewRegistrations = OkCell | SuppressedCell;
-export type Sessions = OkCell | SuppressedCell;
 export type FootnoteIds6 = string[] | null;
+export type Messages = OkCell | SuppressedCell;
+export type ActiveStudents1 = OkCell | SuppressedCell;
+export type FootnoteIds7 = string[] | null;
+export type Messages1 = OkCell | SuppressedCell;
+export type NewRegistrations = OkCell | SuppressedCell;
+export type NewRegistrationsActive = (OkCell | SuppressedCell) | null;
+export type NewUsers = (OkCell | SuppressedCell) | null;
+export type ReturningUsers = (OkCell | SuppressedCell) | null;
+export type Sessions = OkCell | SuppressedCell;
+export type FootnoteIds8 = string[] | null;
+export type Frequent = (OkCell | SuppressedCell) | null;
 export type Monthly = OkCell | SuppressedCell;
 export type OneTime = OkCell | SuppressedCell;
 export type Sporadic = OkCell | SuppressedCell;
@@ -385,19 +396,34 @@ export interface PerWindow6 {
   [k: string]: UsageContextWindow;
 }
 export interface UsageContextWindow {
+  by_status?: ByStatus1;
   totals: UsageContextTotals;
   user_classes: UserClasses;
   [k: string]: unknown;
 }
-export interface UsageContextTotals {
+/**
+ * Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).
+ */
+export interface UsageContextByStatus {
   active_students: ActiveStudents;
+  footnote_ids?: FootnoteIds6;
   messages: Messages;
+  [k: string]: unknown;
+}
+export interface UsageContextTotals {
+  active_students: ActiveStudents1;
+  footnote_ids?: FootnoteIds7;
+  messages: Messages1;
   new_registrations: NewRegistrations;
+  new_registrations_active?: NewRegistrationsActive;
+  new_users?: NewUsers;
+  returning_users?: ReturningUsers;
   sessions: Sessions;
   [k: string]: unknown;
 }
 export interface UserClasses {
-  footnote_ids?: FootnoteIds6;
+  footnote_ids?: FootnoteIds8;
+  frequent?: Frequent;
   monthly: Monthly;
   one_time: OneTime;
   sporadic: Sporadic;

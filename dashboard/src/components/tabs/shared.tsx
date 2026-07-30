@@ -15,3 +15,14 @@ export function PanelIntro({ question, deck }: { question: string; deck: string 
 
 export const hasSuppressed = (entries: WeeklyEntry[]): boolean =>
   entries.some((e) => e.cell.status === "suppressed");
+
+// Closed key set from the contract (D-39); "unknown" appears only when published.
+// Shared by every tab that renders a by_status split, so Topics and Adoption can never
+// order or spell the program levels differently.
+export const STATUS_ORDER = ["bachelor", "master", "staff", "unknown"] as const;
+export const STATUS_LABELS: Record<string, string> = {
+  bachelor: "Bachelor",
+  master: "Master",
+  staff: "Staff",
+  unknown: "Unknown",
+};

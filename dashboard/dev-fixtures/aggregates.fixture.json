@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.3.0",
+  "schema_version": "1.4.0",
   "generated_at": "2026-07-06T05:12:33Z",
   "data_through_week": "2026-W27",
   "data_through_date": "2026-07-05",
@@ -139,7 +139,19 @@
       "text": "Language is detected by a local heuristic (lang-heuristic-v1); very short or mixed-language messages may be misclassified."
     },
     "user_class_definitions": {
-      "text": "One-time / monthly / sporadic follow the Bergmann et al. Stage-2 operational definitions."
+      "text": "Classes follow the operational definitions of Bergmann et al. (2026), applied to the selected window: one-time = all messages within 24 hours and spanning under 3 days; monthly = active over 30 days or more with no gap of 30 days or longer; sporadic = everything else. Frequent counts the monthly users who additionally never paused for 14 days, so it is a subset of monthly and is not added to the other three."
+    },
+    "user_class_window": {
+      "text": "Each student is classified from their activity inside the selected window only, so a window shorter than 30 days cannot contain a monthly user by definition."
+    },
+    "retention_definition": {
+      "text": "New = the student's first-ever message falls inside the selected window; returning = they had already used StatsBot before it. The two add up to the active users. First use is counted from the whole recorded history, including the 2024/25 pilot months that the charts above do not show, so a student who tried StatsBot during the pilot and came back counts as returning. In the all-time window there is no earlier period except that pilot, so returning there names the pilot cohort rather than semester-to-semester loyalty."
+    },
+    "signup_activation": {
+      "text": "Counts the students who signed up in this window and sent at least one message within the same window; someone who signed up late and first wrote afterwards is counted in the window they wrote in."
+    },
+    "status_multi": {
+      "text": "A student who moved from bachelor to master inside the selected window is counted under both levels, so the student counts can exceed the window total by a few."
     },
     "duration_definition": {
       "text": "Session duration = last minus first server timestamp in the session; single-message sessions count as 0 minutes."
@@ -8750,7 +8762,23 @@
             "new_registrations": {
               "status": "ok",
               "value": 94
-            }
+            },
+            "new_registrations_active": {
+              "status": "ok",
+              "value": 68
+            },
+            "new_users": {
+              "status": "ok",
+              "value": 80
+            },
+            "returning_users": {
+              "status": "ok",
+              "value": 38
+            },
+            "footnote_ids": [
+              "retention_definition",
+              "signup_activation"
+            ]
           },
           "user_classes": {
             "one_time": {
@@ -8765,9 +8793,71 @@
               "status": "ok",
               "value": 41
             },
+            "frequent": {
+              "status": "suppressed"
+            },
             "footnote_ids": [
-              "user_class_definitions"
+              "user_class_definitions",
+              "user_class_window"
             ]
+          },
+          "by_status": {
+            "bachelor": {
+              "active_students": {
+                "status": "ok",
+                "value": 50
+              },
+              "messages": {
+                "status": "ok",
+                "value": 2199
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "master": {
+              "active_students": {
+                "status": "ok",
+                "value": 54
+              },
+              "messages": {
+                "status": "ok",
+                "value": 2409
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "staff": {
+              "active_students": {
+                "status": "ok",
+                "value": 9
+              },
+              "messages": {
+                "status": "ok",
+                "value": 419
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "unknown": {
+              "active_students": {
+                "status": "ok",
+                "value": 5
+              },
+              "messages": {
+                "status": "ok",
+                "value": 209
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            }
           }
         },
         "2025S": {
@@ -8787,7 +8877,23 @@
             "new_registrations": {
               "status": "ok",
               "value": 49
-            }
+            },
+            "new_registrations_active": {
+              "status": "ok",
+              "value": 35
+            },
+            "new_users": {
+              "status": "ok",
+              "value": 41
+            },
+            "returning_users": {
+              "status": "ok",
+              "value": 20
+            },
+            "footnote_ids": [
+              "retention_definition",
+              "signup_activation"
+            ]
           },
           "user_classes": {
             "one_time": {
@@ -8802,9 +8908,69 @@
               "status": "ok",
               "value": 21
             },
+            "frequent": {
+              "status": "suppressed"
+            },
             "footnote_ids": [
-              "user_class_definitions"
+              "user_class_definitions",
+              "user_class_window"
             ]
+          },
+          "by_status": {
+            "bachelor": {
+              "active_students": {
+                "status": "ok",
+                "value": 26
+              },
+              "messages": {
+                "status": "ok",
+                "value": 704
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "master": {
+              "active_students": {
+                "status": "ok",
+                "value": 28
+              },
+              "messages": {
+                "status": "ok",
+                "value": 771
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "staff": {
+              "active_students": {
+                "status": "ok",
+                "value": 5
+              },
+              "messages": {
+                "status": "ok",
+                "value": 134
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "unknown": {
+              "active_students": {
+                "status": "suppressed"
+              },
+              "messages": {
+                "status": "suppressed"
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            }
           }
         },
         "2025W": {
@@ -8824,7 +8990,23 @@
             "new_registrations": {
               "status": "ok",
               "value": 59
-            }
+            },
+            "new_registrations_active": {
+              "status": "ok",
+              "value": 42
+            },
+            "new_users": {
+              "status": "ok",
+              "value": 50
+            },
+            "returning_users": {
+              "status": "ok",
+              "value": 24
+            },
+            "footnote_ids": [
+              "retention_definition",
+              "signup_activation"
+            ]
           },
           "user_classes": {
             "one_time": {
@@ -8839,9 +9021,71 @@
               "status": "ok",
               "value": 26
             },
+            "frequent": {
+              "status": "suppressed"
+            },
             "footnote_ids": [
-              "user_class_definitions"
+              "user_class_definitions",
+              "user_class_window"
             ]
+          },
+          "by_status": {
+            "bachelor": {
+              "active_students": {
+                "status": "ok",
+                "value": 31
+              },
+              "messages": {
+                "status": "ok",
+                "value": 775
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "master": {
+              "active_students": {
+                "status": "ok",
+                "value": 34
+              },
+              "messages": {
+                "status": "ok",
+                "value": 849
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "staff": {
+              "active_students": {
+                "status": "ok",
+                "value": 6
+              },
+              "messages": {
+                "status": "ok",
+                "value": 148
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "unknown": {
+              "active_students": {
+                "status": "ok",
+                "value": 3
+              },
+              "messages": {
+                "status": "ok",
+                "value": 74
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            }
           }
         },
         "2026S": {
@@ -8861,7 +9105,23 @@
             "new_registrations": {
               "status": "ok",
               "value": 53
-            }
+            },
+            "new_registrations_active": {
+              "status": "ok",
+              "value": 38
+            },
+            "new_users": {
+              "status": "ok",
+              "value": 45
+            },
+            "returning_users": {
+              "status": "ok",
+              "value": 21
+            },
+            "footnote_ids": [
+              "retention_definition",
+              "signup_activation"
+            ]
           },
           "user_classes": {
             "one_time": {
@@ -8876,9 +9136,71 @@
               "status": "ok",
               "value": 23
             },
+            "frequent": {
+              "status": "suppressed"
+            },
             "footnote_ids": [
-              "user_class_definitions"
+              "user_class_definitions",
+              "user_class_window"
             ]
+          },
+          "by_status": {
+            "bachelor": {
+              "active_students": {
+                "status": "ok",
+                "value": 28
+              },
+              "messages": {
+                "status": "ok",
+                "value": 676
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "master": {
+              "active_students": {
+                "status": "ok",
+                "value": 30
+              },
+              "messages": {
+                "status": "ok",
+                "value": 740
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "staff": {
+              "active_students": {
+                "status": "ok",
+                "value": 5
+              },
+              "messages": {
+                "status": "ok",
+                "value": 129
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "unknown": {
+              "active_students": {
+                "status": "ok",
+                "value": 3
+              },
+              "messages": {
+                "status": "ok",
+                "value": 64
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            }
           }
         },
         "trailing_4": {
@@ -8898,7 +9220,20 @@
             "new_registrations": {
               "status": "ok",
               "value": 3
-            }
+            },
+            "new_registrations_active": {
+              "status": "suppressed"
+            },
+            "new_users": {
+              "status": "suppressed"
+            },
+            "returning_users": {
+              "status": "suppressed"
+            },
+            "footnote_ids": [
+              "retention_definition",
+              "signup_activation"
+            ]
           },
           "user_classes": {
             "one_time": {
@@ -8911,9 +9246,68 @@
             "sporadic": {
               "status": "suppressed"
             },
+            "frequent": {
+              "status": "ok",
+              "value": 0
+            },
             "footnote_ids": [
-              "user_class_definitions"
+              "user_class_definitions",
+              "user_class_window"
             ]
+          },
+          "by_status": {
+            "bachelor": {
+              "active_students": {
+                "status": "suppressed"
+              },
+              "messages": {
+                "status": "suppressed"
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "master": {
+              "active_students": {
+                "status": "suppressed"
+              },
+              "messages": {
+                "status": "suppressed"
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "staff": {
+              "active_students": {
+                "status": "ok",
+                "value": 0
+              },
+              "messages": {
+                "status": "ok",
+                "value": 22
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            },
+            "unknown": {
+              "active_students": {
+                "status": "ok",
+                "value": 0
+              },
+              "messages": {
+                "status": "ok",
+                "value": 11
+              },
+              "footnote_ids": [
+                "status_rule",
+                "status_multi"
+              ]
+            }
           }
         }
       }

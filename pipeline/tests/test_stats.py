@@ -10,8 +10,12 @@ import math
 
 import pytest
 
+from datetime import datetime, timedelta
+
 from statsboteval_pipeline.stats import (
     benjamini_hochberg,
+    classify_user,
+    is_frequent,
     mann_whitney_u,
     normal_sf,
     poisson_rate_ratio,
@@ -251,3 +255,52 @@ def test_a_bigger_family_raises_the_bar() -> None:
     alone = benjamini_hochberg([0.01])[0]
     crowded = benjamini_hochberg([0.01] + [0.6] * 20)[0]
     assert crowded > alone
+
+
+# --- Bergmann user typology -----------------------------------------------------------
+# Expected classes come from the OSF script's own conditions (30_Analysis Step 3), not
+# from a second implementation:
+#   one_time    <- all(span_days < 3) & all(timedif <= 24)
+#   frequent    <- all(diffs < 14) & span_days > 30
+#   occasional  <- all(diffs < 30) & span_days >= 30      # published as "monthly"
+#   sporadic    <- one_time == 0 & occasional == 0
+
+BASE = datetime(2025, 3, 3, 9, 0)
+
+
+def at(*offsets: float) -> list[datetime]:
+    """Timestamps at the given day offsets from BASE."""
+    return [BASE + timedelta(days=d) for d in offsets]
+
+
+def test_one_time_needs_both_a_short_span_and_24_hours() -> None:
+    assert classify_user(at(0, 0.5)) == "one_time"  # span 1 day, 12 h apart
+    assert classify_user(at(0, 1.0)) == "one_time"  # span 2 days, exactly 24 h (<= holds)
+    # Two conditions, not one: 36 h apart still spans under 3 days, but fails timedif.
+    assert classify_user(at(0, 1.5)) == "sporadic"
+    # And the mirror case: 3 calendar days apart, well within 24 h is impossible, so the
+    # span half is what bites for anyone spread over a long weekend.
+    assert classify_user(at(0, 2.5)) == "sporadic"
+
+
+def test_monthly_needs_a_30_day_span_with_no_30_day_gap() -> None:
+    assert classify_user(at(0, 20, 40)) == "monthly"  # span 41, gaps 20/20
+    assert classify_user(at(0, 40)) == "sporadic"  # span 41 but one 40-day gap
+    assert classify_user(at(0, 20)) == "sporadic"  # no 30-day gap but span only 21
+
+
+def test_frequent_is_a_subset_of_monthly_not_a_fourth_class() -> None:
+    stamps = at(0, 10, 20, 31)  # gaps 10/10/11, span 32
+    assert is_frequent(stamps)
+    assert classify_user(stamps) == "monthly"
+
+
+def test_a_monthly_user_with_a_long_pause_is_not_frequent() -> None:
+    stamps = at(0, 20, 40)  # gaps 20/20: under 30 but not under 14
+    assert classify_user(stamps) == "monthly"
+    assert not is_frequent(stamps)
+
+
+def test_a_single_message_is_a_one_time_user() -> None:
+    assert classify_user(at(0)) == "one_time"
+    assert not is_frequent(at(0))

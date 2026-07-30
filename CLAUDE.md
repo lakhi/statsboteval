@@ -93,6 +93,16 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
   `ok(0)` — a measured zero is not identifying, and suppressing it would destroy meaning.
 - **`prompt_tokens` counts the entire re-sent conversation context**, growing within a
   session. It is not a message-size metric; use `completion_tokens`.
+- **The retention baseline reads *behind* `axis_start`** (D-50). `first_seen` in
+  `read_corpus_view` is built before the `axis_start` filter, on purpose: a student who
+  wrote during the 2024/25 pilot is not a "new user" in 2025S just because the pilot weeks
+  are unpublishable. Move that line under the filter and every returning user silently
+  becomes new (2025S would read 190 new / 0 returning instead of 150/38).
+- **`frequent` is a subset of `monthly`, not a fourth user class** (D-50). Bergmann's script
+  sets five *independent* flags; `all(gaps < 14) & span > 30` implies their occasional
+  condition. Making it exclusive would redefine our `monthly` away from their
+  `occasional_user` — invisibly, since n = 0 today. `one_time`/`monthly`/`sporadic`
+  partition and sum to `active_students`; `frequent` never adds to them.
 - **`created_at` is THE temporal axis** (weeks, windows, heatmap). `session_started` is a
   client clock — a session *key*, plus status-at-usage-time resolution, never an axis.
 - **One label version never mixes models or inference settings** (D-41). Changing either

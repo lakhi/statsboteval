@@ -49,6 +49,7 @@ from .contract import (
     TokensSection,
     TokensWindow,
     UsageContext,
+    UsageContextByStatus,
     UsageContextTotals,
     UsageContextWeekly,
     UsageContextWindow,
@@ -66,7 +67,7 @@ from .contract import (
 from .classify.codebook import DEDUCTIVE_CATEGORY_NAMES, category_code
 from .contract import TopicDistribution, TopicGroup, TopicItem, TopicsSection, TopicsWindowEntry
 from .language import LABEL_VERSION as LANGUAGE_LABEL_VERSION
-from .stats import classify_user, quantile_type2
+from .stats import classify_user, is_frequent, quantile_type2
 from .status import read_status, resolve_status
 from .trends import build_trends
 from .windows import build_windows
@@ -94,8 +95,36 @@ FOOTNOTES = {
         text="Language is detected by a local heuristic (lang-heuristic-v1); "
         "very short or mixed-language messages may be misclassified."
     ),
+    # Wording pinned to the OSF analysis script it reproduces (verified 2026-07-30), and
+    # phrased in days rather than variable names: the reader is an educator, not a reviewer
+    # re-running the R. "Frequent" is stated as a subset because it is one (stats.is_frequent).
     "user_class_definitions": Footnote(
-        text="One-time / monthly / sporadic follow the Bergmann et al. Stage-2 operational definitions."
+        text="Classes follow the operational definitions of Bergmann et al. (2026), applied to "
+        "the selected window: one-time = all messages within 24 hours and spanning under 3 days; "
+        "monthly = active over 30 days or more with no gap of 30 days or longer; sporadic = "
+        "everything else. Frequent counts the monthly users who additionally never paused for "
+        "14 days, so it is a subset of monthly and is not added to the other three."
+    ),
+    "user_class_window": Footnote(
+        text="Each student is classified from their activity inside the selected window only, so "
+        "a window shorter than 30 days cannot contain a monthly user by definition."
+    ),
+    "retention_definition": Footnote(
+        text="New = the student's first-ever message falls inside the selected window; returning "
+        "= they had already used StatsBot before it. The two add up to the active users. First use "
+        "is counted from the whole recorded history, including the 2024/25 pilot months that the "
+        "charts above do not show, so a student who tried StatsBot during the pilot and came back "
+        "counts as returning. In the all-time window there is no earlier period except that pilot, "
+        "so returning there names the pilot cohort rather than semester-to-semester loyalty."
+    ),
+    "signup_activation": Footnote(
+        text="Counts the students who signed up in this window and sent at least one message "
+        "within the same window; someone who signed up late and first wrote afterwards is "
+        "counted in the window they wrote in."
+    ),
+    "status_multi": Footnote(
+        text="A student who moved from bachelor to master inside the selected window is counted "
+        "under both levels, so the student counts can exceed the window total by a few."
     ),
     "duration_definition": Footnote(
         text="Session duration = last minus first server timestamp in the session; "
@@ -229,20 +258,27 @@ def _histogram(
 
 
 def _user_classes(user_dates: dict[str, list[datetime]], floor_n: int) -> UserClasses:
-    """Bergmann Stage-2 typology (pinned operationalizations, bergmann-framework.md).
+    """Bergmann typology (pinned operationalizations, bergmann-framework.md).
 
     Computed on Vienna-local timestamps for consistency with the document's
     timezone (the reference scripts used UTC; the thresholds are what is pinned).
+    `frequent` is a subset of `monthly` (stats.is_frequent), so it is tallied
+    alongside rather than inside the partition.
     """
     tally = {"one_time": 0, "monthly": 0, "sporadic": 0}
+    frequent = 0
     for stamps in user_dates.values():
         tally[classify_user(stamps)] += 1
+        if is_frequent(stamps):
+            frequent += 1
     one_time, monthly, sporadic = tally["one_time"], tally["monthly"], tally["sporadic"]
+    # Every class count is its own contributing-student count: one student, one class.
     return UserClasses(
         one_time=floored_count(one_time, one_time, floor_n),
         monthly=floored_count(monthly, monthly, floor_n),
         sporadic=floored_count(sporadic, sporadic, floor_n),
-        footnote_ids=["user_class_definitions"],
+        frequent=floored_count(frequent, frequent, floor_n),
+        footnote_ids=["user_class_definitions", "user_class_window"],
     )
 
 
@@ -268,6 +304,8 @@ class CorpusView:
     first_week: str
     through_week: str
     positives: dict[str, dict[str, set[int]]]  # domain -> code -> history_ids
+    first_seen: dict[str, date]  # pseudonym -> first message ever, PRE-axis rows included
+    message_status: dict[int, str]  # history_id -> program level at usage time; {} = no roster
 
 
 def read_corpus_view(
@@ -296,8 +334,16 @@ def read_corpus_view(
     through_monday = week_monday(through)
 
     msgs: list[_Message] = []
+    first_seen: dict[str, date] = {}
     for history_id, pseudonym, session_started, created_at, completion_tokens, lang in rows:
         local = created_at.replace(tzinfo=timezone.utc).astimezone(VIENNA)
+        # Retention's baseline is deliberately read BEFORE the axis_start filter below:
+        # a student who wrote during the 2024/25 pilot is not a new user in 2025S just
+        # because the pilot weeks are unpublishable. Moving this line under the filter
+        # would silently turn every returning user into a new one (D-50).
+        earliest = first_seen.get(pseudonym)
+        if earliest is None or local.date() < earliest:
+            first_seen[pseudonym] = local.date()
         if axis_start is not None and local.date() < axis_start:
             continue  # pre-launch pilot traffic stays in the corpus, out of publishes
         week = date_to_week(local.date())
@@ -349,6 +395,17 @@ def read_corpus_view(
         ).fetchall():
             positives[domain][code].add(history_id)
 
+    # Program level at usage time (D-39), resolved once here rather than inside the topics
+    # block where it used to live: Adoption publishes a status split too (D-50), and status
+    # availability must not depend on whether Phase B labels exist. Empty dict = no roster
+    # imported, which both sections read as "publish no by_status".
+    status_rows = read_status(con)
+    message_status = (
+        {m.history_id: resolve_status(status_rows.get(m.pseudonym), m.session[1]) for m in msgs}
+        if status_rows
+        else {}
+    )
+
     return CorpusView(
         msgs=msgs,
         sessions=sessions,
@@ -358,6 +415,8 @@ def read_corpus_view(
         first_week=first,
         through_week=through,
         positives=positives,
+        first_seen=first_seen,
+        message_status=message_status,
     )
 
 
@@ -455,14 +514,56 @@ def build_aggregates(
         user_dates: dict[str, list[datetime]] = defaultdict(list)
         for m in w_msgs:
             user_dates[m.pseudonym].append(m.local)
+
+        # Retention: a window's first Monday is the boundary, not its first message —
+        # a window with a quiet opening week must not count that week's absentees as new.
+        window_start = week_monday(min(weeks)) if weeks else None
+        new_users = {p for p in active if window_start is not None and view.first_seen[p] >= window_start}
+        returning = active - new_users
+        # Complementary suppression. new + returning = active_students and all three are
+        # published, so publishing one part beside a suppressed other would hand the reader
+        # the suppressed count by subtraction — the one shape where per-cell flooring is not
+        # enough. If either side is sub-floor, neither is published. A measured 0 is ok(0)
+        # and never triggers this (floored_count(0, 0) is ok by invariant 2).
+        new_cell = floored_count(len(new_users), len(new_users), floor_n)
+        returning_cell = floored_count(len(returning), len(returning), floor_n)
+        if new_cell.status == "suppressed" or returning_cell.status == "suppressed":
+            new_cell = returning_cell = suppressed()
+        # Signup activation: registered in this window AND wrote in this window. Both sides
+        # are window-scoped, so a published window never changes value on a later republish.
+        activated = {p for p in set(new_regs) if p in active}
+
+        by_status: dict[str, UsageContextByStatus] | None = None
+        if view.message_status:
+            status_msgs: dict[str, list[_Message]] = defaultdict(list)
+            for m in w_msgs:
+                status_msgs[view.message_status[m.history_id]].append(m)
+            # A BA->MA transitioner active on both sides of their semester boundary appears
+            # in both groups (D-50 accepts the overlap; the status_multi footnote states it).
+            by_status = {
+                status: UsageContextByStatus(
+                    active_students=floored_count(
+                        len({m.pseudonym for m in group}), len({m.pseudonym for m in group}), floor_n
+                    ),
+                    messages=floored_count(len(group), len({m.pseudonym for m in group}), floor_n),
+                    footnote_ids=["status_rule", "status_multi"],
+                )
+                for status, group in sorted(status_msgs.items())
+            }
+
         usage_windows[window.id] = UsageContextWindow(
             totals=UsageContextTotals(
                 active_students=floored_count(len(active), len(active), floor_n),
                 messages=floored_count(len(w_msgs), len(active), floor_n),
                 sessions=floored_count(len(w_sessions), len({s.pseudonym for s in w_sessions}), floor_n),
                 new_registrations=floored_count(len(new_regs), len(set(new_regs)), floor_n),
+                new_registrations_active=floored_count(len(activated), len(activated), floor_n),
+                new_users=new_cell,
+                returning_users=returning_cell,
+                footnote_ids=["retention_definition", "signup_activation"],
             ),
             user_classes=_user_classes(user_dates, floor_n),
+            by_status=by_status,
         )
 
         session_windows[window.id] = SessionsWindow(
@@ -552,26 +653,20 @@ def build_aggregates(
             }
 
         if any(positives[domain] for domain in _TOPIC_DOMAINS):
-            status_rows = read_status(con)
-            message_status: dict[int, str] | None = None
-            if status_rows:
-                message_status = {
-                    m.history_id: resolve_status(status_rows.get(m.pseudonym), m.session[1]) for m in msgs
-                }
             topics_windows: dict[str, TopicsWindowEntry] = {}
             for window in windows:
                 weeks = _window_weeks(window, axis)
                 w_msgs = [m for m in msgs if m.week in weeks]
-                by_status: dict[str, TopicGroup] | None = None
-                if message_status is not None:
+                topic_by_status: dict[str, TopicGroup] | None = None
+                if view.message_status:
                     grouped: dict[str, list[_Message]] = defaultdict(list)
                     for m in w_msgs:
-                        grouped[message_status[m.history_id]].append(m)
-                    by_status = {
+                        grouped[view.message_status[m.history_id]].append(m)
+                    topic_by_status = {
                         status: TopicGroup(**topic_group(group_msgs, with_status_rule=True))
                         for status, group_msgs in sorted(grouped.items())
                     }
-                topics_windows[window.id] = TopicsWindowEntry(**topic_group(w_msgs), by_status=by_status)
+                topics_windows[window.id] = TopicsWindowEntry(**topic_group(w_msgs), by_status=topic_by_status)
             topics_section = TopicsSection(per_window=topics_windows, theme_set_version=theme_set_version)
 
     label_versions = {"language": LANGUAGE_LABEL_VERSION}
