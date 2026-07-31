@@ -2,7 +2,8 @@
 
 import { useRef } from "react";
 
-export type TabDef = { id: string; label: string };
+/** `hidden` keeps a tab out of the strip while leaving it addressable by URL (D-55). */
+export type TabDef = { id: string; label: string; hidden?: boolean };
 
 /** WAI-ARIA tabs, automatic activation: arrows move focus and select. */
 export function Tabs({
@@ -15,6 +16,10 @@ export function Tabs({
   onSelect: (id: string) => void;
 }) {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  // A hidden tab can still be active (?tab=trends), and then no visible button matches it.
+  // Without this the whole strip would have tabIndex -1 — unreachable by keyboard — because
+  // roving tabindex assumes the active element is one of the rendered ones.
+  const activeIsVisible = tabs.some((t) => t.id === active);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const i = tabs.findIndex((t) => t.id === active);
@@ -48,7 +53,7 @@ export function Tabs({
             id={`tab-${t.id}`}
             aria-selected={selected}
             aria-controls={`panel-${t.id}`}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={selected || (!activeIsVisible && t.id === tabs[0].id) ? 0 : -1}
             onClick={() => onSelect(t.id)}
             onKeyDown={onKeyDown}
             className={`cursor-pointer whitespace-nowrap border-b-2 px-4 py-2.5 text-sm transition-colors ${

@@ -1,5 +1,6 @@
 import type { Aggregates, Finding, TrendsWindow } from "@/lib/aggregates.gen";
 import { weekShort } from "@/lib/format";
+import { ALL } from "@/lib/levels";
 import { isInProgress, type AnyWindow } from "@/lib/windows";
 import { SectionPending, WindowGap } from "../cells/EmptyState";
 import { FindingCard, windowLabel } from "../cells/FindingCard";
@@ -23,13 +24,30 @@ export type TrendsTabProps = TabProps & {
  * "nothing was testable" and "tested and flat" are different claims, and collapsing
  * them would have the tab assert a comparison that never ran.
  */
-export function TrendsTab({ doc, win, onJumpToTab }: TrendsTabProps) {
+export function TrendsTab({ doc, win, level, onJumpToTab }: TrendsTabProps) {
   const intro = (
     <PanelIntro
       question="How is usage changing over time?"
       deck="Only measures that changed enough to stand out from normal variation are listed — anything that stayed stable is left out."
     />
   );
+
+  // Findings are selected in the pipeline over the whole cohort, so this tab has no
+  // per-level shape to render (D-55). Saying so beats quietly showing cohort-wide
+  // comparisons under a bachelor filter. The tab is hidden from the strip anyway; this
+  // only matters to whoever opens ?tab=trends.
+  if (level !== ALL) {
+    return (
+      <div>
+        {intro}
+        <div className="rounded-lg border border-edge bg-card px-6 py-8 text-center text-sm text-ink-2">
+          Trends compares whole periods across every program level at once, so it does not
+          follow the program-level filter. Switch to <span className="font-medium">All users</span>{" "}
+          to read it.
+        </div>
+      </div>
+    );
+  }
 
   const section = doc.sections.trends;
   if (!section) {
