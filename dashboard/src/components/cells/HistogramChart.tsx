@@ -56,6 +56,7 @@ export function HistogramChart({
   floorN,
   height = 190,
   mutedBins,
+  measure,
 }: {
   histogram: Histogram;
   floorN: number;
@@ -64,6 +65,8 @@ export function HistogramChart({
    *  different first bin ("tried it once") from the rest without inventing a
    *  second data series. */
   mutedBins?: readonly number[];
+  /** Singular noun the summary strip uses to name its median (D-55). */
+  measure?: string;
 }) {
   const rows: Row[] = histogram.bins.map((bin) => ({
     label: binLabel(bin),
@@ -113,6 +116,7 @@ export function HistogramChart({
         nTotal={histogram.n_total}
         unit={histogram.unit}
         floorN={floorN}
+        measure={measure}
       />
     </div>
   );

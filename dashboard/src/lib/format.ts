@@ -133,6 +133,16 @@ export function binLabel({ lo, hi }: Pick<HistogramBin, "lo" | "hi">): string {
   return `${formatCount(lo)}–${formatCount(hi)}`;
 }
 
+/**
+ * Contract unit -> the word the page uses for it.
+ *
+ * `Histogram.unit` is internal vocabulary ("sessions", from the corpus's session key).
+ * Everything a reader sees calls the same object a conversation, so the mapping happens
+ * once here, at the render boundary, rather than by renaming the contract field.
+ */
+const UNIT_LABELS: Record<string, string> = { sessions: "conversations" };
+export const unitLabel = (unit: string): string => UNIT_LABELS[unit] ?? unit;
+
 export function formatStat(n: number): string {
   return Number.isInteger(n) ? formatCount(n) : n.toLocaleString("en", { maximumFractionDigits: 1 });
 }
