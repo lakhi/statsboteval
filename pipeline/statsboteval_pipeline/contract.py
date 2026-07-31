@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.6.0"
+SCHEMA_VERSION = "1.7.0"
 
 FootnoteId = str
 
@@ -266,6 +266,19 @@ class TemporalUsageWeekly(BaseModel):
     active_students: WeeklySeries
 
 
+class TemporalUsageByStatus(BaseModel):
+    """Timing for one program level (1.7.0, D-55).
+
+    `activity_heatmap` is deliberately absent: the 7x24 grid has been unrendered since
+    D-54 and is 44 KB of the document on its own, so three more copies would buy nothing.
+    A split that leaves it out is not a smaller version of the cohort-wide window — it is
+    the part the dashboard actually draws.
+    """
+
+    daypart_heatmap: DaypartGrid
+    daypart_totals: DaypartTotals
+
+
 class TemporalUsageWindow(BaseModel):
     # 1.6.0 (D-54): the dashboard renders `daypart_heatmap`; `activity_heatmap` stays
     # published and unread. It is a *required field of a section that stays*, and §10
@@ -274,6 +287,9 @@ class TemporalUsageWindow(BaseModel):
     activity_heatmap: HeatmapGrid
     daypart_heatmap: DaypartGrid | None = None
     daypart_totals: DaypartTotals | None = None
+    # 1.7.0 (D-55). Keyed by STATUS_KEYS; absent when no roster is imported, exactly as
+    # topics.by_status is. A level appears only when it has messages in the window.
+    by_status: dict[str, TemporalUsageByStatus] | None = None
 
 
 class SemesterProfilePoint(BaseModel):
@@ -306,6 +322,12 @@ class TemporalUsage(BaseModel):
     # Deliberately not per_window: the whole point is comparing across windows, so the
     # window picker does not apply. The dashboard renders it under all_time only (D-54).
     semester_profiles: list[SemesterProfile] | None = None
+    # 1.7.0 (D-55). The weekly series are document-level and sliced client-side, so a
+    # program-level filter cannot narrow them without its own copy — without this the
+    # Timing tab would show level-scoped dayparts beside cohort-wide trend lines, which
+    # is the exact way a global filter starts lying. `semester_profiles` gets no split:
+    # it is rendered under All users only, where the filter does not apply.
+    weekly_by_status: dict[str, TemporalUsageWeekly] | None = None
 
 
 class UsageContextTotals(BaseModel):
@@ -334,10 +356,21 @@ class UserClasses(BaseModel):
 
 
 class UsageContextByStatus(BaseModel):
-    """Adoption by program level (1.4.0, D-50; the D-39 usage-time rule)."""
+    """Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).
+
+    1.7.0 (D-55) widens this from the two measures the by-level card needed to what the
+    KPI tiles need, because the level filter now scopes the whole tab. `new_registrations`
+    is *not* here and will not be: a registration has no session, so the usage-time rule
+    does not reach it, and splitting only the `_active` half of that pair would be worse
+    than not splitting — the tile renders under All users only instead.
+    """
 
     active_students: CountCell
     messages: CountCell
+    sessions: CountCell | None = None  # 1.7.0
+    new_users: CountCell | None = None  # 1.7.0, same complementary suppression as totals
+    returning_users: CountCell | None = None  # 1.7.0
+    user_classes: UserClasses | None = None  # 1.7.0
     # Repeated on every status entry, as TopicDistribution does: the note belongs to the
     # figure, and a dict-of-groups has no other place to hang it.
     footnote_ids: list[FootnoteId] | None = None
@@ -360,13 +393,29 @@ class UsageContext(BaseModel):
     per_window: dict[str, UsageContextWindow]
 
 
-class SessionsWindow(BaseModel):
+class SessionsByStatus(BaseModel):
+    """Conversation depth for one program level (1.7.0, D-55)."""
+
     messages_per_session: Histogram
     session_duration_minutes: Histogram
 
 
+class SessionsWindow(BaseModel):
+    messages_per_session: Histogram
+    session_duration_minutes: Histogram
+    by_status: dict[str, SessionsByStatus] | None = None  # 1.7.0
+
+
 class SessionsSection(BaseModel):
     per_window: dict[str, SessionsWindow]
+
+
+class PerStudentByStatus(BaseModel):
+    """Engagement breadth for one program level (1.7.0, D-55)."""
+
+    sessions_per_student: Histogram
+    weeks_active_per_student: Histogram
+    messages_per_student: Histogram
 
 
 class PerStudentWindow(BaseModel):
@@ -381,6 +430,10 @@ class PerStudentWindow(BaseModel):
     sessions_per_student: Histogram
     weeks_active_per_student: Histogram
     messages_per_student: Histogram
+    # 1.7.0 (D-55). A BA->MA transitioner active on both sides of their boundary
+    # contributes one observation to each level, so the per-level n_students sum can
+    # exceed the window's — the status_multi footnote already states exactly that.
+    by_status: dict[str, PerStudentByStatus] | None = None
 
 
 class PerStudentSection(BaseModel):
@@ -408,11 +461,15 @@ class LanguageTotals(BaseModel):
 
 class LanguageWindow(BaseModel):
     totals: LanguageTotals
+    by_status: dict[str, LanguageTotals] | None = None  # 1.7.0 (D-55)
 
 
 class LanguageSection(BaseModel):
     weekly: LanguageWeekly
     per_window: dict[str, LanguageWindow]
+    # 1.7.0 (D-55), same reasoning as temporal_usage.weekly_by_status: the weekly chart
+    # is the tab's main figure and is sliced client-side from a document-level series.
+    weekly_by_status: dict[str, LanguageWeekly] | None = None
 
 
 class TopicItem(BaseModel):
@@ -596,6 +653,28 @@ class Sections(BaseModel):
     trends: TrendsSection | None = None  # schema 1.3.0 (D-49); 1.2.0 readers ignore it
 
 
+class EnrollmentEntry(BaseModel):
+    """How many students were enrolled in a program level during one window (1.7.0, D-55).
+
+    Not a measurement, which is why this lives outside `sections` and carries plain ints
+    rather than CountCells. Nothing here passes floored_count because there is nothing to
+    floor: an institutional headcount is not a count over students who wrote messages, and
+    dressing it as a cell would invite exactly that misreading.
+    """
+
+    bachelor: int = Field(ge=0)
+    master: int = Field(ge=0)
+    source: str  # which roster snapshot, so a published number can be traced back
+    as_of: date
+
+
+class Enrollment(BaseModel):
+    # Semester windows only: all_time spans three semesters of cohort turnover and
+    # trailing_4 is a rolling 4-week slice, so neither has a defensible denominator.
+    # The dashboard states that in words rather than drawing an empty card.
+    per_window: dict[str, EnrollmentEntry]
+
+
 class Footnote(BaseModel):
     text: str
 
@@ -630,6 +709,9 @@ class Aggregates(BaseModel):
     # 1.6.0 (D-54). Optional so a 1.5.0-shaped document still validates; required in
     # practice whenever any daypart cell is published (checked in _check_dayparts).
     dayparts: list[Daypart] | None = None
+    # 1.7.0 (D-55). Optional: absent when no cohort table is configured, and a 1.6.0
+    # document stays valid without it.
+    enrollment: Enrollment | None = None
     footnotes: dict[FootnoteId, Footnote]
     sections: Sections
 
@@ -645,6 +727,20 @@ class Aggregates(BaseModel):
             mbl = s.language.weekly.messages_by_language
             for lang in ("de", "en", "other", "undetermined"):
                 yield f"language.weekly.messages_by_language.{lang}", getattr(mbl, lang)
+        # 1.7.0 (D-55): the per-level copies are sliced by the same client code as the
+        # cohort-wide ones, so they carry the same density obligation. Listing them here
+        # is what makes a short per-level series a validation failure rather than a
+        # trend line that silently starts late.
+        if s.temporal_usage is not None and s.temporal_usage.weekly_by_status is not None:
+            for level, weekly in s.temporal_usage.weekly_by_status.items():
+                yield f"temporal_usage.weekly_by_status.{level}.messages", weekly.messages
+                yield f"temporal_usage.weekly_by_status.{level}.sessions", weekly.sessions
+                yield f"temporal_usage.weekly_by_status.{level}.active_students", weekly.active_students
+        if s.language is not None and s.language.weekly_by_status is not None:
+            for level, lang_weekly in s.language.weekly_by_status.items():
+                mbl = lang_weekly.messages_by_language
+                for lang in ("de", "en", "other", "undetermined"):
+                    yield f"language.weekly_by_status.{level}.messages_by_language.{lang}", getattr(mbl, lang)
 
     def _per_window_maps(self) -> Iterator[tuple[str, dict[str, Any]]]:
         s = self.sections
@@ -755,6 +851,41 @@ class Aggregates(BaseModel):
             if indices != sorted(indices) or len(set(indices)) != len(indices):
                 raise ValueError(f"semester_profiles.{profile.window_id}: semester_week must ascend uniquely")
 
+    def _check_status_keys(self) -> None:
+        """Every by_status map anywhere in the document uses the closed key set.
+
+        TopicsWindowEntry has validated its own keys since 1.1.0. 1.7.0 puts by_status in
+        six more places, and six copies of that validator is six chances to drift — one
+        walk of the dumped document catches them all, including any added later.
+        """
+        def walk(node: Any, path: str) -> Iterator[tuple[str, str]]:
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key in ("by_status", "weekly_by_status") and isinstance(value, dict):
+                        for level in value:
+                            yield f"{path}.{key}", level
+                    yield from walk(value, f"{path}.{key}")
+            elif isinstance(node, list):
+                for i, item in enumerate(node):
+                    yield from walk(item, f"{path}[{i}]")
+
+        for where, level in walk(dump_doc(self.sections), "sections"):
+            if level not in STATUS_KEYS:
+                raise ValueError(f"{where} uses unknown program level {level!r}; expected one of {STATUS_KEYS}")
+
+    def _check_enrollment(self, window_ids: set[str]) -> None:
+        if self.enrollment is None:
+            return
+        semesters = {w.id for w in self.windows if w.kind == "semester"}
+        for window_id in self.enrollment.per_window:
+            if window_id not in window_ids:
+                raise ValueError(f"enrollment.per_window references unknown window {window_id!r}")
+            if window_id not in semesters:
+                raise ValueError(
+                    f"enrollment.per_window.{window_id} is not a semester window; enrolled-cohort "
+                    "denominators are defined for semesters only (D-55)"
+                )
+
     @model_validator(mode="after")
     def _cross_document_consistency(self) -> "Aggregates":
         if week_sunday(self.data_through_week) != self.data_through_date:
@@ -769,6 +900,8 @@ class Aggregates(BaseModel):
         self._check_trends(window_ids)
         self._check_dayparts()
         self._check_semester_profiles(window_ids)
+        self._check_status_keys()
+        self._check_enrollment(window_ids)
         referenced = set(_iter_footnote_ids(dump_doc(self.sections)))
         unknown_footnotes = referenced - set(self.footnotes)
         if unknown_footnotes:

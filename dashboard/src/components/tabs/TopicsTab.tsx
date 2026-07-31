@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import { type ReactNode } from "react";
 import type { Aggregates, TopicDistribution, TopicGroup, TopicsWindowEntry } from "@/lib/aggregates.gen";
 import { resolveFootnotes, symbolsFor, type ResolvedFootnote } from "@/lib/footnotes";
 import { formatCount } from "@/lib/format";
+import { ALL, sliceByLevel } from "@/lib/levels";
 import { CategoryBars, categoryTableRows, type CategoryRow } from "../cells/CategoryBars";
 import { ChartCard, DataTable } from "../cells/ChartCard";
-import { SectionPending, WindowGap } from "../cells/EmptyState";
-import { PanelIntro, STATUS_LABELS, STATUS_ORDER, type TabProps } from "./shared";
+import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
+import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
+import {
+  levelsIn,
+  PanelIntro,
+  showsLevelCard,
+  STATUS_LABELS,
+  UnscopedNote,
+  valueOf,
+  type TabProps,
+} from "./shared";
 
 type CardDef = {
   key: keyof TopicGroup & string;
@@ -147,10 +156,7 @@ function emergentMethodNote(doc: Aggregates): ReactNode {
   );
 }
 
-export function TopicsTab({ doc, win }: TabProps) {
-  const searchParams = useSearchParams();
-  const [status, setStatus] = useState<string>(() => searchParams.get("status") ?? "all");
-
+export function TopicsTab({ doc, win, level }: TabProps) {
   const intro = (
     <PanelIntro
       question="What do students ask about?"
@@ -160,18 +166,7 @@ export function TopicsTab({ doc, win }: TabProps) {
 
   const section = doc.sections.topics;
   const entry: TopicsWindowEntry | undefined = section?.per_window[win.id];
-  const available = entry?.by_status
-    ? STATUS_ORDER.filter((key) => entry.by_status && key in entry.by_status)
-    : [];
-  const selected = status !== "all" && available.includes(status as (typeof STATUS_ORDER)[number]) ? status : "all";
-
-  // Shareable state, same mechanism as the tab/window params (replaceState).
-  useEffect(() => {
-    const params = new URLSearchParams(globalThis.location.search);
-    if (selected === "all") params.delete("status");
-    else params.set("status", selected);
-    globalThis.history.replaceState(null, "", `?${params.toString()}`);
-  }, [selected]);
+  const levels = levelsIn(entry?.by_status);
 
   if (!section) {
     return (
@@ -190,7 +185,21 @@ export function TopicsTab({ doc, win }: TabProps) {
     );
   }
 
-  const group: TopicGroup = selected === "all" ? entry : (entry.by_status?.[selected] ?? entry);
+  // The in-panel segmented control that used to live here moved into the header bar as
+  // the global filter (D-55). Absence is now a real state: a level with no messages in
+  // this window has no group at all, and falling back to the cohort-wide one would show
+  // everyone's topics under a bachelor filter.
+  const groupSlice = sliceByLevel(entry, entry.by_status, level);
+  if (groupSlice === null) {
+    return (
+      <div>
+        {intro}
+        <LevelGap levelLabel={STATUS_LABELS[level] ?? level} windowLabel={win.label} />
+      </div>
+    );
+  }
+  const group: TopicGroup = groupSlice.data;
+  const unscoped = level !== ALL && !groupSlice.scoped;
 
   // One symbol table for the whole tab: every card's registry footnotes resolve
   // here (identical across cards), render once in the tab footer, and the card
@@ -200,35 +209,48 @@ export function TopicsTab({ doc, win }: TabProps) {
     CARDS.map((card) => (group[card.key] as TopicDistribution | null | undefined)?.footnote_ids),
   );
   const tipCtx = {
-    scope: selected === "all" ? win.label : `${win.label} (${STATUS_LABELS[selected]} group)`,
+    scope: level === ALL ? win.label : `${win.label} (${STATUS_LABELS[level]} group)`,
     classifier: doc.label_versions.classification,
     themeSet: section.theme_set_version,
     floorN: doc.privacy_floor_n,
   };
 
+  // Themes x levels, each cell that theme's share of its OWN level's messages (D-55).
+  // The one comparison the filter genuinely cannot substitute for: flipping between four
+  // levels to compare fifteen themes is past what anyone holds in working memory, which
+  // is exactly when a facet beats a filter. Within-level denominators because the levels
+  // differ in size — a share-of-window column would rank every theme by cohort size.
+  const emergentByLevel = (l: string): TopicDistribution | null | undefined =>
+    (entry.by_status?.[l] as TopicGroup | undefined)?.emergent_themes;
+  const themeLabels = (emergentByLevel(levels[0])?.items ?? []).map((item) => item.label);
+  const themeStatusFootnotes = resolveFootnotes(doc, [
+    ["status_rule", "status_multi", "multi_label"],
+  ]);
+  const themeColumns: LevelColumn[] = [
+    { header: "Level", align: "left", cell: () => null },
+    ...themeLabels.map((label) => ({
+      header: label,
+      cell: (l: string) => {
+        const distribution = emergentByLevel(l);
+        const item = distribution?.items.find((i) => i.label === label);
+        const value = valueOf(item?.cell);
+        const total = valueOf(distribution?.n_total);
+        return value === null || total === null || total === 0
+          ? null
+          : `${Math.round((value / total) * 100)}%`;
+      },
+    })),
+  ];
+
   return (
     <div>
       {intro}
-      {available.length > 0 ? (
-        <div
-          role="group"
-          aria-label="Program level"
-          className="mb-5 inline-flex overflow-hidden rounded-md border border-edge bg-card text-sm"
-        >
-          {["all", ...available].map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={selected === key}
-              onClick={() => setStatus(key)}
-              className={`px-3 py-1.5 transition-colors ${
-                selected === key ? "bg-accent text-white" : "text-ink-2 hover:bg-paper"
-              }`}
-            >
-              {key === "all" ? "All students" : STATUS_LABELS[key]}
-            </button>
-          ))}
-        </div>
+      {unscoped ? (
+        <UnscopedNote>
+          This data release does not break Topics down by program level, so the
+          distributions below cover every level. Republishing with a current pipeline fills
+          them in.
+        </UnscopedNote>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         {CARDS.map((card) => {
@@ -262,6 +284,27 @@ export function TopicsTab({ doc, win }: TabProps) {
           );
         })}
       </div>
+      {showsLevelCard(level) && levels.length > 0 && themeLabels.length > 0 ? (
+        <div className="mt-4 overflow-x-auto">
+          <ProgramLevelCard
+            title="Emergent themes by program level"
+            tableCaption={`Share of each level's messages carrying each emergent theme, ${win.label}`}
+            levels={levels}
+            columns={themeColumns}
+            floorN={doc.privacy_floor_n}
+            markers={symbolsFor(themeStatusFootnotes, ["status_rule", "multi_label"])}
+            footnotes={themeStatusFootnotes}
+            note={
+              <>
+                Each cell is the theme&rsquo;s share of that level&rsquo;s own messages, so
+                levels of different size are directly comparable. A message can carry several
+                themes, so a row does not add up to 100%; a suppressed cell is left blank
+                rather than shown as zero.
+              </>
+            }
+          />
+        </div>
+      ) : null}
       {tabFootnotes.length > 0 ? (
         <p className="mt-8 border-t border-hairline pt-3 text-xs leading-relaxed text-ink-2">
           <span className="font-display italic">Notes (all cards).</span>{" "}

@@ -9,10 +9,16 @@ from datetime import date, datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 
-from .aggregate import build_aggregates
-from .contract import Aggregates
+from .aggregate import build_aggregates, read_cohort_totals
+from .contract import Aggregates, Enrollment
 from .corpus import open_corpus
-from .fixtures import SYNTHETIC_THEME_SET_VERSION, seed_synthetic, seed_synthetic_labels
+from .fixtures import (
+    SYNTHETIC_ENROLLMENT_BACHELOR,
+    SYNTHETIC_ENROLLMENT_MASTER,
+    SYNTHETIC_THEME_SET_VERSION,
+    seed_synthetic,
+    seed_synthetic_labels,
+)
 from .labels import CURRENT_LABEL_VERSION
 from .publish import publish, render
 
@@ -140,6 +146,32 @@ def _write_and_upload(
         print(f"{verb} {immutable} and {latest}")
 
 
+
+def _synthetic_enrollment() -> Enrollment:
+    """Invented cohort sizes for every semester run-synthetic could possibly build.
+
+    The fixture axis is `--weeks` back from today, so its semester ids move with the
+    calendar. Emitting a wide span and letting build_aggregates clip to the registry it
+    actually built is simpler than re-deriving the axis here, and it cannot invent a
+    window id: the clip is what decides which of these survive.
+    """
+    from .contract import EnrollmentEntry
+
+    today = date.today()
+    return Enrollment(
+        per_window={
+            f"{year}{term}": EnrollmentEntry(
+                bachelor=SYNTHETIC_ENROLLMENT_BACHELOR,
+                master=SYNTHETIC_ENROLLMENT_MASTER,
+                source="synthetic roster (invented; not SSC-Psych records)",
+                as_of=date(year, 3 if term == "S" else 10, 1),
+            )
+            for year in range(today.year - 3, today.year + 2)
+            for term in ("S", "W")
+        }
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -161,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
             provenance="production",
             pipeline_version=version("statsboteval-pipeline"),
             axis_start=args.axis_start,
+            enrollment=read_cohort_totals(),
         )
         _write_and_upload(render(doc), doc, args, parser, verb="republished")
         if not args.upload:
@@ -214,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
             axis_start=args.axis_start,
             classification_version=args.classification_version,
             theme_set_version=theme_set if themes_frozen and has_emergent else None,
+            enrollment=read_cohort_totals(),
         )
         payload = render(doc)  # guard runs here, before anything is written or uploaded
         print(
@@ -358,6 +392,7 @@ def main(argv: list[str] | None = None) -> int:
         pipeline_version=version("statsboteval-pipeline"),
         classification_version=CURRENT_LABEL_VERSION if args.with_labels else None,
         theme_set_version=SYNTHETIC_THEME_SET_VERSION if args.with_labels else None,
+        enrollment=_synthetic_enrollment(),
     )
     payload = render(doc)
     _write_and_upload(payload, doc, args, parser, verb="uploaded")

@@ -13,12 +13,19 @@ export type FromHour = number;
 export type Id = string;
 export type Label = string;
 export type ToHour = number;
+export type AsOf = string;
+export type Bachelor = number;
+export type Master = number;
+export type Source = string;
 export type FirstWeek = string;
 export type Text = string;
 export type GeneratedAt = string;
 export type PipelineVersion = string;
 export type PrivacyFloorN = number;
 export type SchemaVersion = string;
+export type ByStatus = {
+  [k: string]: LanguageTotals;
+} | null;
 export type De = OkCell | SuppressedCell;
 export type Status = "ok";
 export type Value = number;
@@ -31,6 +38,12 @@ export type Cell = OkCell | SuppressedCell;
 export type Week = string;
 export type Series = WeeklyEntry[];
 export type FootnoteIds1 = string[] | null;
+export type WeeklyByStatus = {
+  [k: string]: LanguageWeekly;
+} | null;
+export type ByStatus1 = {
+  [k: string]: PerStudentByStatus;
+} | null;
 export type Cell1 = OkCell | SuppressedCell;
 export type Hi = number | null;
 export type Lo = number;
@@ -47,11 +60,17 @@ export type Sd = number | null;
 export type Status2 = "ok";
 export type Status3 = "suppressed";
 export type Unit = string;
+export type ByStatus2 = {
+  [k: string]: SessionsByStatus;
+} | null;
 export type Cell2 = OkCell | SuppressedCell;
 export type Dow = number;
 export type Hour = number;
 export type Cells = HeatmapCell[];
 export type FootnoteIds3 = string[] | null;
+export type ByStatus3 = {
+  [k: string]: TemporalUsageByStatus;
+} | null;
 export type Cell3 = OkCell | SuppressedCell;
 export type Daypart1 = string;
 export type Dow1 = number;
@@ -70,7 +89,10 @@ export type SemesterWeek = number;
 export type Week1 = string;
 export type Points = SemesterProfilePoint[];
 export type WindowId = string;
-export type ByStatus = {
+export type WeeklyByStatus1 = {
+  [k: string]: TemporalUsageWeekly;
+} | null;
+export type ByStatus4 = {
   [k: string]: TopicGroup;
 } | null;
 export type FootnoteIds7 = string[] | null;
@@ -114,25 +136,28 @@ export type Value2 = number;
 export type WindowId2 = string;
 export type Unit1 = string;
 export type InsufficientData = boolean;
-export type ByStatus1 = {
+export type ByStatus5 = {
   [k: string]: UsageContextByStatus;
 } | null;
 export type ActiveStudents1 = OkCell | SuppressedCell;
 export type FootnoteIds9 = string[] | null;
 export type Messages1 = OkCell | SuppressedCell;
-export type ActiveStudents2 = OkCell | SuppressedCell;
-export type FootnoteIds10 = string[] | null;
-export type Messages2 = OkCell | SuppressedCell;
-export type NewRegistrations = OkCell | SuppressedCell;
-export type NewRegistrationsActive = (OkCell | SuppressedCell) | null;
 export type NewUsers = (OkCell | SuppressedCell) | null;
 export type ReturningUsers = (OkCell | SuppressedCell) | null;
-export type Sessions = OkCell | SuppressedCell;
-export type FootnoteIds11 = string[] | null;
+export type Sessions = (OkCell | SuppressedCell) | null;
+export type FootnoteIds10 = string[] | null;
 export type Frequent = (OkCell | SuppressedCell) | null;
 export type Monthly = OkCell | SuppressedCell;
 export type OneTime = OkCell | SuppressedCell;
 export type Sporadic = OkCell | SuppressedCell;
+export type ActiveStudents2 = OkCell | SuppressedCell;
+export type FootnoteIds11 = string[] | null;
+export type Messages2 = OkCell | SuppressedCell;
+export type NewRegistrations = OkCell | SuppressedCell;
+export type NewRegistrationsActive = (OkCell | SuppressedCell) | null;
+export type NewUsers1 = (OkCell | SuppressedCell) | null;
+export type ReturningUsers1 = (OkCell | SuppressedCell) | null;
+export type Sessions1 = OkCell | SuppressedCell;
 export type Timezone = string;
 export type From1 = string;
 export type Through1 = string;
@@ -159,6 +184,7 @@ export interface Aggregates {
   data_through_date: DataThroughDate;
   data_through_week: DataThroughWeek;
   dayparts?: Dayparts;
+  enrollment?: Enrollment | null;
   first_week: FirstWeek;
   footnotes: Footnotes;
   generated_at: GeneratedAt;
@@ -187,6 +213,28 @@ export interface Daypart {
   to_hour: ToHour;
   [k: string]: unknown;
 }
+export interface Enrollment {
+  per_window: PerWindow;
+  [k: string]: unknown;
+}
+export interface PerWindow {
+  [k: string]: EnrollmentEntry;
+}
+/**
+ * How many students were enrolled in a program level during one window (1.7.0, D-55).
+ *
+ * Not a measurement, which is why this lives outside `sections` and carries plain ints
+ * rather than CountCells. Nothing here passes floored_count because there is nothing to
+ * floor: an institutional headcount is not a count over students who wrote messages, and
+ * dressing it as a cell would invite exactly that misreading.
+ */
+export interface EnrollmentEntry {
+  as_of: AsOf;
+  bachelor: Bachelor;
+  master: Master;
+  source: Source;
+  [k: string]: unknown;
+}
 export interface Footnotes {
   [k: string]: Footnote;
 }
@@ -208,14 +256,16 @@ export interface Sections {
   [k: string]: unknown;
 }
 export interface LanguageSection {
-  per_window: PerWindow;
+  per_window: PerWindow1;
   weekly: LanguageWeekly;
+  weekly_by_status?: WeeklyByStatus;
   [k: string]: unknown;
 }
-export interface PerWindow {
+export interface PerWindow1 {
   [k: string]: LanguageWindow;
 }
 export interface LanguageWindow {
+  by_status?: ByStatus;
   totals: LanguageTotals;
   [k: string]: unknown;
 }
@@ -258,10 +308,10 @@ export interface WeeklyEntry {
   [k: string]: unknown;
 }
 export interface PerStudentSection {
-  per_window: PerWindow1;
+  per_window: PerWindow2;
   [k: string]: unknown;
 }
-export interface PerWindow1 {
+export interface PerWindow2 {
   [k: string]: PerStudentWindow;
 }
 /**
@@ -273,6 +323,16 @@ export interface PerWindow1 {
  * which for every one of these three is where the finding lives (invariant 4).
  */
 export interface PerStudentWindow {
+  by_status?: ByStatus1;
+  messages_per_student: Histogram;
+  sessions_per_student: Histogram;
+  weeks_active_per_student: Histogram;
+  [k: string]: unknown;
+}
+/**
+ * Engagement breadth for one program level (1.7.0, D-55).
+ */
+export interface PerStudentByStatus {
   messages_per_student: Histogram;
   sessions_per_student: Histogram;
   weeks_active_per_student: Histogram;
@@ -307,28 +367,39 @@ export interface SuppressedSummaryStats {
   [k: string]: unknown;
 }
 export interface SessionsSection {
-  per_window: PerWindow2;
+  per_window: PerWindow3;
   [k: string]: unknown;
 }
-export interface PerWindow2 {
+export interface PerWindow3 {
   [k: string]: SessionsWindow;
 }
 export interface SessionsWindow {
+  by_status?: ByStatus2;
+  messages_per_session: Histogram;
+  session_duration_minutes: Histogram;
+  [k: string]: unknown;
+}
+/**
+ * Conversation depth for one program level (1.7.0, D-55).
+ */
+export interface SessionsByStatus {
   messages_per_session: Histogram;
   session_duration_minutes: Histogram;
   [k: string]: unknown;
 }
 export interface TemporalUsage {
-  per_window: PerWindow3;
+  per_window: PerWindow4;
   semester_profiles?: SemesterProfiles;
   weekly: TemporalUsageWeekly;
+  weekly_by_status?: WeeklyByStatus1;
   [k: string]: unknown;
 }
-export interface PerWindow3 {
+export interface PerWindow4 {
   [k: string]: TemporalUsageWindow;
 }
 export interface TemporalUsageWindow {
   activity_heatmap: HeatmapGrid;
+  by_status?: ByStatus3;
   daypart_heatmap?: DaypartGrid | null;
   daypart_totals?: DaypartTotals | null;
   [k: string]: unknown;
@@ -342,6 +413,19 @@ export interface HeatmapCell {
   cell: Cell2;
   dow: Dow;
   hour: Hour;
+  [k: string]: unknown;
+}
+/**
+ * Timing for one program level (1.7.0, D-55).
+ *
+ * `activity_heatmap` is deliberately absent: the 7x24 grid has been unrendered since
+ * D-54 and is 44 KB of the document on its own, so three more copies would buy nothing.
+ * A split that leaves it out is not a smaller version of the cohort-wide window — it is
+ * the part the dashboard actually draws.
+ */
+export interface TemporalUsageByStatus {
+  daypart_heatmap: DaypartGrid;
+  daypart_totals: DaypartTotals;
   [k: string]: unknown;
 }
 /**
@@ -400,15 +484,15 @@ export interface TemporalUsageWeekly {
   [k: string]: unknown;
 }
 export interface TopicsSection {
-  per_window: PerWindow4;
+  per_window: PerWindow5;
   theme_set_version?: ThemeSetVersion;
   [k: string]: unknown;
 }
-export interface PerWindow4 {
+export interface PerWindow5 {
   [k: string]: TopicsWindowEntry;
 }
 export interface TopicsWindowEntry {
-  by_status?: ByStatus;
+  by_status?: ByStatus4;
   deductive: TopicDistribution;
   emergent_themes?: TopicDistribution | null;
   method_themes: TopicDistribution;
@@ -435,10 +519,10 @@ export interface TopicItem {
   [k: string]: unknown;
 }
 export interface TrendsSection {
-  per_window: PerWindow5;
+  per_window: PerWindow6;
   [k: string]: unknown;
 }
-export interface PerWindow5 {
+export interface PerWindow6 {
   [k: string]: TrendsWindow;
 }
 export interface TrendsWindow {
@@ -490,45 +574,55 @@ export interface TrajectoryPoint {
   [k: string]: unknown;
 }
 export interface UsageContext {
-  per_window: PerWindow6;
+  per_window: PerWindow7;
   weekly: UsageContextWeekly;
   [k: string]: unknown;
 }
-export interface PerWindow6 {
+export interface PerWindow7 {
   [k: string]: UsageContextWindow;
 }
 export interface UsageContextWindow {
-  by_status?: ByStatus1;
+  by_status?: ByStatus5;
   totals: UsageContextTotals;
   user_classes: UserClasses;
   [k: string]: unknown;
 }
 /**
  * Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).
+ *
+ * 1.7.0 (D-55) widens this from the two measures the by-level card needed to what the
+ * KPI tiles need, because the level filter now scopes the whole tab. `new_registrations`
+ * is *not* here and will not be: a registration has no session, so the usage-time rule
+ * does not reach it, and splitting only the `_active` half of that pair would be worse
+ * than not splitting — the tile renders under All users only instead.
  */
 export interface UsageContextByStatus {
   active_students: ActiveStudents1;
   footnote_ids?: FootnoteIds9;
   messages: Messages1;
-  [k: string]: unknown;
-}
-export interface UsageContextTotals {
-  active_students: ActiveStudents2;
-  footnote_ids?: FootnoteIds10;
-  messages: Messages2;
-  new_registrations: NewRegistrations;
-  new_registrations_active?: NewRegistrationsActive;
   new_users?: NewUsers;
   returning_users?: ReturningUsers;
-  sessions: Sessions;
+  sessions?: Sessions;
+  user_classes?: UserClasses | null;
   [k: string]: unknown;
 }
 export interface UserClasses {
-  footnote_ids?: FootnoteIds11;
+  footnote_ids?: FootnoteIds10;
   frequent?: Frequent;
   monthly: Monthly;
   one_time: OneTime;
   sporadic: Sporadic;
+  [k: string]: unknown;
+}
+export interface UsageContextTotals {
+  active_students: ActiveStudents2;
+  footnote_ids?: FootnoteIds11;
+  messages: Messages2;
+  new_registrations: NewRegistrations;
+  new_registrations_active?: NewRegistrationsActive;
+  new_users?: NewUsers1;
+  returning_users?: ReturningUsers1;
+  sessions: Sessions1;
   [k: string]: unknown;
 }
 export interface UsageContextWeekly {

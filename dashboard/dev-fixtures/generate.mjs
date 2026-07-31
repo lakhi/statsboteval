@@ -232,6 +232,22 @@ const perWindow = (f, ids = Object.keys(windowStudents)) =>
 
 const langSplit = { de: 0.55, en: 0.35, other: 0.04, undetermined: 0.06 };
 
+// 1.7.0 (D-55). Every section carries a program-level split, so the fixture has to as
+// well — otherwise `pnpm dev` under the default (Bachelor) filter shows the LevelGap
+// state on every tab and the new cards can never be looked at. Shares are invented but
+// deliberately uneven: staff is small enough to exercise suppression inside a split, and
+// "unknown" appears in all_time only, so the picker's optional fourth option is real.
+const LEVEL_SHARES = { bachelor: 0.42, master: 0.46, staff: 0.08 };
+const levelsFor = (id) =>
+  id === "all_time" ? { ...LEVEL_SHARES, unknown: 0.04 } : LEVEL_SHARES;
+const scaleWeekly = (rows, share) =>
+  rows.map((r) => ({
+    ...r,
+    students: Math.round(r.students * share),
+    messages: Math.round(r.messages * share),
+    sessions: Math.round(r.sessions * share),
+  }));
+
 // ---- topics (schema 1.2.0) -------------------------------------------------
 // Deductive labels are the PUBLIC manuscript category names; every theme label
 // below is invented ("Synthetic …") — the real frozen/generated lists are
@@ -467,7 +483,7 @@ const trends = {
 };
 
 const doc = {
-  schema_version: "1.6.0",
+  schema_version: "1.7.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),
@@ -479,6 +495,23 @@ const doc = {
   pipeline_version: "0.1.0+design-fixture",
   windows,
   dayparts: DAYPARTS,
+  // Invented cohort sizes: the real table lives in pipeline/cohort_totals.json and must
+  // not be mirrored into a synthetic document (D-55). Semester windows only.
+  enrollment: {
+    per_window: Object.fromEntries(
+      windows
+        .filter((w) => w.kind === "semester")
+        .map((w) => [
+          w.id,
+          {
+            bachelor: 900,
+            master: 600,
+            source: "synthetic roster (invented; not SSC-Psych records)",
+            as_of: w.start_date,
+          },
+        ]),
+    ),
+  },
   footnotes: {
     chat_fragmentation: {
       text: "The credit-limit UI nudges students toward starting new chats; conversation counts may overstate distinct dialogues.",
@@ -528,6 +561,16 @@ const doc = {
     per_week_rate: {
       text: "Volume measures are compared per covered week, so periods of unequal length stay comparable.",
     },
+    enrollment_source: { text: "Enrolled totals come from SSC-Psych records." },
+    enrollment_scope: {
+      text: "The totals include all enrolled bachelor/master students, whereas only the first-year students take the statistics course — data for how many first-year students take it across instructors is not available.",
+    },
+    level_scope: {
+      text: "This figure covers every program level; the program-level filter above does not narrow it.",
+    },
+    weeks_active_window: {
+      text: "Weeks active counts only the ISO weeks inside the selected window, so a shorter window necessarily yields fewer weeks per student; the shares are not comparable between windows of different length.",
+    },
     cohort_turnover: {
       text: "Each semester draws a largely different cohort of students; a shift between semesters may reflect who enrolled rather than a change in behavior.",
     },
@@ -546,8 +589,32 @@ const doc = {
         activity_heatmap: heatmap(id),
         daypart_heatmap: daypartHeatmap(id),
         daypart_totals: daypartTotals(id),
+        // No per-level activity_heatmap: unrendered since D-54, and the contract leaves it
+        // out of TemporalUsageByStatus for exactly that reason.
+        by_status: Object.fromEntries(
+          Object.keys(levelsFor(id)).map((lvl) => [
+            lvl,
+            { daypart_heatmap: daypartHeatmap(id), daypart_totals: daypartTotals(id) },
+          ]),
+        ),
       })),
       semester_profiles: semesterProfiles(),
+      weekly_by_status: Object.fromEntries(
+        Object.entries(levelsFor("all_time")).map(([lvl, share]) => {
+          const rows = scaleWeekly(weekly, share);
+          return [
+            lvl,
+            {
+              messages: series(rows, (r) => cell(r.students, r.messages)),
+              sessions: {
+                ...series(rows, (r) => cell(r.students, r.sessions)),
+                footnote_ids: ["chat_fragmentation"],
+              },
+              active_students: series(rows, (r) => cell(r.students, r.students)),
+            },
+          ];
+        }),
+      ),
     },
     usage_context: {
       weekly: {
@@ -600,20 +667,30 @@ const doc = {
             frequent: cell(frequent, frequent),
             footnote_ids: ["user_class_definitions", "user_class_window"],
           },
+          // 1.7.0 widens this from two measures to what the KPI tiles need, because the
+          // level filter now scopes the whole tab. new_registrations stays out: a signup
+          // has no session, so the usage-time rule cannot resolve its level.
           by_status: Object.fromEntries(
-            [
-              ["bachelor", 0.42],
-              ["master", 0.46],
-              ["staff", 0.08],
-              ["unknown", 0.04],
-            ].map(([status, share]) => {
+            Object.entries(levelsFor(id)).map(([status, share]) => {
               const students = Math.round(n * share);
-              const messages = Math.round(msgs * share);
+              const lvlNew = Math.round(students * 0.68);
+              const lvlOne = Math.round(students * 0.55);
+              const lvlMonthly = Math.round(students * 0.1);
               return [
                 status,
                 {
                   active_students: cell(students, students),
-                  messages: cell(students, messages),
+                  messages: cell(students, Math.round(msgs * share)),
+                  sessions: cell(students, Math.round(sess * share)),
+                  new_users: cell(lvlNew, lvlNew),
+                  returning_users: cell(students - lvlNew, students - lvlNew),
+                  user_classes: {
+                    one_time: cell(lvlOne, lvlOne),
+                    monthly: cell(lvlMonthly, lvlMonthly),
+                    sporadic: cell(students - lvlOne - lvlMonthly, students - lvlOne - lvlMonthly),
+                    frequent: cell(0, 0),
+                    footnote_ids: ["user_class_definitions", "user_class_window"],
+                  },
                   footnote_ids: ["status_rule", "status_multi"],
                 },
               ];
@@ -624,6 +701,27 @@ const doc = {
     },
     sessions: {
       per_window: perWindow((id) => ({
+        by_status: Object.fromEntries(
+          Object.keys(levelsFor(id)).map((lvl) => [
+            lvl,
+            {
+              messages_per_session: histogram(
+                id, "sessions",
+                [[1, 1], [2, 3], [4, 7], [8, null]],
+                [0.55, 0.28, 0.12, 0.05],
+                { median: 2.0, p25: 1.0, p75: 3.0, mean: 2.3, sd: 1.9 },
+                ["chat_fragmentation"],
+              ),
+              session_duration_minutes: histogram(
+                id, "sessions",
+                [[0, 1], [2, 5], [6, 15], [16, 30], [31, null]],
+                [0.34, 0.27, 0.22, 0.12, 0.05],
+                { median: 4.0, p25: 1.0, p75: 12.0 },
+                ["chat_fragmentation", "duration_definition"],
+              ),
+            },
+          ]),
+        ),
         messages_per_session: histogram(
           id,
           "sessions",
@@ -641,6 +739,38 @@ const doc = {
           ["chat_fragmentation", "duration_definition"],
         ),
       })),
+    },
+    per_student: {
+      per_window: perWindow((id) => {
+        const bars = (footnotes) => ({
+          sessions_per_student: histogram(
+            id, "students",
+            [[1, 1], [2, 3], [4, 7], [8, null]],
+            [0.39, 0.32, 0.2, 0.09],
+            { median: 2.0, p25: 1.0, p75: 4.0, mean: 3.1, sd: 3.2 },
+            footnotes,
+          ),
+          weeks_active_per_student: histogram(
+            id, "students",
+            [[1, 1], [2, 3], [4, 7], [8, null]],
+            [0.5, 0.42, 0.08, 0.0],
+            { median: 1.5, p25: 1.0, p75: 2.0, mean: 1.8, sd: 1.1 },
+            ["weeks_active_window"],
+          ),
+          messages_per_student: histogram(
+            id, "students",
+            [[1, 2], [3, 5], [6, 10], [11, 25], [26, null]],
+            [0.27, 0.25, 0.23, 0.23, 0.02],
+            { median: 5.0, p25: 2.0, p75: 11.0, mean: 7.5, sd: 7.0 },
+          ),
+        });
+        return {
+          ...bars(["chat_fragmentation"]),
+          by_status: Object.fromEntries(
+            Object.keys(levelsFor(id)).map((lvl) => [lvl, bars(["chat_fragmentation"])]),
+          ),
+        };
+      }),
     },
     tokens: {
       // trailing_4 deliberately omitted → exercises the "no rollup for this
@@ -675,15 +805,39 @@ const doc = {
       },
       per_window: perWindow((id) => {
         const msgs = rowsFor(id).reduce((a, r) => a + r.messages, 0);
-        return {
-          totals: Object.fromEntries(
+        const totalsFor = (scale) =>
+          Object.fromEntries(
             Object.entries(langSplit).map(([lang, share]) => {
-              const st = Math.round(windowStudents[id] * Math.min(1, share * 2.2));
-              return [lang, cell(st, Math.round(msgs * share))];
+              const st = Math.round(windowStudents[id] * scale * Math.min(1, share * 2.2));
+              return [lang, cell(st, Math.round(msgs * scale * share))];
             }),
+          );
+        return {
+          totals: totalsFor(1),
+          by_status: Object.fromEntries(
+            Object.entries(levelsFor(id)).map(([lvl, share]) => [lvl, totalsFor(share)]),
           ),
         };
       }),
+      weekly_by_status: Object.fromEntries(
+        Object.entries(levelsFor("all_time")).map(([lvl, share]) => [
+          lvl,
+          {
+            messages_by_language: {
+              ...Object.fromEntries(
+                Object.entries(langSplit).map(([lang, langShare]) => [
+                  lang,
+                  series(scaleWeekly(weekly, share), (r) => {
+                    const st = Math.round(r.students * Math.min(1, langShare * 2.2));
+                    return cell(st, st === 0 ? 0 : Math.round(r.messages * langShare));
+                  }),
+                ]),
+              ),
+              footnote_ids: ["language_heuristic"],
+            },
+          },
+        ]),
+      ),
     },
     topics,
     trends,

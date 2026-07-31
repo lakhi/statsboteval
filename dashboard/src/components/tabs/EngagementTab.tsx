@@ -1,11 +1,20 @@
 import type { ReactNode } from "react";
-import type { Histogram, PerStudentWindow, SessionsWindow } from "@/lib/aggregates.gen";
+import type { Histogram } from "@/lib/aggregates.gen";
 import { resolveFootnotes, symbolsFor } from "@/lib/footnotes";
-import { formatCount } from "@/lib/format";
+import { formatCount, formatStat, unitLabel } from "@/lib/format";
+import { ALL, sliceByLevel } from "@/lib/levels";
 import { ChartCard, DataTable } from "../cells/ChartCard";
-import { SectionPending, WindowGap } from "../cells/EmptyState";
+import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
 import { HistogramChart, histogramTableRows } from "../cells/HistogramChart";
-import { PanelIntro, type TabProps } from "./shared";
+import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
+import {
+  levelsIn,
+  PanelIntro,
+  showsLevelCard,
+  STATUS_LABELS,
+  UnscopedNote,
+  type TabProps,
+} from "./shared";
 
 /** One exchange, stated wherever a message count is plotted (D-50 wording). */
 const MESSAGE_CAPTION = "1 msg = 1 user message + 1 StatsBot reply.";
@@ -18,7 +27,9 @@ function HistogramCard({
   note,
   lead,
   mutedBins,
-}: TabProps & {
+  measure,
+}: {
+  doc: TabProps["doc"];
   title: string;
   histogram: Histogram;
   xLabel: string;
@@ -26,6 +37,7 @@ function HistogramCard({
   /** A one-line reading of the figure, above the plot. */
   lead?: ReactNode;
   mutedBins?: readonly number[];
+  measure?: string;
 }) {
   const footnotes = resolveFootnotes(doc, [histogram.footnote_ids]);
   const suppressed = histogram.bins.some((b) => b.cell.status === "suppressed");
@@ -40,13 +52,18 @@ function HistogramCard({
       table={
         <DataTable
           caption={title}
-          head={[xLabel, histogram.unit]}
+          head={[xLabel, unitLabel(histogram.unit)]}
           rows={histogramTableRows(histogram)}
         />
       }
     >
       {lead}
-      <HistogramChart histogram={histogram} floorN={doc.privacy_floor_n} mutedBins={mutedBins} />
+      <HistogramChart
+        histogram={histogram}
+        floorN={doc.privacy_floor_n}
+        mutedBins={mutedBins}
+        measure={measure}
+      />
     </ChartCard>
   );
 }
@@ -59,13 +76,20 @@ function HistogramCard({
  * complement — that would be a subtraction across bins, which is how a suppressed
  * bin's value gets recovered. Renders nothing unless both cells it needs are published.
  */
-function TriedVsAdopted({ histogram }: { histogram: Histogram }) {
+function triedOnceShare(histogram: Histogram): number | null {
   const firstBin = histogram.bins[0]?.cell;
   const total = histogram.n_total;
   if (!firstBin || firstBin.status !== "ok" || total.status !== "ok" || total.value === 0) {
     return null;
   }
-  const share = Math.round((firstBin.value / total.value) * 100);
+  return Math.round((firstBin.value / total.value) * 100);
+}
+
+function TriedVsAdopted({ histogram }: { histogram: Histogram }) {
+  const share = triedOnceShare(histogram);
+  const firstBin = histogram.bins[0]?.cell;
+  const total = histogram.n_total;
+  if (share === null || firstBin?.status !== "ok" || total.status !== "ok") return null;
   return (
     <p className="mb-3 text-sm leading-snug text-ink-2">
       <span className="font-semibold text-ink">
@@ -76,7 +100,11 @@ function TriedVsAdopted({ histogram }: { histogram: Histogram }) {
   );
 }
 
-export function EngagementTab({ doc, win }: TabProps) {
+/** The median of a published summary, or null for every state that is not a number. */
+const medianOf = (histogram: Histogram | undefined): string | null =>
+  histogram?.summary?.status === "ok" ? formatStat(histogram.summary.median) : null;
+
+export function EngagementTab({ doc, win, level }: TabProps) {
   const sessions = doc.sections.sessions;
   const perStudent = doc.sections.per_student;
   const intro = (
@@ -96,19 +124,81 @@ export function EngagementTab({ doc, win }: TabProps) {
 
   const sessionRoll = sessions?.per_window[win.id];
   const studentRoll = perStudent?.per_window[win.id];
+  const sessionScoped = sessionRoll
+    ? sliceByLevel(sessionRoll, sessionRoll.by_status, level)
+    : undefined;
+  const studentScoped = studentRoll
+    ? sliceByLevel(studentRoll, studentRoll.by_status, level)
+    : undefined;
+  // Unscoped = the sections publish no split at all (a pre-1.7.0 document, or no roster).
+  // Distinct from null, which is this level genuinely absent from a split that exists.
+  const unscoped =
+    level !== ALL &&
+    (sessionScoped?.scoped === false || studentScoped?.scoped === false);
+
+  // A level absent from both sections is an empty page, so say that once rather than
+  // repeating five identical cards.
+  if (level !== ALL && sessionScoped === null && studentScoped === null) {
+    return (
+      <div>
+        {intro}
+        <LevelGap levelLabel={STATUS_LABELS[level] ?? level} windowLabel={win.label} />
+      </div>
+    );
+  }
 
   /** Absence is a first-class state (invariant 5): a section may not be published at
-   *  all, or may have no rollup for this window. Neither is ever drawn as a zero. */
-  const perStudentCard = (what: string, render: (roll: PerStudentWindow) => ReactNode): ReactNode => {
-    if (!perStudent) return <SectionPending what={`${what} (the per-student section)`} />;
-    if (!studentRoll) return <WindowGap what={what} windowLabel={win.label} />;
-    return render(studentRoll);
+   *  all, may have no rollup for this window, or may not cover this program level. */
+  const card = <T, U>(
+    section: unknown,
+    roll: U | undefined,
+    scoped: { data: T | U; scoped: boolean } | null | undefined,
+    what: string,
+    sectionName: string,
+    render: (roll: T | U) => ReactNode,
+  ): ReactNode => {
+    if (!section) return <SectionPending what={`${what} (the ${sectionName} section)`} />;
+    if (!roll) return <WindowGap what={what} windowLabel={win.label} />;
+    if (scoped === null || scoped === undefined) {
+      return <LevelGap levelLabel={STATUS_LABELS[level] ?? level} windowLabel={win.label} />;
+    }
+    return render(scoped.data);
   };
-  const sessionCard = (what: string, render: (roll: SessionsWindow) => ReactNode): ReactNode => {
-    if (!sessions) return <SectionPending what={`${what} (the sessions section)`} />;
-    if (!sessionRoll) return <WindowGap what={what} windowLabel={win.label} />;
-    return render(sessionRoll);
-  };
+
+  const levels = levelsIn(studentRoll?.by_status ?? sessionRoll?.by_status);
+  const statusFootnotes = resolveFootnotes(doc, [["status_rule", "status_multi"]]);
+  const levelColumns: LevelColumn[] = [
+    { header: "Level", align: "left", cell: () => null },
+    {
+      header: "Students",
+      cell: (l) => {
+        const total = studentRoll?.by_status?.[l]?.sessions_per_student.n_total;
+        return total?.status === "ok" ? formatCount(total.value) : null;
+      },
+    },
+    {
+      header: "Median conv.",
+      cell: (l) => medianOf(studentRoll?.by_status?.[l]?.sessions_per_student),
+    },
+    {
+      header: "Median msgs",
+      cell: (l) => medianOf(studentRoll?.by_status?.[l]?.messages_per_student),
+    },
+    {
+      header: "Median length (min)",
+      cell: (l) => medianOf(sessionRoll?.by_status?.[l]?.session_duration_minutes),
+    },
+    {
+      // First bin over n_total, never the complement — the same rule TriedVsAdopted
+      // follows, because a complement across bins can recover a suppressed bin.
+      header: "Tried once",
+      cell: (l) => {
+        const hist = studentRoll?.by_status?.[l]?.weeks_active_per_student;
+        const share = hist ? triedOnceShare(hist) : null;
+        return share === null ? null : `${share}%`;
+      },
+    },
+  ];
 
   // Order is editorial (D-53): the two headline measures first — how often a student
   // came back, and how long a conversation ran — then breadth over the term, then
@@ -116,34 +206,40 @@ export function EngagementTab({ doc, win }: TabProps) {
   return (
     <div>
       {intro}
+      {unscoped ? (
+        <UnscopedNote>
+          This data release does not break Engagement down by program level, so the figures
+          below cover every level. Republishing with a current pipeline fills them in.
+        </UnscopedNote>
+      ) : null}
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        {perStudentCard("conversations per student", (roll) => (
+        {card(perStudent, studentRoll, studentScoped, "conversations per student", "per-student", (roll) => (
           <HistogramCard
             doc={doc}
-            win={win}
             title="Conversations per student"
             xLabel="Conversations"
             histogram={roll.sessions_per_student}
+            measure="conversation"
           />
         ))}
 
-        {sessionCard("conversation length", (roll) => (
+        {card(sessions, sessionRoll, sessionScoped, "conversation length", "sessions", (roll) => (
           <HistogramCard
             doc={doc}
-            win={win}
             title="Conversation length (minutes)"
             xLabel="Minutes"
             histogram={roll.session_duration_minutes}
+            measure="minute"
           />
         ))}
 
-        {perStudentCard("weeks active per student", (roll) => (
+        {card(perStudent, studentRoll, studentScoped, "weeks active per student", "per-student", (roll) => (
           <HistogramCard
             doc={doc}
-            win={win}
             title="Weeks active per student"
             xLabel="Weeks"
             histogram={roll.weeks_active_per_student}
+            measure="week"
             lead={<TriedVsAdopted histogram={roll.weeks_active_per_student} />}
             mutedBins={[0]}
             // Only claim a lighter bar when one is actually drawn: in a window where the
@@ -156,27 +252,46 @@ export function EngagementTab({ doc, win }: TabProps) {
           />
         ))}
 
-        {perStudentCard("messages per student", (roll) => (
+        {card(perStudent, studentRoll, studentScoped, "messages per student", "per-student", (roll) => (
           <HistogramCard
             doc={doc}
-            win={win}
             title="Messages per student"
             xLabel="Messages"
             histogram={roll.messages_per_student}
+            measure="message"
             note={MESSAGE_CAPTION}
           />
         ))}
 
-        {sessionCard("messages per conversation", (roll) => (
+        {card(sessions, sessionRoll, sessionScoped, "messages per conversation", "sessions", (roll) => (
           <HistogramCard
             doc={doc}
-            win={win}
             title="Messages per conversation"
             xLabel="Messages"
             histogram={roll.messages_per_session}
+            measure="message"
             note={MESSAGE_CAPTION}
           />
         ))}
+
+        {showsLevelCard(level) && levels.length > 0 ? (
+          <ProgramLevelCard
+            title="By program level"
+            tableCaption={`Engagement measures by program level, ${win.label}`}
+            levels={levels}
+            columns={levelColumns}
+            floorN={doc.privacy_floor_n}
+            markers={symbolsFor(statusFootnotes, ["status_rule"])}
+            footnotes={statusFootnotes}
+            note={
+              <>
+                Medians, not totals: these compare how the levels behave rather than how
+                many of each there are. <span className="font-medium">Tried once</span> is the
+                share of that level&rsquo;s students who wrote in a single week only.
+              </>
+            }
+          />
+        ) : null}
       </div>
     </div>
   );

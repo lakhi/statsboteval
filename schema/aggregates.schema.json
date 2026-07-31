@@ -235,6 +235,54 @@
       "title": "DaypartTotals",
       "type": "object"
     },
+    "Enrollment": {
+      "properties": {
+        "per_window": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EnrollmentEntry"
+          },
+          "title": "Per Window",
+          "type": "object"
+        }
+      },
+      "required": [
+        "per_window"
+      ],
+      "title": "Enrollment",
+      "type": "object"
+    },
+    "EnrollmentEntry": {
+      "description": "How many students were enrolled in a program level during one window (1.7.0, D-55).\n\nNot a measurement, which is why this lives outside `sections` and carries plain ints\nrather than CountCells. Nothing here passes floored_count because there is nothing to\nfloor: an institutional headcount is not a count over students who wrote messages, and\ndressing it as a cell would invite exactly that misreading.",
+      "properties": {
+        "as_of": {
+          "format": "date",
+          "title": "As Of",
+          "type": "string"
+        },
+        "bachelor": {
+          "minimum": 0,
+          "title": "Bachelor",
+          "type": "integer"
+        },
+        "master": {
+          "minimum": 0,
+          "title": "Master",
+          "type": "integer"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bachelor",
+        "master",
+        "source",
+        "as_of"
+      ],
+      "title": "EnrollmentEntry",
+      "type": "object"
+    },
     "Finding": {
       "properties": {
         "baseline": {
@@ -563,6 +611,21 @@
         },
         "weekly": {
           "$ref": "#/$defs/LanguageWeekly"
+        },
+        "weekly_by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/LanguageWeekly"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weekly By Status"
         }
       },
       "required": [
@@ -670,6 +733,21 @@
     },
     "LanguageWindow": {
       "properties": {
+        "by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/LanguageTotals"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By Status"
+        },
         "totals": {
           "$ref": "#/$defs/LanguageTotals"
         }
@@ -817,6 +895,27 @@
       "title": "OkSummaryStats",
       "type": "object"
     },
+    "PerStudentByStatus": {
+      "description": "Engagement breadth for one program level (1.7.0, D-55).",
+      "properties": {
+        "messages_per_student": {
+          "$ref": "#/$defs/Histogram"
+        },
+        "sessions_per_student": {
+          "$ref": "#/$defs/Histogram"
+        },
+        "weeks_active_per_student": {
+          "$ref": "#/$defs/Histogram"
+        }
+      },
+      "required": [
+        "sessions_per_student",
+        "weeks_active_per_student",
+        "messages_per_student"
+      ],
+      "title": "PerStudentByStatus",
+      "type": "object"
+    },
     "PerStudentSection": {
       "properties": {
         "per_window": {
@@ -836,6 +935,21 @@
     "PerStudentWindow": {
       "description": "Engagement breadth: one observation per student, not per session (1.5.0, D-53).\n\nThe `sessions` section above bins sessions; these bin the students behind them.\nNothing here is derivable from that section or from `usage_context.totals`:\ndividing two floored totals yields a mean and says nothing about the spread,\nwhich for every one of these three is where the finding lives (invariant 4).",
       "properties": {
+        "by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/PerStudentByStatus"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By Status"
+        },
         "messages_per_student": {
           "$ref": "#/$defs/Histogram"
         },
@@ -1095,6 +1209,23 @@
       "title": "SemesterWindow",
       "type": "object"
     },
+    "SessionsByStatus": {
+      "description": "Conversation depth for one program level (1.7.0, D-55).",
+      "properties": {
+        "messages_per_session": {
+          "$ref": "#/$defs/Histogram"
+        },
+        "session_duration_minutes": {
+          "$ref": "#/$defs/Histogram"
+        }
+      },
+      "required": [
+        "messages_per_session",
+        "session_duration_minutes"
+      ],
+      "title": "SessionsByStatus",
+      "type": "object"
+    },
     "SessionsSection": {
       "properties": {
         "per_window": {
@@ -1113,6 +1244,21 @@
     },
     "SessionsWindow": {
       "properties": {
+        "by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/SessionsByStatus"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By Status"
+        },
         "messages_per_session": {
           "$ref": "#/$defs/Histogram"
         },
@@ -1181,6 +1327,21 @@
         },
         "weekly": {
           "$ref": "#/$defs/TemporalUsageWeekly"
+        },
+        "weekly_by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/TemporalUsageWeekly"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weekly By Status"
         }
       },
       "required": [
@@ -1188,6 +1349,23 @@
         "per_window"
       ],
       "title": "TemporalUsage",
+      "type": "object"
+    },
+    "TemporalUsageByStatus": {
+      "description": "Timing for one program level (1.7.0, D-55).\n\n`activity_heatmap` is deliberately absent: the 7x24 grid has been unrendered since\nD-54 and is 44 KB of the document on its own, so three more copies would buy nothing.\nA split that leaves it out is not a smaller version of the cohort-wide window \u2014 it is\nthe part the dashboard actually draws.",
+      "properties": {
+        "daypart_heatmap": {
+          "$ref": "#/$defs/DaypartGrid"
+        },
+        "daypart_totals": {
+          "$ref": "#/$defs/DaypartTotals"
+        }
+      },
+      "required": [
+        "daypart_heatmap",
+        "daypart_totals"
+      ],
+      "title": "TemporalUsageByStatus",
       "type": "object"
     },
     "TemporalUsageWeekly": {
@@ -1214,6 +1392,21 @@
       "properties": {
         "activity_heatmap": {
           "$ref": "#/$defs/HeatmapGrid"
+        },
+        "by_status": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/TemporalUsageByStatus"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By Status"
         },
         "daypart_heatmap": {
           "anyOf": [
@@ -1604,7 +1797,7 @@
       "type": "object"
     },
     "UsageContextByStatus": {
-      "description": "Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).",
+      "description": "Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).\n\n1.7.0 (D-55) widens this from the two measures the by-level card needed to what the\nKPI tiles need, because the level filter now scopes the whole tab. `new_registrations`\nis *not* here and will not be: a registration has no session, so the usage-time rule\ndoes not reach it, and splitting only the `_active` half of that pair would be worse\nthan not splitting \u2014 the tile renders under All users only instead.",
       "properties": {
         "active_students": {
           "discriminator": {
@@ -1656,6 +1849,95 @@
             }
           ],
           "title": "Messages"
+        },
+        "new_users": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkCell",
+                  "suppressed": "#/$defs/SuppressedCell"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkCell"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedCell"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Users"
+        },
+        "returning_users": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkCell",
+                  "suppressed": "#/$defs/SuppressedCell"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkCell"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedCell"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returning Users"
+        },
+        "sessions": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "ok": "#/$defs/OkCell",
+                  "suppressed": "#/$defs/SuppressedCell"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OkCell"
+                },
+                {
+                  "$ref": "#/$defs/SuppressedCell"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sessions"
+        },
+        "user_classes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UserClasses"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -2137,6 +2419,17 @@
       ],
       "default": null,
       "title": "Dayparts"
+    },
+    "enrollment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Enrollment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "first_week": {
       "pattern": "^\\d{4}-W\\d{2}$",

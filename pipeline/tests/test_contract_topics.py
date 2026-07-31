@@ -57,8 +57,10 @@ def test_schema_version_bumped_minor() -> None:
     # bump to be a decision rather than a side effect. 1.3.0 adds trends (D-49); 1.4.0 adds
     # the Adoption additions — retention, signup activation, frequent, by_status (D-50);
     # 1.5.0 adds per_student and withdraws tokens (D-53); 1.6.0 adds the dayparts registry,
-    # the coarse daypart heatmap/totals and semester profiles (D-54).
-    assert SCHEMA_VERSION == "1.6.0"
+    # the coarse daypart heatmap/totals and semester profiles (D-54); 1.7.0 carries the
+    # program-level split into every section, widens usage_context.by_status, and adds the
+    # enrollment block behind the reach percentages (D-55).
+    assert SCHEMA_VERSION == "1.7.0"
 
 
 def test_description_optional_and_absent_not_null() -> None:

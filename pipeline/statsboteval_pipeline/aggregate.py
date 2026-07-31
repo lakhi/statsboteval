@@ -13,10 +13,12 @@ UTC->Europe/Vienna conversion — calendar knowledge lives here, not in SQL
 
 from __future__ import annotations
 
+import json
 import math
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -24,10 +26,12 @@ import duckdb
 
 from .contract import (
     Aggregates,
+    CountCell,
     Daypart,
     DaypartCell,
     DaypartGrid,
     DaypartTotals,
+    Enrollment,
     Footnote,
     HeatmapCell,
     HeatmapGrid,
@@ -40,9 +44,11 @@ from .contract import (
     MessagesByLanguage,
     OkCell,
     OkSummaryStats,
+    PerStudentByStatus,
     PerStudentSection,
     PerStudentWindow,
     SCHEMA_VERSION,
+    SessionsByStatus,
     Sections,
     SemesterProfile,
     SemesterProfilePoint,
@@ -52,6 +58,7 @@ from .contract import (
     SuppressedCell,
     SuppressedSummaryStats,
     TemporalUsage,
+    TemporalUsageByStatus,
     TemporalUsageWeekly,
     TemporalUsageWindow,
     UsageContext,
@@ -204,6 +211,23 @@ FOOTNOTES = {
         text="Program level comes from coordinator roster lists; students who moved from "
         "bachelor to master are counted by their status at usage time (per session)."
     ),
+    # 1.7.0 (D-55). Both texts appear wherever an enrolled total or a reach percentage is
+    # shown. The scope caveat is the owner's wording and is not optional decoration: an
+    # educator reading "3.3% of enrolled bachelor students" against their own lecture hall
+    # would otherwise conclude the tool failed, when the denominator is the whole
+    # programme rather than the statistics cohort.
+    "enrollment_source": Footnote(
+        text="Enrolled totals come from SSC-Psych records."
+    ),
+    "enrollment_scope": Footnote(
+        text="The totals include all enrolled bachelor/master students, whereas only the "
+        "first-year students take the statistics course — data for how many first-year "
+        "students take it across instructors is not available."
+    ),
+    "level_scope": Footnote(
+        text="This figure covers every program level; the program-level filter above does "
+        "not narrow it."
+    ),
     # Trends footnotes (schema 1.3.0, D-49). trend_method is versioned with the numbers
     # it quotes: changing a threshold means editing this text in the same commit.
     "trend_method": Footnote(
@@ -230,6 +254,34 @@ FOOTNOTES = {
 # Display labels for deductive codes: the public manuscript names (codebook.py constant).
 DEDUCTIVE_LABELS = {category_code(name): name for name in DEDUCTIVE_CATEGORY_NAMES}
 _TOPIC_DOMAINS = ("deductive", "method_theme", "software_theme", "emergent_theme")
+
+
+COHORT_TOTALS_PATH = Path(__file__).resolve().parent.parent / "cohort_totals.json"
+
+
+def read_cohort_totals(path: Path | None = None) -> Enrollment:
+    """Enrolled-cohort denominators from the committed table (D-55).
+
+    Committed rather than imported from a corpus table on purpose: these are a handful of
+    aggregate institutional headcounts, they need no pepper and no corpus lock, and a
+    committed table is diffable in the go-live review gate. The identifier-bearing roster
+    lists they come from stay outside the repo, exactly as D-39 requires.
+
+    Raises rather than returning None when the file is missing. The table is committed, so
+    absence means a broken checkout or an installed package that dropped a data file — not
+    a configuration choice. Falling back silently would publish a document with no reach
+    figures at all, and the only symptom would be percentages quietly vanishing from a
+    dashboard nobody was looking at that closely.
+    """
+    source = path or COHORT_TOTALS_PATH
+    if not source.is_file():
+        raise FileNotFoundError(
+            f"cohort totals table not found at {source}. It is committed to the repo "
+            "(pipeline/cohort_totals.json); a missing file means a broken checkout, not an "
+            "opt-out. Restore it, or pass enrollment=None explicitly to publish without reach."
+        )
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    return Enrollment.model_validate({"per_window": raw["per_window"]})
 
 
 def floored_count(value: int, n_students: int, floor_n: int) -> OkCell | SuppressedCell:
@@ -284,6 +336,11 @@ class _Session:
     week: str  # week of the first message (D-08)
     n_messages: int
     duration_minutes: float
+    # 1.7.0 (D-55). A session carries one program level because resolve_status is keyed on
+    # the session's `started`, so every message inside it resolves the same way. That is
+    # what makes a per-level conversation histogram coherent: no conversation ever has to
+    # be split across two levels. "" means no roster was imported.
+    status: str = ""
 
 
 def _histogram(
@@ -427,6 +484,18 @@ def read_corpus_view(
     axis = weeks_range(first, through)
     windows = build_windows(axis)
 
+    # Program level at usage time (D-39), resolved before sessions are built so a session
+    # can carry its own level (D-55). Read here rather than inside the topics block where
+    # it used to live: four sections publish a status split now, and availability must not
+    # depend on whether Phase B labels exist. Empty dict = no roster imported, which every
+    # section reads as "publish no by_status".
+    status_rows = read_status(con)
+    message_status = (
+        {m.history_id: resolve_status(status_rows.get(m.pseudonym), m.session[1]) for m in msgs}
+        if status_rows
+        else {}
+    )
+
     by_session: dict[tuple[str, int], list[_Message]] = defaultdict(list)
     for m in msgs:
         by_session[m.session].append(m)
@@ -436,6 +505,7 @@ def read_corpus_view(
             week=min(group, key=lambda m: m.local).week,
             n_messages=len(group),
             duration_minutes=(max(m.local for m in group) - min(m.local for m in group)).total_seconds() / 60,
+            status=message_status.get(group[0].history_id, ""),
         )
         for key, group in by_session.items()
     ]
@@ -459,17 +529,6 @@ def read_corpus_view(
             [classification_version],
         ).fetchall():
             positives[domain][code].add(history_id)
-
-    # Program level at usage time (D-39), resolved once here rather than inside the topics
-    # block where it used to live: Adoption publishes a status split too (D-50), and status
-    # availability must not depend on whether Phase B labels exist. Empty dict = no roster
-    # imported, which both sections read as "publish no by_status".
-    status_rows = read_status(con)
-    message_status = (
-        {m.history_id: resolve_status(status_rows.get(m.pseudonym), m.session[1]) for m in msgs}
-        if status_rows
-        else {}
-    )
 
     return CorpusView(
         msgs=msgs,
@@ -495,6 +554,7 @@ def build_aggregates(
     axis_start: date | None = None,
     classification_version: str | None = None,
     theme_set_version: str | None = None,
+    enrollment: Enrollment | None = None,
 ) -> Aggregates:
     view = read_corpus_view(
         con, now=now, axis_start=axis_start, classification_version=classification_version
@@ -526,46 +586,34 @@ def build_aggregates(
             students[week].add(pseudonym)
         return counts, students
 
+    # Still needed by the semester profiles below and the registrations series; the three
+    # temporal weekly series are built by temporal_weekly(), the same helper every program
+    # level goes through.
     msg_counts, msg_students = tally([(m.pseudonym, m.week) for m in msgs])
-    session_counts, session_students = tally([(s.pseudonym, s.week) for s in sessions])
     reg_counts, reg_students = tally(registrations)
 
-    active_series = WeeklySeries(
-        series=[
-            WeeklyEntry(
-                week=w,
-                cell=floored_count(len(msg_students.get(w, set())), len(msg_students.get(w, set())), floor_n),
-            )
-            for w in axis
-        ]
-    )
-
     # ---- per-window sections ------------------------------------------------
+    # 1.7.0 (D-55): every shape below is a function of a (messages, sessions) subset, so
+    # the same code produces the cohort-wide window and each program level. That is the
+    # shape topic_group() has had since 1.1.0, which is exactly why Topics could gain a
+    # status split cheaply and the other four sections could not. Splitting a level is now
+    # calling these again with a filtered subset — there is no second definition of a
+    # daypart, a bin edge or a user class that could drift away from the first.
     temporal_windows: dict[str, TemporalUsageWindow] = {}
     usage_windows: dict[str, UsageContextWindow] = {}
     session_windows: dict[str, SessionsWindow] = {}
     per_student_windows: dict[str, PerStudentWindow] = {}
     language_windows: dict[str, LanguageWindow] = {}
 
-    for window in windows:
-        weeks = _window_weeks(window, axis)
-        w_msgs = [m for m in msgs if m.week in weeks]
-        w_sessions = [s for s in sessions if s.week in weeks]
-
-        heat_counts: dict[tuple[int, int], int] = defaultdict(int)
-        heat_students: dict[tuple[int, int], set[str]] = defaultdict(set)
-        # 1.6.0 (D-54): the coarse grid and the daypart totals, accumulated in the same
-        # pass — one walk of w_msgs, no second corpus read.
+    def daypart_shapes(subset: list[_Message]) -> tuple[DaypartGrid, DaypartTotals]:
         dp_counts: dict[tuple[int, str], int] = defaultdict(int)
         dp_students: dict[tuple[int, str], set[str]] = defaultdict(set)
         part_counts: dict[str, int] = defaultdict(int)
         part_students: dict[str, set[str]] = defaultdict(set)
         span_counts: dict[str, int] = defaultdict(int)
         span_students: dict[str, set[str]] = defaultdict(set)
-        for m in w_msgs:
+        for m in subset:
             dow, hour = m.local.isoweekday(), m.local.hour
-            heat_counts[(dow, hour)] += 1
-            heat_students[(dow, hour)].add(m.pseudonym)
             part = _daypart_of(hour)
             dp_counts[(dow, part)] += 1
             dp_students[(dow, part)].add(m.pseudonym)
@@ -574,6 +622,148 @@ def build_aggregates(
             span = "weekend" if dow >= 6 else "weekday"
             span_counts[span] += 1
             span_students[span].add(m.pseudonym)
+        grid = DaypartGrid(
+            cells=[
+                DaypartCell(
+                    dow=dow,
+                    daypart=part.id,
+                    cell=floored_count(
+                        dp_counts.get((dow, part.id), 0),
+                        len(dp_students.get((dow, part.id), set())),
+                        floor_n,
+                    ),
+                )
+                for dow in range(1, 8)
+                for part in DAYPARTS
+            ],
+            footnote_ids=["daypart_definition"],
+        )
+        totals = DaypartTotals(
+            by_daypart={
+                part.id: floored_count(
+                    part_counts.get(part.id, 0), len(part_students.get(part.id, set())), floor_n
+                )
+                for part in DAYPARTS
+            },
+            # Floored on their own student sets. Never weekday = total − weekend: that
+            # subtraction would recover a suppressed side exactly (invariant 4).
+            weekend=floored_count(
+                span_counts.get("weekend", 0), len(span_students.get("weekend", set())), floor_n
+            ),
+            weekday=floored_count(
+                span_counts.get("weekday", 0), len(span_students.get("weekday", set())), floor_n
+            ),
+            footnote_ids=["daypart_definition"],
+        )
+        return grid, totals
+
+    def session_histograms(subset: list[_Session]) -> dict[str, Histogram]:
+        return {
+            "messages_per_session": _histogram(
+                "sessions",
+                MESSAGES_PER_SESSION_BINS,
+                [(s.n_messages, float(s.n_messages), s.pseudonym) for s in subset],
+                floor_n,
+                ["chat_fragmentation"],
+            ),
+            "session_duration_minutes": _histogram(
+                "sessions",
+                SESSION_DURATION_BINS,
+                [(int(s.duration_minutes), s.duration_minutes, s.pseudonym) for s in subset],
+                floor_n,
+                ["chat_fragmentation", "duration_definition"],
+                # Resumed chats span days under the (student, started) session key,
+                # so a duration mean is dominated by them; robust stats only.
+                with_mean_sd=False,
+            ),
+        }
+
+    def per_student_histograms(subset: list[_Message], sess: list[_Session]) -> dict[str, Histogram]:
+        """One observation per student (1.5.0, D-53), so every bin's contributing-student
+        count IS its value and the floor reduces to "fewer than N students in this bin".
+        Sorted for a byte-stable document."""
+        sessions_by_student: dict[str, int] = defaultdict(int)
+        messages_by_student: dict[str, int] = defaultdict(int)
+        weeks_by_student: dict[str, set[str]] = defaultdict(set)
+        for s in sess:
+            sessions_by_student[s.pseudonym] += 1
+        for m in subset:
+            messages_by_student[m.pseudonym] += 1
+            weeks_by_student[m.pseudonym].add(m.week)
+        return {
+            "sessions_per_student": _histogram(
+                "students",
+                SESSIONS_PER_STUDENT_BINS,
+                [(n, float(n), p) for p, n in sorted(sessions_by_student.items())],
+                floor_n,
+                ["chat_fragmentation"],
+            ),
+            "weeks_active_per_student": _histogram(
+                "students",
+                WEEKS_ACTIVE_BINS,
+                [(len(w), float(len(w)), p) for p, w in sorted(weeks_by_student.items())],
+                floor_n,
+                ["weeks_active_window"],
+            ),
+            "messages_per_student": _histogram(
+                "students",
+                MESSAGES_PER_STUDENT_BINS,
+                [(n, float(n), p) for p, n in sorted(messages_by_student.items())],
+                floor_n,
+            ),
+        }
+
+    def language_totals(subset: list[_Message]) -> LanguageTotals:
+        totals: dict[str, OkCell | SuppressedCell] = {}
+        for code in LANGUAGE_CODES:
+            in_code = [m for m in subset if m.lang == code]
+            totals[code] = floored_count(len(in_code), len({m.pseudonym for m in in_code}), floor_n)
+        return LanguageTotals(**totals)
+
+    def retention_pair(subset: list[_Message], window_start: date | None) -> tuple[CountCell, CountCell]:
+        """New vs returning, under complementary suppression.
+
+        new + returning = active_students and all three are published, so publishing one
+        part beside a suppressed other would hand the reader the suppressed count by
+        subtraction — the one shape where per-cell flooring is not enough. If either side
+        is sub-floor, neither is published. A measured 0 is ok(0) and never triggers this
+        (floored_count(0, 0) is ok by invariant 2).
+        """
+        active = {m.pseudonym for m in subset}
+        new_users = {p for p in active if window_start is not None and view.first_seen[p] >= window_start}
+        returning = active - new_users
+        new_cell = floored_count(len(new_users), len(new_users), floor_n)
+        returning_cell = floored_count(len(returning), len(returning), floor_n)
+        if new_cell.status == "suppressed" or returning_cell.status == "suppressed":
+            return suppressed(), suppressed()
+        return new_cell, returning_cell
+
+    def by_level(subset: list[_Message]) -> dict[str, list[_Message]]:
+        """Messages grouped by program level, or {} when no roster is imported.
+
+        A BA->MA transitioner active on both sides of their semester boundary appears in
+        both groups (D-50 accepts the overlap; the status_multi footnote states it).
+        """
+        if not view.message_status:
+            return {}
+        grouped: dict[str, list[_Message]] = defaultdict(list)
+        for m in subset:
+            grouped[view.message_status[m.history_id]].append(m)
+        return dict(sorted(grouped.items()))
+
+    for window in windows:
+        weeks = _window_weeks(window, axis)
+        w_msgs = [m for m in msgs if m.week in weeks]
+        w_sessions = [s for s in sessions if s.week in weeks]
+        w_levels = by_level(w_msgs)
+
+        heat_counts: dict[tuple[int, int], int] = defaultdict(int)
+        heat_students: dict[tuple[int, int], set[str]] = defaultdict(set)
+        for m in w_msgs:
+            dow, hour = m.local.isoweekday(), m.local.hour
+            heat_counts[(dow, hour)] += 1
+            heat_students[(dow, hour)].add(m.pseudonym)
+        grid, dp_totals = daypart_shapes(w_msgs)
         temporal_windows[window.id] = TemporalUsageWindow(
             activity_heatmap=HeatmapGrid(
                 cells=[
@@ -588,39 +778,17 @@ def build_aggregates(
                     for hour in range(24)
                 ]
             ),
-            daypart_heatmap=DaypartGrid(
-                cells=[
-                    DaypartCell(
-                        dow=dow,
-                        daypart=part.id,
-                        cell=floored_count(
-                            dp_counts.get((dow, part.id), 0),
-                            len(dp_students.get((dow, part.id), set())),
-                            floor_n,
-                        ),
-                    )
-                    for dow in range(1, 8)
-                    for part in DAYPARTS
-                ],
-                footnote_ids=["daypart_definition"],
-            ),
-            daypart_totals=DaypartTotals(
-                by_daypart={
-                    part.id: floored_count(
-                        part_counts.get(part.id, 0), len(part_students.get(part.id, set())), floor_n
-                    )
-                    for part in DAYPARTS
-                },
-                # Floored on their own student sets. Never weekday = total − weekend: that
-                # subtraction would recover a suppressed side exactly (invariant 4).
-                weekend=floored_count(
-                    span_counts.get("weekend", 0), len(span_students.get("weekend", set())), floor_n
-                ),
-                weekday=floored_count(
-                    span_counts.get("weekday", 0), len(span_students.get("weekday", set())), floor_n
-                ),
-                footnote_ids=["daypart_definition"],
-            ),
+            daypart_heatmap=grid,
+            daypart_totals=dp_totals,
+            # No per-level activity_heatmap: unrendered since D-54 and 44 KB on its own.
+            by_status={
+                level: TemporalUsageByStatus(
+                    daypart_heatmap=level_grid, daypart_totals=level_totals
+                )
+                for level, group in w_levels.items()
+                for level_grid, level_totals in [daypart_shapes(group)]
+            }
+            or None,
         )
 
         active = {m.pseudonym for m in w_msgs}
@@ -632,38 +800,37 @@ def build_aggregates(
         # Retention: a window's first Monday is the boundary, not its first message —
         # a window with a quiet opening week must not count that week's absentees as new.
         window_start = week_monday(min(weeks)) if weeks else None
-        new_users = {p for p in active if window_start is not None and view.first_seen[p] >= window_start}
-        returning = active - new_users
-        # Complementary suppression. new + returning = active_students and all three are
-        # published, so publishing one part beside a suppressed other would hand the reader
-        # the suppressed count by subtraction — the one shape where per-cell flooring is not
-        # enough. If either side is sub-floor, neither is published. A measured 0 is ok(0)
-        # and never triggers this (floored_count(0, 0) is ok by invariant 2).
-        new_cell = floored_count(len(new_users), len(new_users), floor_n)
-        returning_cell = floored_count(len(returning), len(returning), floor_n)
-        if new_cell.status == "suppressed" or returning_cell.status == "suppressed":
-            new_cell = returning_cell = suppressed()
+        new_cell, returning_cell = retention_pair(w_msgs, window_start)
         # Signup activation: registered in this window AND wrote in this window. Both sides
         # are window-scoped, so a published window never changes value on a later republish.
         activated = {p for p in set(new_regs) if p in active}
 
-        by_status: dict[str, UsageContextByStatus] | None = None
-        if view.message_status:
-            status_msgs: dict[str, list[_Message]] = defaultdict(list)
-            for m in w_msgs:
-                status_msgs[view.message_status[m.history_id]].append(m)
-            # A BA->MA transitioner active on both sides of their semester boundary appears
-            # in both groups (D-50 accepts the overlap; the status_multi footnote states it).
-            by_status = {
-                status: UsageContextByStatus(
-                    active_students=floored_count(
-                        len({m.pseudonym for m in group}), len({m.pseudonym for m in group}), floor_n
-                    ),
-                    messages=floored_count(len(group), len({m.pseudonym for m in group}), floor_n),
-                    footnote_ids=["status_rule", "status_multi"],
-                )
-                for status, group in sorted(status_msgs.items())
-            }
+        def usage_by_status(
+            level: str,
+            level_msgs: list[_Message],
+            sess: list[_Session] = w_sessions,
+            start: date | None = window_start,
+        ) -> UsageContextByStatus:
+            students = {m.pseudonym for m in level_msgs}
+            # Sessions *of this level*, not "sessions whose student is in this level": a
+            # transitioner's pre-boundary conversations belong to bachelor even though the
+            # same person also appears under master (resolve_status is session-keyed).
+            level_sessions = [s for s in sess if s.status == level]
+            level_new, level_returning = retention_pair(level_msgs, start)
+            level_dates: dict[str, list[datetime]] = defaultdict(list)
+            for m in level_msgs:
+                level_dates[m.pseudonym].append(m.local)
+            return UsageContextByStatus(
+                active_students=floored_count(len(students), len(students), floor_n),
+                messages=floored_count(len(level_msgs), len(students), floor_n),
+                sessions=floored_count(
+                    len(level_sessions), len({s.pseudonym for s in level_sessions}), floor_n
+                ),
+                new_users=level_new,
+                returning_users=level_returning,
+                user_classes=_user_classes(level_dates, floor_n),
+                footnote_ids=["status_rule", "status_multi"],
+            )
 
         usage_windows[window.id] = UsageContextWindow(
             totals=UsageContextTotals(
@@ -677,67 +844,31 @@ def build_aggregates(
                 footnote_ids=["retention_definition", "signup_activation"],
             ),
             user_classes=_user_classes(user_dates, floor_n),
-            by_status=by_status,
+            by_status={level: usage_by_status(level, group) for level, group in w_levels.items()} or None,
         )
 
         session_windows[window.id] = SessionsWindow(
-            messages_per_session=_histogram(
-                "sessions",
-                MESSAGES_PER_SESSION_BINS,
-                [(s.n_messages, float(s.n_messages), s.pseudonym) for s in w_sessions],
-                floor_n,
-                ["chat_fragmentation"],
-            ),
-            session_duration_minutes=_histogram(
-                "sessions",
-                SESSION_DURATION_BINS,
-                [(int(s.duration_minutes), s.duration_minutes, s.pseudonym) for s in w_sessions],
-                floor_n,
-                ["chat_fragmentation", "duration_definition"],
-                # Resumed chats span days under the (student, started) session key,
-                # so a duration mean is dominated by them; robust stats only.
-                with_mean_sd=False,
-            ),
+            **session_histograms(w_sessions),
+            by_status={
+                level: SessionsByStatus(**session_histograms([s for s in w_sessions if s.status == level]))
+                for level in w_levels
+            }
+            or None,
         )
-        # Per-student distributions (1.5.0, D-53). One observation per student, so every
-        # bin's contributing-student count IS its value and _histogram's floor reduces to
-        # "fewer than N students in this bin". Sorted for a byte-stable document.
-        sessions_by_student: dict[str, int] = defaultdict(int)
-        messages_by_student: dict[str, int] = defaultdict(int)
-        weeks_by_student: dict[str, set[str]] = defaultdict(set)
-        for s in w_sessions:
-            sessions_by_student[s.pseudonym] += 1
-        for m in w_msgs:
-            messages_by_student[m.pseudonym] += 1
-            weeks_by_student[m.pseudonym].add(m.week)
         per_student_windows[window.id] = PerStudentWindow(
-            sessions_per_student=_histogram(
-                "students",
-                SESSIONS_PER_STUDENT_BINS,
-                [(n, float(n), p) for p, n in sorted(sessions_by_student.items())],
-                floor_n,
-                ["chat_fragmentation"],
-            ),
-            weeks_active_per_student=_histogram(
-                "students",
-                WEEKS_ACTIVE_BINS,
-                [(len(weeks), float(len(weeks)), p) for p, weeks in sorted(weeks_by_student.items())],
-                floor_n,
-                ["weeks_active_window"],
-            ),
-            messages_per_student=_histogram(
-                "students",
-                MESSAGES_PER_STUDENT_BINS,
-                [(n, float(n), p) for p, n in sorted(messages_by_student.items())],
-                floor_n,
-            ),
+            **per_student_histograms(w_msgs, w_sessions),
+            by_status={
+                level: PerStudentByStatus(
+                    **per_student_histograms(group, [s for s in w_sessions if s.status == level])
+                )
+                for level, group in w_levels.items()
+            }
+            or None,
         )
-
-        lang_totals: dict[str, OkCell | SuppressedCell] = {}
-        for code in LANGUAGE_CODES:
-            in_code = [m for m in w_msgs if m.lang == code]
-            lang_totals[code] = floored_count(len(in_code), len({m.pseudonym for m in in_code}), floor_n)
-        language_windows[window.id] = LanguageWindow(totals=LanguageTotals(**lang_totals))
+        language_windows[window.id] = LanguageWindow(
+            totals=language_totals(w_msgs),
+            by_status={level: language_totals(group) for level, group in w_levels.items()} or None,
+        )
 
     # ---- semester profiles (1.6.0, D-54) ------------------------------------
     # Each semester re-indexed to teaching week so the curves overlay. Week 1 is
@@ -771,10 +902,46 @@ def build_aggregates(
         if window.kind == "semester"
     ]
 
-    lang_weekly = {}
-    for code in LANGUAGE_CODES:
-        counts, students = tally([(m.pseudonym, m.week) for m in msgs if m.lang == code])
-        lang_weekly[code] = weekly_series(counts, students)
+    def language_weekly(subset: list[_Message]) -> LanguageWeekly:
+        series = {}
+        for code in LANGUAGE_CODES:
+            counts, students = tally([(m.pseudonym, m.week) for m in subset if m.lang == code])
+            series[code] = weekly_series(counts, students)
+        return LanguageWeekly(
+            messages_by_language=MessagesByLanguage(**series, footnote_ids=["language_heuristic"])
+        )
+
+    def temporal_weekly(subset: list[_Message], sess: list[_Session]) -> TemporalUsageWeekly:
+        m_counts, m_students = tally([(m.pseudonym, m.week) for m in subset])
+        s_counts, s_students = tally([(s.pseudonym, s.week) for s in sess])
+        return TemporalUsageWeekly(
+            messages=weekly_series(m_counts, m_students),
+            sessions=weekly_series(s_counts, s_students, ["chat_fragmentation"]),
+            active_students=WeeklySeries(
+                series=[
+                    WeeklyEntry(
+                        week=w,
+                        cell=floored_count(
+                            len(m_students.get(w, set())), len(m_students.get(w, set())), floor_n
+                        ),
+                    )
+                    for w in axis
+                ]
+            ),
+        )
+
+    # Per-level weekly series (1.7.0, D-55). The weekly charts are document-level and
+    # sliced client-side, so without these the level filter would narrow the dayparts and
+    # leave the trend lines cohort-wide — a filter that scopes half a tab is worse than no
+    # filter, because nothing on screen says which half.
+    all_levels = by_level(msgs)
+    weekly_by_status = {
+        level: temporal_weekly(group, [s for s in sessions if s.status == level])
+        for level, group in all_levels.items()
+    } or None
+    language_weekly_by_status = {
+        level: language_weekly(group) for level, group in all_levels.items()
+    } or None
 
     # ---- topics (Phase B, schema 1.1.0; by_status per D-39) -----------------
     topics_section: TopicsSection | None = None
@@ -872,16 +1039,30 @@ def build_aggregates(
         pipeline_version=pipeline_version,
         windows=windows,
         dayparts=DAYPARTS,
+        # Clipped to the windows this run actually built: the table is maintained by hand
+        # and outlives any one axis, so a stale semester in it must not become a published
+        # window id the registry never heard of.
+        enrollment=(
+            Enrollment(
+                per_window={
+                    wid: entry
+                    for wid, entry in enrollment.per_window.items()
+                    if wid in {w.id for w in windows if w.kind == "semester"}
+                }
+            )
+            if enrollment is not None
+            else None
+        ),
         footnotes=FOOTNOTES,
         sections=Sections(
             temporal_usage=TemporalUsage(
-                weekly=TemporalUsageWeekly(
-                    messages=weekly_series(msg_counts, msg_students),
-                    sessions=weekly_series(session_counts, session_students, ["chat_fragmentation"]),
-                    active_students=active_series,
-                ),
+                # Same helper the per-level copies use: two builders for one shape is two
+                # places for a footnote or a floor to drift, and the cohort-wide series is
+                # the one every level's is compared against.
+                weekly=temporal_weekly(msgs, sessions),
                 per_window=temporal_windows,
                 semester_profiles=semester_profiles or None,
+                weekly_by_status=weekly_by_status,
             ),
             usage_context=UsageContext(
                 weekly=UsageContextWeekly(
@@ -892,10 +1073,9 @@ def build_aggregates(
             sessions=SessionsSection(per_window=session_windows),
             per_student=PerStudentSection(per_window=per_student_windows),
             language=LanguageSection(
-                weekly=LanguageWeekly(
-                    messages_by_language=MessagesByLanguage(**lang_weekly, footnote_ids=["language_heuristic"])
-                ),
+                weekly=language_weekly(msgs),
                 per_window=language_windows,
+                weekly_by_status=language_weekly_by_status,
             ),
             topics=topics_section,
             trends=trends_section,

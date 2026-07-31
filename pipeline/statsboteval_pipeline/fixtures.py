@@ -31,6 +31,14 @@ _SOFTWARE_THEMES = ["SYNTHETIC software R-like", "SYNTHETIC software SPSS-like"]
 _EMERGENT_THEMES = ["SYNTHETIC exam-prep theme", "SYNTHETIC homework theme", "SYNTHETIC concept-confusion theme"]
 SYNTHETIC_THEME_SET_VERSION = "statsboteval-themes-v1"
 
+# Invented cohort sizes for run-synthetic (D-55). Deliberately NOT the real table in
+# pipeline/cohort_totals.json: a synthetic document that quoted real institutional
+# headcounts would be a real number wearing a synthetic label, which is precisely the
+# confusion data_provenance exists to prevent. Round numbers so nobody mistakes them
+# for a measurement.
+SYNTHETIC_ENROLLMENT_BACHELOR = 900
+SYNTHETIC_ENROLLMENT_MASTER = 600
+
 _DE_SENT = [
     "SYNTHETIC: Wie berechne ich den Median?",
     "SYNTHETIC: Was bedeutet ein p-Wert von 0.03?",
