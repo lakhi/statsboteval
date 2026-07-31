@@ -7,6 +7,7 @@ from typing import Any, Protocol
 
 import jsonschema
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -26,6 +27,13 @@ def create_app(settings: Settings | None = None, source: AggregatesSource | None
     schema = json.loads(settings.schema_path.read_text())
 
     app = FastAPI(title="StatsBotEval aggregates API")
+    # The aggregates document is one large JSON body that every page load pulls in full,
+    # and it was going over the wire uncompressed — nothing in this app or in front of it
+    # was compressing it. It is highly repetitive (dense weekly series, the 7x24 activity
+    # grids still published though nothing has rendered them since D-54, the same cell
+    # shapes throughout) and gzips to about 6% of its size. Also covers the static bundle
+    # mounted below.
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     cache: dict[str, Any] = {"doc": None, "at": 0.0}
 
     @app.get("/healthz")

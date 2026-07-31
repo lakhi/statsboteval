@@ -36,6 +36,26 @@ def test_zero_ttl_refetches() -> None:
     assert source.calls == 2
 
 
+def test_response_is_gzipped_for_clients_that_accept_it() -> None:
+    # The document is one large body pulled in full on every page load, and it went over
+    # the wire uncompressed until this middleware. httpx decodes transparently, so the
+    # evidence is the header plus a body that still parses.
+    client = client_with(FakeSource(FIXTURE_PATH.read_bytes()))
+    response = client.get("/api/v1/aggregates", headers={"Accept-Encoding": "gzip"})
+    assert response.headers["content-encoding"] == "gzip"
+    assert response.json()["schema_version"]
+
+
+def test_response_is_uncompressed_for_clients_that_do_not() -> None:
+    # Compression must stay a transport detail: a client that cannot decode still gets
+    # the same document (contract §1 — served verbatim).
+    payload = FIXTURE_PATH.read_bytes()
+    client = client_with(FakeSource(payload))
+    response = client.get("/api/v1/aggregates", headers={"Accept-Encoding": "identity"})
+    assert "content-encoding" not in response.headers
+    assert response.json() == json.loads(payload)
+
+
 def test_missing_blob_returns_503() -> None:
     client = client_with(FakeSource(None))
     assert client.get("/api/v1/aggregates").status_code == 503
