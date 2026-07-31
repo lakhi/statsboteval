@@ -1608,3 +1608,17 @@ button; and two duplications collapsed (`STATUS_ORDER`/`STATUS_LABELS` now re-ex
 `lib/levels.ts`; the cohort-wide temporal weekly block now goes through the same
 `temporal_weekly()` helper every level uses — re-aggregation confirmed byte-identical
 output).
+
+**Published 2026-07-31.** Both halves: the aggregates blob (re-aggregate only —
+`--skip-extract --skip-classify`, so the corpus stands as extracted 2026-07-14, data
+through 2026-W30) and the app bundle, which a schema bump requires because an old bundle
+ignores new fields silently. Review gate passed on headline totals identical to the
+previous publish across all five windows. Live: schema **1.7.0**, provenance production,
+`enrollment` covering 2025S/2025W/2026S, `by_status` present in all six sections.
+Document 669 KB → 1.17 MB raw (28 → 43 KB gzipped).
+
+`04_publish_production.sh` uploaded successfully and then raised on its own final
+verification step — `curl -sf` returned empty on a cold start and the JSON parse failed on
+nothing. The upload had already happened, so a reflexive re-run hit the immutable-blob
+guard and refused, which is the guard doing exactly its job. Worth a follow-up: that last
+curl should tolerate a cold start rather than turn a successful publish into a traceback.
