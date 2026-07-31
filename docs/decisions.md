@@ -1625,7 +1625,7 @@ curl should tolerate a cold start rather than turn a successful publish into a t
 
 ## D-56 — 2026-07-31: Semester slice windows replace `trailing_4`; schema 1.8.0
 
-**Status: built, not yet published.** Plan:
+**Status: live.** Plan:
 `docs/plans/2026-07-31-semester-slice-windows.md`. Tracked as issues #8 (windows) and #9
 (API compression).
 
@@ -1705,3 +1705,41 @@ The ADRs have been sizing this document by its gzipped figure for a while (D-55 
 windows would grow it 437 KB → ~670 KB, so the middleware lands here — as its own commit
 against issue #9, touching only `main.py` and its test, because it is the one part that can
 fail in a way local testing will not catch (App Service front-end behaviour).
+
+**Publish record (D-56).** Went live 2026-07-31: blob
+`v1/aggregates_2026-W30_20260731T214032Z.json` (+ `latest.json`), schema **1.8.0**,
+`data_provenance: "production"`, axis 2025-W09 → 2026-W30, floor N=3, labels
+`statsboteval-v2` / `lang-heuristic-v1`, all-time 379 active users / 3,528 messages. Mode:
+**re-aggregate only** (`--skip-extract --skip-classify`) — the corpus stands as extracted
+2026-07-14, because a schema change must not move a number and mixing a refresh in would
+mean reviewing new numbers and a new window set at once (the D-53 lesson).
+
+The review gate was that claim, checked mechanically: all seven sections came back
+**byte-identical** to the previous publish across `all_time`, `2025S`, `2025W` and `2026S`.
+Only the six new slice windows differ, and `trailing_4` is gone. Their totals:
+2025S 72 students/612 msgs (final 4 weeks) and 18/218 (final week); 2025W 31/134 and 5/18;
+2026S 54/385 and 22/86.
+
+**Deployed bundle-first, blob-second** — the reverse of the D-51 habit, for the reason
+recorded above. That order was also the first real test of the roll-forward fix, and it
+held: with the 1.8.0 API live and the 1.7.0 blob still in place, `/api/v1/aggregates`
+returned 200 and the page rendered. Under the originally-planned schema (TrailingWindow
+deleted, `short_label` required) that same moment would have been a 500.
+
+`GZipMiddleware` (issue #9) went out in the same deploy and is confirmed live:
+`content-encoding: gzip`, 393 KB → **24.6 KB** on the wire. The 1.8.0 document is larger
+uncompressed (384 → 667 KB), so the net effect on a reader is roughly a 10x reduction
+against what was being served this morning.
+
+**Two operational notes.** The API kept serving the previous document for ~7 minutes
+after the upload — past its 300 s cache TTL — and an explicit `az webapp restart` was what
+cleared it. Worth knowing before diagnosing a future publish as broken: the blob was
+correct throughout (verified by downloading `v1/latest.json` directly), the deployed code
+was correct throughout (gzip was already answering), and only the served response was
+stale. Do not conclude "the upload failed" from a stale read; check the blob first.
+
+**The publish script's final verification curl failed again**, exactly as recorded under
+D-55 — `curl -sf` returned an empty body and the JSON parse raised on nothing, after the
+upload had already succeeded. Ruled out the new middleware as a cause: that curl sends no
+`Accept-Encoding`, so it is served uncompressed. This is the second occurrence of the same
+cold-start flake and it should now be fixed rather than noted again (issue #10).
