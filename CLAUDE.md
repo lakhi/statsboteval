@@ -19,7 +19,10 @@ pipeline extracts from the production DB, classifies, aggregates under the N=3 f
 publishes; the dashboard serves five educator-question tabs plus Topics and **Trends**
 (period comparisons, schema 1.3.0, D-49 — built 2026-07-30, not yet published). Timing was
 rebuilt on schema 1.6.0 (D-54): dayparts replace the 168-cell hour grid, a semester-rhythm
-overlay renders under All-time, and week axes read as month anchors. Corpus scale:
+overlay renders under All-time, and week axes read as month anchors. **Schema 1.8.0 (D-56)
+is built and not yet published**: `trailing_4` is gone and every semester carries slices of
+its closing stretch (`2026S.last4`, `2026S.last1`), grouped under it in the picker. Corpus
+scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 
@@ -115,7 +118,19 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
 - **`semester_week` indexes a semester's full Thursday-rule membership, never its
   coverage** (D-54). A semester whose opening weeks fall outside the axis must still start
   at the week it really started, or every curve in the overlay slides left by the number of
-  missing weeks — invisibly, since each curve still looks plausible on its own.
+  missing weeks — invisibly, since each curve still looks plausible on its own. The same
+  rule governs a slice's `semester_weeks` (D-56), and `contract._check_windows` now pins it.
+- **A semester slice is anchored in its semester, not in the axis** (D-56). That is the
+  whole point of replacing `trailing_4`: an axis-anchored "recent" window advances with
+  extraction whether or not anyone was in class, so across a break it drifted into weeks
+  holding almost nothing. Anything that re-derives a slice from `axis[-4:]` reintroduces
+  the bug — and note the label's word changes with state (`Latest` while the term runs,
+  `Final` once it has ended), so a fixed label is also wrong.
+- **`short_label` is optional on `all_time` and `semester` for a deployment reason**
+  (D-56). The API validates every fetched blob against the schema it ships with, so making
+  it required would turn "API deployed before the blob is published" from a degraded render
+  into a 500. Old documents must stay valid under new schemas; `api/tests/fixtures/
+  aggregates_synthetic.json` is a 1.0.0 document kept as that proof.
 - **One label version never mixes models or inference settings** (D-41). Changing either
   means a new version and a full re-classify. **`CLASSIFIER_BATCH_SIZE` is an inference
   setting, not a throughput knob** (D-45): it sets how many decisions one call is asked

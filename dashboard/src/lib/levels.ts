@@ -38,7 +38,7 @@ export const LEVEL_PHRASE: Record<string, string> = {
  * selected window".
  *
  * A picker that reshuffles when the window changes is a picker whose selection can vanish
- * under the reader: trailing_4 currently has master activity and nothing else, so a
+ * under the reader: a single-week slice can easily hold master activity and nothing else, so a
  * window-scoped list would drop Bachelor, silently re-resolve the default, and show
  * master numbers under a filter the reader last set to bachelor. Offering the stable set
  * and rendering an honest gap for an empty combination keeps the control's meaning fixed.
@@ -102,11 +102,34 @@ export function sliceByLevel<A, B>(
   return slice === undefined ? null : { data: slice, scoped: true };
 }
 
-/** Enrolled cohort size for this window and level, when one is published (semesters only). */
+/**
+ * Enrolled cohort size for this window and level, when one is published.
+ *
+ * `enrollment.per_window` is keyed by semester only, and stays that way (D-55): one
+ * institutional headcount per term, never copied under a second id. A semester slice lies
+ * entirely inside one term, so the denominator it needs is its parent's — which is what
+ * `parent_window_id` is for. Reach then means the share of that term's cohort active
+ * during those weeks, which the `reach_window_scope` footnote states wherever it appears.
+ *
+ * all_time still gets nothing: it spans three semesters of cohort turnover, so no headcount
+ * is the right denominator.
+ */
+export function enrollmentFor(doc: Aggregates, win: AnyWindow) {
+  const parent = win.kind === "semester_slice" ? win.parent_window_id : null;
+  return doc.enrollment?.per_window?.[win.id] ?? (parent ? doc.enrollment?.per_window?.[parent] : undefined);
+}
+
 export function enrolledFor(doc: Aggregates, win: AnyWindow, level: Level): number | null {
   if (level !== "bachelor" && level !== "master") return null;
-  const entry = doc.enrollment?.per_window?.[win.id];
+  const entry = enrollmentFor(doc, win);
   return entry ? entry[level] : null;
+}
+
+/** Reach's denominator is the parent term's cohort in a slice, so the scope caveat rides
+ *  along there and only there — on a whole semester it would state the obvious. */
+export function reachFootnoteIds(win: AnyWindow): string[] {
+  const base = ["enrollment_source", "enrollment_scope"];
+  return win.kind === "semester_slice" ? ["reach_window_scope", ...base] : base;
 }
 
 /** Reach = active students ÷ enrolled cohort, as a rounded percentage string. */

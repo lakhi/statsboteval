@@ -17,6 +17,18 @@
         "label": {
           "title": "Label",
           "type": "string"
+        },
+        "short_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Short Label"
         }
       },
       "required": [
@@ -1160,6 +1172,64 @@
       "title": "SemesterProfilePoint",
       "type": "object"
     },
+    "SemesterSliceWindow": {
+      "description": "The closing stretch of one semester (1.8.0, D-56).\n\nReplaces `TrailingWindow`, which was anchored on the axis and therefore advanced with\nextraction whether or not anyone was in class \u2014 across a break it drifted into weeks\nholding almost nothing, which is where \"recent\" was least useful and most looked at.\nA slice is anchored inside its semester instead, so during teaching weeks it is exactly\nwhat the trailing window showed and across breaks it keeps pointing at the last weeks\nthat meant something.\n\n`weeks` is always a contiguous tail of the parent's *covered* weeks, so the id is stable\nforever once the semester ends \u2014 `2026S.last1` names the same span in every later\npublish, which `trailing_4` never did.",
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/Coverage"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "semester_slice",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "parent_window_id": {
+          "title": "Parent Window Id",
+          "type": "string"
+        },
+        "semester_weeks": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Semester Weeks",
+          "type": "array"
+        },
+        "short_label": {
+          "title": "Short Label",
+          "type": "string"
+        },
+        "weeks": {
+          "items": {
+            "pattern": "^\\d{4}-W\\d{2}$",
+            "type": "string"
+          },
+          "title": "Weeks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "label",
+        "short_label",
+        "parent_window_id",
+        "weeks",
+        "semester_weeks",
+        "coverage"
+      ],
+      "title": "SemesterSliceWindow",
+      "type": "object"
+    },
     "SemesterWindow": {
       "properties": {
         "coverage": {
@@ -1182,6 +1252,18 @@
         "label": {
           "title": "Label",
           "type": "string"
+        },
+        "short_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Short Label"
         },
         "start_date": {
           "format": "date",
@@ -1637,6 +1719,7 @@
       "type": "object"
     },
     "TrailingWindow": {
+      "description": "DEPRECATED, unemitted since 1.8.0 (D-56) \u2014 kept so the *previous* publish still parses.\n\nSemester slices replaced this window, and deleting the member outright looked free\nbecause nothing produces one. It is not: the API validates every blob it fetches\nagainst the schema it ships with (contract \u00a711), so the moment a 1.8.0 API met the\n1.7.0 document already sitting in the blob, `kind: \"trailing\"` would match no member of\nthe union and the dashboard would go down with a 500 \u2014 until the new blob was uploaded,\nwith no safe order to do the two halves in.\n\nSo it stays for one release. Remove it once no reachable blob contains one, which\nincludes the rollback target.\n\nWhat this does and does not buy, stated exactly, because the difference matters when\nsomeone is reading it under pressure: it makes the *deploy* safe in one direction \u2014\nship the bundle and API first, and the 1.7.0 document already in the blob keeps\nparsing, so there is no window where the site is down waiting for the upload. It does\nNOT make a rollback free once the 1.8.0 blob has been uploaded: a rolled-back 1.7.0 API\ncannot parse `semester_slice`, so after publishing, reverting the code means restoring\nthe previous blob in the same move. Blobs are immutable and versioned, so that is\navailable \u2014 it is a step to remember, not a trap.",
       "properties": {
         "coverage": {
           "$ref": "#/$defs/Coverage"
@@ -2482,6 +2565,7 @@
           "mapping": {
             "all_time": "#/$defs/AllTimeWindow",
             "semester": "#/$defs/SemesterWindow",
+            "semester_slice": "#/$defs/SemesterSliceWindow",
             "trailing": "#/$defs/TrailingWindow"
           },
           "propertyName": "kind"
@@ -2492,6 +2576,9 @@
           },
           {
             "$ref": "#/$defs/SemesterWindow"
+          },
+          {
+            "$ref": "#/$defs/SemesterSliceWindow"
           },
           {
             "$ref": "#/$defs/TrailingWindow"

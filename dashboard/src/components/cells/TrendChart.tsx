@@ -98,6 +98,11 @@ export function TrendChart({
       row.__mark = row[`${series[0].id}__suppressed`] ? 0 : null;
     }
   }
+  // A line needs two points to be visible, so a one-week window (D-56) draws nothing at
+  // all unless the vertices are marked. On a single-series chart dots are already on for
+  // the suppression marks; this is what covers the multi-series charts, where they are
+  // off by choice and a lone week would otherwise render as an empty panel.
+  const dotted = single || rows.length === 1;
   // Month anchors on a long axis, Monday dates on a short one: a 4-week window can
   // contain no month boundary at all, and an axis with no labels is worse than one
   // with four. Anchors need the previous week, so this is indexed, not per-value.
@@ -149,7 +154,7 @@ export function TrendChart({
               strokeLinejoin="round"
               connectNulls={false}
               dot={
-                single
+                dotted
                   ? { r: 4, fill: s.color, stroke: "var(--color-card)", strokeWidth: 2 }
                   : false
               }

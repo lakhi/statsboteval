@@ -42,7 +42,6 @@ from .contract import (
     TREND_TAB_CAPS,
 )
 from .stats import benjamini_hochberg, classify_user, mann_whitney_u, median, poisson_rate_ratio, two_proportion_z
-from .windows import TRAILING_WEEKS
 
 
 class MessageLike(Protocol):
@@ -746,12 +745,11 @@ def _pair_for(
         previous = semesters[index - 1]
         return WindowBaseline(kind="window", window_id=previous.id), _covered(previous, axis)
 
-    # trailing_4: the TRAILING_WEEKS complete weeks immediately before it. Embedded as a
-    # comparison rather than added to the registry — it is not something to select.
-    if len(axis) < 2 * TRAILING_WEEKS:
-        return None, frozenset()
-    weeks = list(axis[-2 * TRAILING_WEEKS : -TRAILING_WEEKS])
-    return WeeksBaseline(kind="weeks", from_=weeks[0], through=weeks[-1]), frozenset(weeks)
+    # Semester slices are not assessed at all (D-56) and never reach this line; see
+    # assess_windows. Anything else new in the registry lands here and pairs with nothing,
+    # which publishes an honest "no earlier period" rather than a baseline picked by
+    # whichever branch happened to catch it.
+    return None, frozenset()
 
 
 def _trajectory(
@@ -805,6 +803,16 @@ def assess_windows(
 
     assessments: list[WindowAssessment] = []
     for window in windows:
+        # Semester slices get no trends entry at all (D-56). The tab is hidden (D-55), so no
+        # pairing rule for them is decided yet — and "leave it alone" was not an option:
+        # the branch this function used for trailing_4 would have compared a slice against
+        # the tail of the axis, i.e. break weeks for months at a time, and findings are
+        # published and floor-checked whether or not anything renders them. Excluding them
+        # publishes nothing rather than something wrong; the dashboard's existing
+        # "no trends rollup is published for this window" state carries it.
+        # Un-hiding Trends means deciding slice pairing first.
+        if window.kind == "semester_slice":
+            continue
         baseline, baseline_weeks = _pair_for(window, windows, axis)
         if baseline is None:
             assessments.append(WindowAssessment(window.id, None, [], False, []))

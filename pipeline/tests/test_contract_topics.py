@@ -59,8 +59,10 @@ def test_schema_version_bumped_minor() -> None:
     # 1.5.0 adds per_student and withdraws tokens (D-53); 1.6.0 adds the dayparts registry,
     # the coarse daypart heatmap/totals and semester profiles (D-54); 1.7.0 carries the
     # program-level split into every section, widens usage_context.by_status, and adds the
-    # enrollment block behind the reach percentages (D-55).
-    assert SCHEMA_VERSION == "1.7.0"
+    # enrollment block behind the reach percentages (D-55). 1.8.0 replaces the trailing
+    # window with per-semester slices — a *removal* from the window union, unlike every
+    # bump above it, which is why the same tripwire covers a non-additive change (D-56).
+    assert SCHEMA_VERSION == "1.8.0"
 
 
 def test_description_optional_and_absent_not_null() -> None:

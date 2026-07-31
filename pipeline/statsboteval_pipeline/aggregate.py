@@ -106,7 +106,8 @@ MESSAGES_PER_STUDENT_BINS: list[tuple[int, int | None]] = [(1, 2), (3, 5), (6, 1
 # busier" while the per-hour rates are 337 and 390, and the shortest bar (12-14, 2 h) was
 # the densest period of the day at 408/h. Equal widths also mean nothing wraps midnight
 # and _daypart_of is `hour // 6`. Suppression is a bonus: 7x4 hides 3 of 4,419 messages
-# all-time where 7x24 hides 85, and trailing_4 goes from 76% hidden to 14%.
+# all-time where 7x24 hides 85, and the four-week window (then trailing_4, now a semester
+# slice — D-56) goes from 76% hidden to 14%.
 DAYPARTS: list[Daypart] = [
     Daypart(id="night", label="Night", from_hour=0, to_hour=6),
     Daypart(id="morning", label="Morning", from_hour=6, to_hour=12),
@@ -172,9 +173,11 @@ FOOTNOTES = {
         text="A student who moved from bachelor to master inside the selected window is counted "
         "under both levels, so the student counts can exceed the window total by a few."
     ),
-    # 1.5.0 (D-53). Weeks active is bounded by the window it is read in — 4 in trailing_4,
-    # ~17 in a semester, the whole axis in all_time — so the shares are not comparable
-    # across windows of different length. Same shape of caveat as user_class_window.
+    # 1.5.0 (D-53). Weeks active is bounded by the window it is read in — 4 in a four-week
+    # slice, ~17 in a semester, the whole axis in all_time — so the shares are not comparable
+    # across windows of different length. Same shape of caveat as user_class_window. In a
+    # one-week slice the bound is 1, which makes the distribution degenerate rather than
+    # merely incomparable; the dashboard withholds that card there (D-56).
     "weeks_active_window": Footnote(
         text="Weeks active counts only the ISO weeks inside the selected window, so a shorter "
         "window necessarily yields fewer weeks per student; the shares are not comparable "
@@ -227,6 +230,14 @@ FOOTNOTES = {
     "level_scope": Footnote(
         text="This figure covers every program level; the program-level filter above does "
         "not narrow it."
+    ),
+    # 1.8.0 (D-56). Reach in a semester slice divides by the whole term's enrolled cohort,
+    # because that is the only denominator a four-week window inside a term has. Without
+    # this, "9% reach" in a one-week window reads as a term figure and looks like collapse.
+    "reach_window_scope": Footnote(
+        text="Reach is measured against the enrolled cohort of the semester this window "
+        "belongs to, so in a shorter window it reads as the share of that cohort active "
+        "during those weeks — not over the whole term."
     ),
     # Trends footnotes (schema 1.3.0, D-49). trend_method is versioned with the numbers
     # it quotes: changing a threshold means editing this text in the same commit.

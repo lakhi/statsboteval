@@ -6,7 +6,7 @@ import type {
 } from "@/lib/aggregates.gen";
 import { resolveFootnotes, symbolsFor } from "@/lib/footnotes";
 import { formatCount } from "@/lib/format";
-import { ALL, enrolledFor, reachPercent, sharePercent } from "@/lib/levels";
+import { ALL, enrolledFor, enrollmentFor, reachFootnoteIds, reachPercent, sharePercent } from "@/lib/levels";
 import { ChartCard } from "../cells/ChartCard";
 import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
 import { KpiPairTile, KpiTile } from "../cells/KpiTile";
@@ -141,7 +141,7 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
   const activeValue = valueOf(totals.active_students);
   const reach =
     enrolled !== null && activeValue !== null ? reachPercent(activeValue, enrolled) : null;
-  const enrollmentFootnotes = resolveFootnotes(doc, [["enrollment_source", "enrollment_scope"]]);
+  const enrollmentFootnotes = resolveFootnotes(doc, [reachFootnoteIds(win)]);
 
   const windowActive = valueOf(roll.totals.active_students);
   const windowMessages = valueOf(roll.totals.messages);
@@ -179,7 +179,7 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
       },
     },
   ];
-  const enrollmentEntry = doc.enrollment?.per_window?.[win.id];
+  const enrollmentEntry = enrollmentFor(doc, win);
 
   return (
     <div>
@@ -301,8 +301,10 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
                     </>
                   ) : (
                     <>
-                      <span className="font-medium">Reach</span> needs an enrolled-cohort total,
-                      which is published for semester windows only.
+                      <span className="font-medium">Reach</span> needs an enrolled-cohort total.{" "}
+                      {win.kind === "all_time"
+                        ? "All time spans several semesters of cohort turnover, so no single headcount is its denominator."
+                        : "None is published for this semester yet."}
                     </>
                   )}
                 </>

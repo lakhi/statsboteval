@@ -1,4 +1,4 @@
-"""GL1: windows registry — all_time, semesters (Thursday rule), trailing_4.
+"""GL1: windows registry — all_time, semesters (Thursday rule), semester slices.
 
 Expected week memberships are hand-computed from the 2025/26 calendar:
 2025S = W10..W26 (W09 Thu = Feb 27 -> break; W27 Thu = Jul 3 -> break),
@@ -9,7 +9,7 @@ from datetime import date
 
 import pytest
 
-from statsboteval_pipeline.contract import SemesterWindow, TrailingWindow, weeks_range
+from statsboteval_pipeline.contract import SemesterSliceWindow, SemesterWindow, weeks_range
 from statsboteval_pipeline.windows import build_windows
 
 
@@ -57,31 +57,82 @@ def test_winter_semester_straddles_new_year() -> None:
     assert (w.coverage.from_, w.coverage.through) == ("2025-W40", "2026-W05")
 
 
-def test_break_only_axis_has_no_semesters() -> None:
-    axis = weeks_range("2025-W31", "2025-W33")  # August: break weeks
-    windows = build_windows(axis)
-    assert [w.kind for w in windows] == ["all_time", "trailing"]
-
-
-def test_trailing_is_last_four_axis_weeks() -> None:
-    axis = weeks_range("2025-W20", "2026-W02")
-    w = window(build_windows(axis), "trailing_4")
-    assert isinstance(w, TrailingWindow)
-    assert w.label == "Last Avl. 4 weeks"
-    assert w.weeks == ["2025-W51", "2025-W52", "2026-W01", "2026-W02"]
-    assert (w.coverage.from_, w.coverage.through) == ("2025-W51", "2026-W02")
-
-
-def test_trailing_clamps_to_short_axis() -> None:
+def test_break_only_axis_has_no_semesters_and_therefore_no_slices() -> None:
+    # August. Since D-56 "recent" is a slice of a semester, so an axis holding no teaching
+    # week offers nothing but all_time — the honest answer, and a change from trailing_4,
+    # which always published *something* even when it was four empty break weeks.
     axis = weeks_range("2025-W31", "2025-W33")
-    w = window(build_windows(axis), "trailing_4")
-    assert w.weeks == axis
+    windows = build_windows(axis)
+    assert [w.kind for w in windows] == ["all_time"]
 
 
-def test_window_order_all_time_then_semesters_then_trailing() -> None:
+# --- semester slices (D-56) -----------------------------------------------------------
+
+
+def test_completed_semester_slices_read_as_final() -> None:
+    axis = weeks_range("2025-W09", "2025-W30")  # runs past the end of 2025S
+    w = window(build_windows(axis), "2025S.last4")
+    assert isinstance(w, SemesterSliceWindow)
+    assert w.parent_window_id == "2025S"
+    assert w.label == "Final 4 weeks · SS 2025"
+    assert w.short_label == "Final 4 weeks"
+    assert w.weeks == ["2025-W23", "2025-W24", "2025-W25", "2025-W26"]
+    assert (w.coverage.from_, w.coverage.through) == ("2025-W23", "2025-W26")
+    assert window(build_windows(axis), "2025S.last1").label == "Final week · SS 2025"
+
+
+def test_running_semester_slices_read_as_latest() -> None:
+    # Same week-set, different question: a term in progress is "how is it going", a term
+    # that has ended is "how did it close". One fixed word cannot be right in both states.
+    axis = weeks_range("2025-W09", "2025-W20")
+    assert window(build_windows(axis), "2025S.last4").label == "Latest 4 weeks · SS 2025"
+    assert window(build_windows(axis), "2025S.last1").label == "Latest week · SS 2025"
+
+
+def test_winter_slice_label_spans_the_new_year() -> None:
+    axis = weeks_range("2025-W38", "2026-W07")
+    assert window(build_windows(axis), "2025W.last1").label == "Final week · WS 2025/26"
+
+
+def test_short_slice_states_the_count_it_actually_holds() -> None:
+    # Three teaching weeks in, "4 weeks" would be a promise the window cannot keep — the
+    # exact failure that got trailing_4 renamed to "Last Avl. 4 weeks" instead of fixed.
+    axis = weeks_range("2025-W09", "2025-W12")  # 2025S covered: W10, W11, W12
+    w = window(build_windows(axis), "2025S.last4")
+    assert w.label == "Latest 3 weeks · SS 2025"
+    assert w.weeks == ["2025-W10", "2025-W11", "2025-W12"]
+
+
+def test_single_covered_week_publishes_no_multi_week_slice() -> None:
+    # It would hold exactly the same week as .last1 under a second id and a label claiming
+    # more than one week.
+    axis = weeks_range("2025-W09", "2025-W10")
+    ids = [w.id for w in build_windows(axis)]
+    assert "2025S.last4" not in ids
+    assert ids == ["all_time", "2025S", "2025S.last1"]
+
+
+def test_semester_weeks_index_full_membership_not_coverage() -> None:
+    # The axis starts at W12, so 2025S's first two member weeks (W10, W11) are
+    # unpublishable. The slice still has to report the teaching weeks it really spans:
+    # indexing against covered weeks would call W12 "week 1" and slide every cross-semester
+    # alignment left by two (the D-54 invariant).
+    axis = weeks_range("2025-W12", "2025-W15")
+    w = window(build_windows(axis), "2025S.last1")
+    assert w.weeks == ["2025-W15"]
+    assert w.semester_weeks == [6, 6]  # W10 is teaching week 1, so W15 is week 6
+    assert window(build_windows(axis), "2025S.last4").semester_weeks == [3, 6]
+
+
+def test_every_semester_gets_its_own_slices() -> None:
     axis = weeks_range("2025-W09", "2026-W12")
     ids = [w.id for w in build_windows(axis)]
-    assert ids == ["all_time", "2025S", "2025W", "2026S", "trailing_4"]
+    assert ids == [
+        "all_time",
+        "2025S", "2025S.last4", "2025S.last1",
+        "2025W", "2025W.last4", "2025W.last1",
+        "2026S", "2026S.last4", "2026S.last1",
+    ]
 
 
 def test_empty_axis_rejected() -> None:

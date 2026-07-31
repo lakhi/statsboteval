@@ -3,8 +3,9 @@ import type { Histogram } from "@/lib/aggregates.gen";
 import { resolveFootnotes, symbolsFor } from "@/lib/footnotes";
 import { formatCount, formatStat, unitLabel } from "@/lib/format";
 import { ALL, sliceByLevel } from "@/lib/levels";
+import { isSingleWeek } from "@/lib/windows";
 import { ChartCard, DataTable } from "../cells/ChartCard";
-import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
+import { LevelGap, MeasureUndefined, SectionPending, WindowGap } from "../cells/EmptyState";
 import { HistogramChart, histogramTableRows } from "../cells/HistogramChart";
 import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
 import {
@@ -188,16 +189,23 @@ export function EngagementTab({ doc, win, level }: TabProps) {
       header: "Median length (min)",
       cell: (l) => medianOf(sessionRoll?.by_status?.[l]?.session_duration_minutes),
     },
-    {
-      // First bin over n_total, never the complement — the same rule TriedVsAdopted
-      // follows, because a complement across bins can recover a suppressed bin.
-      header: "Tried once",
-      cell: (l) => {
-        const hist = studentRoll?.by_status?.[l]?.weeks_active_per_student;
-        const share = hist ? triedOnceShare(hist) : null;
-        return share === null ? null : `${share}%`;
-      },
-    },
+    // Same measure as the withheld card below, so it goes with it: in a one-week window
+    // "tried once" is 100% at every level by definition, and a column of 100%s reads as a
+    // finding.
+    ...(isSingleWeek(win)
+      ? []
+      : [
+          {
+            // First bin over n_total, never the complement — the same rule TriedVsAdopted
+            // follows, because a complement across bins can recover a suppressed bin.
+            header: "Tried once",
+            cell: (l: string) => {
+              const hist = studentRoll?.by_status?.[l]?.weeks_active_per_student;
+              const share = hist ? triedOnceShare(hist) : null;
+              return share === null ? null : `${share}%`;
+            },
+          },
+        ]),
   ];
 
   // Order is editorial (D-53): the two headline measures first — how often a student
@@ -233,24 +241,37 @@ export function EngagementTab({ doc, win, level }: TabProps) {
           />
         ))}
 
-        {card(perStudent, studentRoll, studentScoped, "weeks active per student", "per-student", (roll) => (
-          <HistogramCard
-            doc={doc}
-            title="Weeks active per student"
-            xLabel="Weeks"
-            histogram={roll.weeks_active_per_student}
-            measure="week"
-            lead={<TriedVsAdopted histogram={roll.weeks_active_per_student} />}
-            mutedBins={[0]}
-            // Only claim a lighter bar when one is actually drawn: in a window where the
-            // single-week bin falls under the floor there is a suppression mark instead.
-            note={
-              roll.weeks_active_per_student.bins[0]?.cell.status === "ok"
-                ? "The lighter bar is the single-week group; every bar to its right is a student who came back in a later week."
-                : undefined
-            }
-          />
-        ))}
+        {/* Withheld in a one-week window (D-56), where every active student is active in
+            exactly one week by definition and the histogram is 100% in the first bin
+            whatever happened. Withheld here rather than omitted from the document: the
+            figure is correct, it is the *question* that is empty at this width, and an
+            absent block would say "not in this data release yet" — blaming the publish
+            for a property of the window. */}
+        {isSingleWeek(win)
+          ? card(perStudent, studentRoll, studentScoped, "weeks active per student", "per-student", () => (
+              <MeasureUndefined
+                what="Weeks active needs more than one week."
+                why="This window covers a single week, so every active student is active in exactly one week by definition. Widen the window to see how many came back."
+              />
+            ))
+          : card(perStudent, studentRoll, studentScoped, "weeks active per student", "per-student", (roll) => (
+              <HistogramCard
+                doc={doc}
+                title="Weeks active per student"
+                xLabel="Weeks"
+                histogram={roll.weeks_active_per_student}
+                measure="week"
+                lead={<TriedVsAdopted histogram={roll.weeks_active_per_student} />}
+                mutedBins={[0]}
+                // Only claim a lighter bar when one is actually drawn: in a window where the
+                // single-week bin falls under the floor there is a suppression mark instead.
+                note={
+                  roll.weeks_active_per_student.bins[0]?.cell.status === "ok"
+                    ? "The lighter bar is the single-week group; every bar to its right is a student who came back in a later week."
+                    : undefined
+                }
+              />
+            ))}
 
         {card(perStudent, studentRoll, studentScoped, "messages per student", "per-student", (roll) => (
           <HistogramCard

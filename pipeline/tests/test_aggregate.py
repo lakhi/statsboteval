@@ -251,12 +251,14 @@ def test_axis_start_clips_pilot_traffic(con2: duckdb.DuckDBPyConnection) -> None
 
 def test_windows_registry_in_document(con2: duckdb.DuckDBPyConnection) -> None:
     doc = build2(con2, floor_n=3)
-    assert [w["id"] for w in doc["windows"]] == ["all_time", "2025S", "trailing_4"]
+    assert [w["id"] for w in doc["windows"]] == ["all_time", "2025S", "2025S.last4", "2025S.last1"]
     sem = doc["windows"][1]
     assert sem["coverage"] == {"from": "2025-W10", "through": "2025-W11"}
     assert len(sem["weeks"]) == 17  # full 2025S membership, W10..W26
     for name in ("temporal_usage", "usage_context", "sessions", "per_student", "language"):
-        assert set(doc["sections"][name]["per_window"]) == {"all_time", "2025S", "trailing_4"}, name
+        assert set(doc["sections"][name]["per_window"]) == {
+            "all_time", "2025S", "2025S.last4", "2025S.last1",
+        }, name
 
 
 def test_heatmap_vienna_local(con2: duckdb.DuckDBPyConnection) -> None:
@@ -483,7 +485,10 @@ def test_semester_window_matches_all_time_here(con2: duckdb.DuckDBPyConnection) 
     doc = build2(con2, floor_n=1)
     uc = doc["sections"]["usage_context"]["per_window"]
     assert uc["2025S"] == uc["all_time"]
-    assert uc["trailing_4"] == uc["all_time"]  # trailing_4 clamps to the 2-week axis
+    # The axis is two weeks long and both lie in 2025S, so the four-week slice clamps to
+    # the whole of it. The one-week slice does not: it is the second week alone.
+    assert uc["2025S.last4"] == uc["all_time"]
+    assert uc["2025S.last1"] != uc["all_time"]
 
 
 def test_retention_pair_suppresses_complementarily(con2: duckdb.DuckDBPyConnection) -> None:

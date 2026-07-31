@@ -51,7 +51,7 @@ display** — pre-aggregated, privacy-floored, cohort-wide. Consumers:
 
 ```
 { metadata fields }            §4   — schema_version, generated_at, …
-"windows":   [ … ]             §6.1 — window registry (semesters, all_time, trailing)
+"windows":   [ … ]             §6.1 — window registry (all_time, semesters, slices)
 "footnotes": { … }             §6.2 — caveat registry, referenced by id
 "sections":  {                 §7   — one key per dashboard view
     "temporal_usage": … , "usage_context": … , "sessions": … ,
@@ -147,24 +147,25 @@ type HeatmapGrid = {
 
 ### 6.1 Windows
 
-Named week-sets that every `per_window` rollup keys on. One registry covers semesters,
-all-time, and trailing windows; UI presets map onto it completely (current semester =
-semester window with the latest coverage; previous semesters = older ones; last month =
-`trailing_4`; current/last week = last entries of the weekly series directly — a
-single-week window would only duplicate them; `trailing_1` can be added later for
-last-week heatmaps/distributions, additively).
+Named week-sets that every `per_window` rollup keys on. One registry covers all-time,
+semesters, and slices of a semester's closing stretch; UI presets map onto it completely
+(current semester = semester window with the latest coverage; previous semesters = older
+ones; last month and last week = that semester's `.last4` and `.last1`).
 
 ```json
 "windows": [
-  { "id": "all_time",   "kind": "all_time", "label": "All time",
+  { "id": "all_time",   "kind": "all_time", "label": "All time", "short_label": "All time",
     "coverage": { "from": "2025-W11", "through": "2026-W27" } },
-  { "id": "2025S",      "kind": "semester", "label": "Summer semester 2025",
-    "start_date": "2025-03-01", "end_date": "2025-06-30",
-    "weeks": ["2025-W10", "…", "2025-W26"],
-    "coverage": { "from": "2025-W11", "through": "2025-W26" } },
-  { "id": "trailing_4", "kind": "trailing", "label": "Last Avl. 4 weeks",
-    "weeks": ["2026-W24", "2026-W25", "2026-W26", "2026-W27"],
-    "coverage": { "from": "2026-W24", "through": "2026-W27" } }
+  { "id": "2026S",      "kind": "semester", "label": "Summer semester 2026",
+    "short_label": "Whole semester",
+    "start_date": "2026-03-01", "end_date": "2026-06-30",
+    "weeks": ["2026-W10", "…", "2026-W26"],
+    "coverage": { "from": "2026-W10", "through": "2026-W26" } },
+  { "id": "2026S.last4", "kind": "semester_slice", "label": "Final 4 weeks · SS 2026",
+    "short_label": "Final 4 weeks", "parent_window_id": "2026S",
+    "weeks": ["2026-W23", "2026-W24", "2026-W25", "2026-W26"],
+    "semester_weeks": [14, 17],
+    "coverage": { "from": "2026-W23", "through": "2026-W26" } }
 ]
 ```
 
@@ -177,8 +178,34 @@ last-week heatmaps/distributions, additively).
 - Semester generation is a **pipeline rule, not config**: SS = 1 Mar–30 Jun, WS = 1 Oct–
   31 Jan (following year), ids `"YYYYS"`/`"YYYYW"` by starting calendar year, for every
   semester intersecting the data range. Calendar knowledge lives in Python only.
-- `trailing_4` = the last 4 complete weeks, recomputed each publish.
+- **Semester slices** (1.8.0, D-56): each semester publishes `{id}.last4` and `{id}.last1`
+  — the last up-to-four and the last one of its *covered* weeks. `.last4` is omitted when
+  the semester has a single covered week, where it would duplicate `.last1`.
+  - The `4` in the id names the rule's cap, not a fact about the window. Early in a term
+    the window holds fewer weeks, and the **label states the count it actually holds**
+    ("Latest 3 weeks").
+  - Labels are state-dependent: **`Latest` while the parent semester is in progress,
+    `Final` once it has ended.** The same week-set answers "how is it going" for a running
+    term and "how did it close" for a finished one.
+  - `semester_weeks` is the `[first, last]` 1-based teaching-week span **within the
+    parent's full membership, never its coverage**. Published for alignment, rendered
+    nowhere: SS terms run 17 weeks and WS terms 18, so "final 4 weeks" spans different
+    teaching weeks on each side of a cross-semester comparison.
+  - Ids are stable forever once a semester ends, which `trailing_4` never was — a link to
+    `?window=2026S.last1` resolves to the same span in every later publish.
+  - `enrollment` is **not** keyed by slices; a reader follows `parent_window_id` to the
+    parent's headcount (§6.3). Reach then means the share of that term's cohort active in
+    those weeks, which `reach_window_scope` states.
+- `short_label` is what a reader sees where context already names the parent (inside the
+  picker's group heading); `label` is self-contained, for sentences. **Optional on
+  `all_time` and `semester`** so a document published before 1.8.0 stays valid under this
+  schema — the API validates every blob it fetches against the schema it ships with (§11),
+  so a required field would make deploying before publishing a 500 rather than a degraded
+  render. Readers fall back to `label`.
 - Every key of every `per_window` object must exist in this registry (validated).
+- **Not every registry window carries every section.** `sections.trends` covers semesters
+  and `all_time` only; slices are excluded from the trends pass (D-56) until slice pairing
+  is decided. Readers already tolerate a missing `per_window` key (invariant 5).
 
 ### 6.2 Footnotes
 
@@ -197,6 +224,7 @@ Initial catalog:
 | `retention_definition` | new = first-ever message inside the window, returning = wrote before it, the two summing to active users; the baseline includes pre-`axis_start` pilot use, and in `all_time` "returning" is the pilot cohort (schema 1.4.0) |
 | `signup_activation` | "sent at least 1 msg" is window-scoped on both sides; a late signup counts in the window they first wrote in (schema 1.4.0) |
 | `status_multi` | a BA→MA transitioner active on both sides of the boundary is counted under both levels, so student counts can exceed the total (schema 1.4.0) |
+| `reach_window_scope` | reach divides by the enrolled cohort of the semester the window belongs to, so in a slice it is the share of that cohort active in those weeks, not over the term (schema 1.8.0 — D-56) |
 | `daypart_definition` | Vienna local; four **equal** six-hour blocks (00–06, 06–12, 12–18, 18–24) so bar length is directly comparable; a chat crossing a boundary counts in both (schema 1.6.0 — D-54) |
 | `semester_week_alignment` | week 1 is the semester's first ISO week (Thursday rule); cohorts and course structure differ between semesters, so compare shape not height; an in-progress semester ends where the data does (schema 1.6.0 — D-54) |
 | `duration_definition` | session duration = last − first server `created_at` in the session; single-message sessions = 0 |
@@ -228,9 +256,12 @@ floor — an institutional headcount is not a count over students who wrote mess
 dressing it as a cell would invite exactly that misreading. `source` and `as_of` name the
 roster snapshot so a published number can be traced back.
 
-**Semester windows only** (validated): `all_time` spans three semesters of cohort turnover
-and `trailing_4` is a rolling 4-week slice, so neither has a defensible denominator. The
-dashboard states that in words rather than drawing an empty card.
+**Semester windows only** (validated): `all_time` spans three semesters of cohort
+turnover, so no single headcount is its denominator. The dashboard states that in words
+rather than drawing an empty card. A semester slice is *not* keyed here either, for the
+opposite reason — it lies entirely inside one term, so it reads its parent's entry through
+`parent_window_id` (§6.1) rather than this map carrying the same institutional number
+under several keys.
 
 Keys are clipped at build time to the semester windows the registry actually built, so a
 stale entry in the hand-maintained table can never introduce an unknown window id. The
@@ -432,7 +463,7 @@ section (invariant 5).*
 ```json
 { "per_window": { "<window_id>": {
       "baseline": { "kind": "window", "window_id": "2025W" }        // semester → predecessor
-                | { "kind": "weeks", "from": WeekId, "through": WeekId }  // trailing_4
+                | { "kind": "weeks", "from": WeekId, "through": WeekId }  // unemitted since 1.8.0
                 | { "kind": "trajectory" }                          // all_time
                 | null,                                             // no predecessor
       "insufficient_data": false,
@@ -462,8 +493,7 @@ section (invariant 5).*
   to compare against" marker the dashboard branches on, so it survives the document's
   `exclude_none` serialization (same treatment as `HistogramBin.hi`).
 - **`insufficient_data`** distinguishes *nothing was testable* (every candidate fell
-  below the floor or the minimum n — the normal state of `trailing_4` during the Feb and
-  Jul–Sep break weeks) from *tested and flat* (an empty `findings` list). It is `false`
+  below the floor or the minimum n) from *tested and flat* (an empty `findings` list). It is `false`
   whenever `baseline` is `null` or `findings` is non-empty.
 - **Findings are pre-ranked; the client renders them in the order received.** Selection
   and ordering are analysis, not display math (invariant 4), and the per-student
@@ -697,8 +727,8 @@ remains a major break.
   import rather than by `Status`. Per-course
   segmentation stays deferred — `students.lv` does not exist in production
   (`source-data-dictionary.md`), so it is not deferred but impossible.
-- **`trailing_1` window** (last-week heatmap/distributions): additive when wanted; heavy
-  suppression expected at one week of data.
+- **Trends over semester slices**: excluded from the trends pass since 1.8.0 (D-56) —
+  their pairing rule is undecided and the tab is hidden. Blocks un-hiding Trends.
 - **Token views** (`completion_tokens` reply length, `prompt_tokens` session-context
   growth): both additive when wanted. Reply length was published in 1.0.0–1.4.0 and
   withdrawn in 1.5.0 (§7.4) — it describes the model, not the student.

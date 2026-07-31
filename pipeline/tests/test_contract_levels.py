@@ -150,8 +150,10 @@ def test_per_level_weekly_series_stay_dense(doc: Aggregates) -> None:
 
 
 def test_enrollment_is_semester_only(doc: Aggregates) -> None:
-    """all_time spans cohort turnover and trailing_4 is a rolling slice: neither has a
-    defensible denominator, so neither may carry one."""
+    """all_time spans cohort turnover, so it has no defensible denominator and may not
+    carry one. A semester slice may not either, for the opposite reason: it lies inside one
+    term, so it reads that term's entry through parent_window_id rather than duplicating
+    the headcount under a second key (D-56)."""
     assert doc.enrollment is not None
     semesters = {w.id for w in doc.windows if w.kind == "semester"}
     assert set(doc.enrollment.per_window) <= semesters

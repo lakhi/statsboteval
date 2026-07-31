@@ -1622,3 +1622,86 @@ verification step — `curl -sf` returned empty on a cold start and the JSON par
 nothing. The upload had already happened, so a reflexive re-run hit the immutable-blob
 guard and refused, which is the guard doing exactly its job. Worth a follow-up: that last
 curl should tolerate a cold start rather than turn a successful publish into a traceback.
+
+## D-56 — 2026-07-31: Semester slice windows replace `trailing_4`; schema 1.8.0
+
+**Status: built, not yet published.** Plan:
+`docs/plans/2026-07-31-semester-slice-windows.md`. Tracked as issues #8 (windows) and #9
+(API compression).
+
+**The problem.** `trailing_4` is anchored on the *axis*, which advances with extraction
+whether or not anyone was in class. Measured on the live 1.7.0 document: the window holds
+10 messages from 3 students, **all master** — so the default landing state of that filter,
+under the default bachelor level (D-55), is a blank page. Language totals are suppressed in
+every cell, and D-49's calibration already found 62 of 69 `trailing_4` trend candidates
+failing the floor in the July break. D-52 renamed the label to "Last **Avl.** 4 weeks",
+which described the problem accurately rather than fixing it.
+
+**The replacement.** Every semester publishes two sub-windows — its last covered week and
+its last (up to) four covered weeks — as a new `kind: "semester_slice"` carrying
+`parent_window_id`. `TrailingWindow` is removed. Costs nothing in term time: during teaching
+weeks the last four *axis* weeks are the last four *semester* weeks, so the windows are
+identical to what `trailing_4` shows today; they diverge only across breaks, where the old
+definition degraded to noise. Owner chose the per-semester form over anchoring only the
+latest semester, so one term's closing weeks can be compared with another's.
+
+Three consequences worth recording:
+
+- **Labels are state-dependent**: `Latest` while a semester is in progress, `Final` once it
+  has ended — the same week-set answers "how is it going" for a running term and "how did it
+  close" for a finished one. The count in a label is the count the window actually holds
+  (`Latest 3 weeks` early in term), because clamping four weeks down to two while still
+  saying "4" is the exact failure that produced the "Avl." rename.
+- **Window ids become permanently stable.** `?window=2026S.last1` names the same span
+  forever once SS 2026 ends. `trailing_4` meant something different at every publish, so no
+  shared link to it was ever reproducible — which matters for a thesis figure.
+- **Reach extends to slices without touching the contract.** `_check_enrollment` keeps
+  demanding semester ids, one institutional headcount per semester; the *reader* follows
+  `parent_window_id` to find it. D-55's "no defensible denominator" reasoning applied to
+  `all_time` and `trailing_4` because they span or straddle semesters — a slice lies
+  entirely inside one, so the denominator is well defined. A `reach_window_scope` footnote
+  states that reach in a slice is the share of the term's cohort active *in those weeks*.
+
+**Trends knowingly goes out of sync — the divergence recorded here on purpose (owner).**
+The tab is hidden (D-55), so no pairing rule for slices is decided. But `_pair_for`'s final
+branch, written for `trailing_4`, computes a baseline from the axis tail (`axis[-8:-4]`);
+slices falling into it would be compared against break weeks for months at a time, and
+trends findings are published and floor-checked even though nothing renders them. Doing
+nothing would therefore put *wrong comparisons into the document*, not merely leave a
+feature unbuilt. So slices are **excluded from the trends pass entirely**: from 1.8.0 on,
+the windows registry and `sections.trends.per_window` no longer cover the same set of
+windows, and selecting a slice under `?tab=trends` renders the existing "no trends rollup is
+published for this window" empty state, which is literally true. A test pins the exclusion
+so the deferral cannot silently become an axis-tail baseline. **Whoever un-hides Trends must
+decide slice pairing first**; the leading candidate is the same slice of the chronologically
+previous semester, consistent with how semester windows already pair.
+
+**A schema change can take the site down, and this one nearly did.** Found while
+implementing: the API validates every blob it fetches against the schema it *ships with*
+(contract §11), so removing `kind: "trailing"` from the window union made the currently
+published 1.7.0 document invalid under 1.8.0 — verified against the real blob, which is
+rejected at `windows[4]`. Deploying the bundle first would have 500'd until the upload
+landed; uploading first 500s under the old API, which cannot parse `semester_slice`. There
+was no safe order, and every previous bump had been additive enough that the question never
+came up. Fixed by keeping `TrailingWindow` in the union as **deprecated and unemitted**,
+and by making `short_label` **optional** on the two pre-1.8.0 kinds. Both are pinned by
+`test_a_pre_1_8_0_document_still_validates`; `api/tests/fixtures/aggregates_synthetic.json`
+is a 1.0.0 document that has been quietly asserting the same property all along. The
+deprecated member comes out once no reachable blob holds one.
+
+**Deploy order for this release is bundle-and-API first, then the blob** — the reverse of
+the D-51 habit. Be precise about what the retention buys, because the asymmetry is easy to
+misread: it makes the *deploy* safe, since the 1.7.0 document already in the blob keeps
+parsing under the new API. It does **not** make a rollback free once the 1.8.0 blob is up —
+a rolled-back 1.7.0 API cannot parse `semester_slice`, so reverting the code after
+publishing means restoring the previous blob in the same move. Blobs are immutable and
+versioned, so the old one is there; it is a step to remember, not a trap.
+
+**Also in this change, isolated for revert:** the aggregates API ships **no compression** —
+the live service returns 393 KB whether or not the client sends `Accept-Encoding: gzip`, and
+there is no `GZipMiddleware` in `api/app/main.py`. The document gzips to 24.6 KB (6.3%).
+The ADRs have been sizing this document by its gzipped figure for a while (D-55 records
+"28 → 43 KB gzipped") while the service shipped it uncompressed the whole time. Six extra
+windows would grow it 437 KB → ~670 KB, so the middleware lands here — as its own commit
+against issue #9, touching only `main.py` and its test, because it is the one part that can
+fail in a way local testing will not catch (App Service front-end behaviour).

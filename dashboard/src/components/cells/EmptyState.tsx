@@ -17,9 +17,9 @@ export function SectionPending({ what }: { what: string }) {
 
 /**
  * The third honest "nothing here" (1.7.0, D-55): the window has data and the section is
- * published, but this program level did not use StatsBot in it. `trailing_4` under the
- * bachelor default is exactly this — a measured absence, not a gap in the data and not
- * suppression, so it says so in those words rather than borrowing either other state.
+ * published, but this program level did not use StatsBot in it — a measured absence, not a
+ * gap in the data and not suppression, so it says so in those words rather than borrowing
+ * either other state.
  */
 export function LevelGap({ levelLabel, windowLabel }: { levelLabel: string; windowLabel: string }) {
   return (
@@ -32,6 +32,21 @@ export function LevelGap({ levelLabel, windowLabel }: { levelLabel: string; wind
         Nobody at this program level sent a message in this period. Widen the window, or
         switch to All users to see who did.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The fourth (1.8.0, D-56): the figure exists and is correct, but the selected window makes
+ * the question it answers vacuous — weeks active in a one-week window is 1 for everyone
+ * whatever the data says. Distinct from every state above it, and worth its own words: the
+ * number is not missing, not withheld and not zero, it is defined away.
+ */
+export function MeasureUndefined({ what, why }: { what: string; why: string }) {
+  return (
+    <div className="rounded-lg border border-edge bg-card px-6 py-8 text-center">
+      <p className="text-sm text-ink-2">{what}</p>
+      <p className="mx-auto mt-1.5 max-w-md text-xs text-ink-3">{why}</p>
     </div>
   );
 }

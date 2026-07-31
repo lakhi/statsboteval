@@ -43,7 +43,7 @@ def minimal_doc(**overrides) -> dict:
         pipeline_version="0.1.0",
         windows=[
             AllTimeWindow(
-                kind="all_time", id="all_time", label="All time",
+                kind="all_time", id="all_time", label="All time", short_label="All time",
                 coverage={"from": "2025-W11", "through": "2025-W12"},
             )
         ],

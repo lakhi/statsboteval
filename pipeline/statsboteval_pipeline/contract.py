@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.7.0"
+SCHEMA_VERSION = "1.8.0"
 
 FootnoteId = str
 
@@ -228,10 +228,22 @@ class Coverage(BaseModel):
         return self
 
 
+# `label` is self-contained (it names its own semester); `short_label` is what a reader sees
+# when the surrounding context already names the parent — inside the picker's group heading.
+# Both are authored here rather than in the client so wording can change on a blob upload
+# with no code deploy, which is how D-52 shipped a rename.
+#
+# `short_label` is OPTIONAL on the two pre-1.8.0 kinds, and that is a deployment property,
+# not laziness. The API validates every fetched blob against the schema it ships with
+# (contract §11), so a required field here would make the currently-published document fail
+# validation the moment the new API is deployed — a 500, not a degraded render, for however
+# long the blob upload trails the deploy. Optional keeps the sequence safe in the order that
+# is actually available: deploy first, publish second. Readers fall back to `label`.
 class AllTimeWindow(BaseModel):
     kind: Literal["all_time"]
     id: str
     label: str
+    short_label: str | None = None
     coverage: Coverage
 
 
@@ -239,13 +251,69 @@ class SemesterWindow(BaseModel):
     kind: Literal["semester"]
     id: str
     label: str
+    short_label: str | None = None
     start_date: date
     end_date: date
     weeks: list[WeekId]  # full membership (Thursday rule); coverage = clipped to data range
     coverage: Coverage
 
 
+class SemesterSliceWindow(BaseModel):
+    """The closing stretch of one semester (1.8.0, D-56).
+
+    Replaces `TrailingWindow`, which was anchored on the axis and therefore advanced with
+    extraction whether or not anyone was in class — across a break it drifted into weeks
+    holding almost nothing, which is where "recent" was least useful and most looked at.
+    A slice is anchored inside its semester instead, so during teaching weeks it is exactly
+    what the trailing window showed and across breaks it keeps pointing at the last weeks
+    that meant something.
+
+    `weeks` is always a contiguous tail of the parent's *covered* weeks, so the id is stable
+    forever once the semester ends — `2026S.last1` names the same span in every later
+    publish, which `trailing_4` never did.
+    """
+
+    kind: Literal["semester_slice"]
+    id: str
+    label: str
+    short_label: str
+    parent_window_id: str  # the semester this slices; validated against the registry
+    weeks: list[WeekId]
+    # [first, last], 1-based, within the parent's FULL Thursday-rule membership — never its
+    # coverage (the D-54 invariant). Published, deliberately unrendered: SS terms run 17
+    # weeks and WS terms 18, so "final 4 weeks" spans different teaching weeks on each side
+    # of a cross-semester comparison, and the document should say so itself.
+    #
+    # A length-bounded list rather than a tuple: pydantic exports a tuple as `prefixItems`,
+    # which the dashboard's type generator renders as `[unknown, unknown]` — a published
+    # field that arrives untyped on the client is worse than one modelled slightly loosely.
+    semester_weeks: list[int] = Field(min_length=2, max_length=2)
+    coverage: Coverage
+
+
 class TrailingWindow(BaseModel):
+    """DEPRECATED, unemitted since 1.8.0 (D-56) — kept so the *previous* publish still parses.
+
+    Semester slices replaced this window, and deleting the member outright looked free
+    because nothing produces one. It is not: the API validates every blob it fetches
+    against the schema it ships with (contract §11), so the moment a 1.8.0 API met the
+    1.7.0 document already sitting in the blob, `kind: "trailing"` would match no member of
+    the union and the dashboard would go down with a 500 — until the new blob was uploaded,
+    with no safe order to do the two halves in.
+
+    So it stays for one release. Remove it once no reachable blob contains one, which
+    includes the rollback target.
+
+    What this does and does not buy, stated exactly, because the difference matters when
+    someone is reading it under pressure: it makes the *deploy* safe in one direction —
+    ship the bundle and API first, and the 1.7.0 document already in the blob keeps
+    parsing, so there is no window where the site is down waiting for the upload. It does
+    NOT make a rollback free once the 1.8.0 blob has been uploaded: a rolled-back 1.7.0 API
+    cannot parse `semester_slice`, so after publishing, reverting the code means restoring
+    the previous blob in the same move. Blobs are immutable and versioned, so that is
+    available — it is a step to remember, not a trap.
+    """
+
     kind: Literal["trailing"]
     id: str
     label: str
@@ -253,8 +321,12 @@ class TrailingWindow(BaseModel):
     coverage: Coverage
 
 
-Window = Annotated[Union[AllTimeWindow, SemesterWindow, TrailingWindow], Field(discriminator="kind")]
-window_adapter: TypeAdapter[AllTimeWindow | SemesterWindow | TrailingWindow] = TypeAdapter(Window)
+Window = Annotated[
+    Union[AllTimeWindow, SemesterWindow, SemesterSliceWindow, TrailingWindow], Field(discriminator="kind")
+]
+window_adapter: TypeAdapter[AllTimeWindow | SemesterWindow | SemesterSliceWindow | TrailingWindow] = TypeAdapter(
+    Window
+)
 
 
 # --- sections (contract §7): one model tree per dashboard view ---
@@ -549,8 +621,14 @@ class WindowBaseline(BaseModel):
 
 
 class WeeksBaseline(BaseModel):
-    # trailing_4's baseline: the 4 complete weeks before it. Embedded here rather than
-    # added to the window registry — it is a comparison, not something to select.
+    # An arbitrary week range as a comparison — embedded here rather than added to the
+    # window registry, because it is something to compare against, not something to select.
+    #
+    # Nothing emits one as of 1.8.0: it was trailing_4's baseline (the 4 complete weeks
+    # before it), and trailing_4 is gone (D-56). Kept in the union because deciding slice
+    # pairing — the open question that blocks un-hiding Trends — may well land on
+    # "the weeks immediately preceding this slice", and re-adding a removed union member
+    # is a second breaking change for the same feature.
     model_config = ConfigDict(populate_by_name=True)
 
     kind: Literal["weeks"]
@@ -669,9 +747,12 @@ class EnrollmentEntry(BaseModel):
 
 
 class Enrollment(BaseModel):
-    # Semester windows only: all_time spans three semesters of cohort turnover and
-    # trailing_4 is a rolling 4-week slice, so neither has a defensible denominator.
-    # The dashboard states that in words rather than drawing an empty card.
+    # Semester windows only: all_time spans three semesters of cohort turnover, so it has
+    # no defensible denominator. The dashboard states that in words rather than drawing an
+    # empty card. Semester slices (1.8.0) are NOT keyed here and must not be: a slice lies
+    # entirely inside one semester, so the denominator it needs is its parent's — the
+    # reader follows `parent_window_id` rather than this map carrying the same
+    # institutional headcount under seven keys.
     per_window: dict[str, EnrollmentEntry]
 
 
@@ -873,6 +954,44 @@ class Aggregates(BaseModel):
             if level not in STATUS_KEYS:
                 raise ValueError(f"{where} uses unknown program level {level!r}; expected one of {STATUS_KEYS}")
 
+    def _check_windows(self) -> None:
+        """Slices resolve against their parent, and their teaching-week span is the
+        parent's own index (1.8.0, D-56).
+
+        The `semester_weeks` check is the one that earns its keep: indexing a slice against
+        *covered* weeks instead of full membership yields a plausible-looking pair that is
+        wrong by however many opening weeks fall outside the axis, and every cross-semester
+        alignment built on it would slide by that much — invisibly, since each span still
+        reads as a sane number on its own (the D-54 invariant, restated as a check).
+        """
+        semesters = {w.id: w for w in self.windows if w.kind == "semester"}
+        for window in self.windows:
+            if window.kind != "semester_slice":
+                continue
+            parent = semesters.get(window.parent_window_id)
+            if parent is None:
+                raise ValueError(
+                    f"windows.{window.id}.parent_window_id references {window.parent_window_id!r}, "
+                    "which is not a semester window in this registry"
+                )
+            if not window.weeks:
+                raise ValueError(f"windows.{window.id} has no weeks")
+            membership = parent.weeks
+            missing = [w for w in window.weeks if w not in membership]
+            if missing:
+                raise ValueError(f"windows.{window.id} holds weeks outside {parent.id}: {missing}")
+            if window.weeks != membership[membership.index(window.weeks[0]) : membership.index(window.weeks[-1]) + 1]:
+                raise ValueError(f"windows.{window.id} is not a contiguous run of {parent.id}'s weeks")
+            expected = [membership.index(window.weeks[0]) + 1, membership.index(window.weeks[-1]) + 1]
+            if window.semester_weeks != expected:
+                raise ValueError(
+                    f"windows.{window.id}.semester_weeks is {window.semester_weeks}, but its weeks are "
+                    f"{parent.id} teaching weeks {expected} — indexed against coverage rather than "
+                    "full membership?"
+                )
+            if (window.coverage.from_, window.coverage.through) != (window.weeks[0], window.weeks[-1]):
+                raise ValueError(f"windows.{window.id}.coverage must span exactly its weeks")
+
     def _check_enrollment(self, window_ids: set[str]) -> None:
         if self.enrollment is None:
             return
@@ -883,7 +1002,8 @@ class Aggregates(BaseModel):
             if window_id not in semesters:
                 raise ValueError(
                     f"enrollment.per_window.{window_id} is not a semester window; enrolled-cohort "
-                    "denominators are defined for semesters only (D-55)"
+                    "denominators are keyed by semester only (D-55). A semester slice inherits its "
+                    "parent's entry through parent_window_id (D-56) rather than being keyed here"
                 )
 
     @model_validator(mode="after")
@@ -897,6 +1017,7 @@ class Aggregates(BaseModel):
             unknown = set(per_window) - window_ids
             if unknown:
                 raise ValueError(f"sections.{name}.per_window references unknown windows: {sorted(unknown)}")
+        self._check_windows()
         self._check_trends(window_ids)
         self._check_dayparts()
         self._check_semester_profiles(window_ids)

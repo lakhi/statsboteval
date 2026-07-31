@@ -21,7 +21,7 @@ from statsboteval_pipeline.publish import (
     publish,
 )
 
-from .factories import make_synthetic_aggregates
+from .factories import make_synthetic_aggregates, sample_trends_entry
 
 # Azurite's documented well-known dev-storage account key (public, not a secret;
 # matches the SDK's DEVSTORE_ACCOUNT_KEY constant).
@@ -42,12 +42,28 @@ def test_guard_walk_rejects_suppressed_with_payload() -> None:
         _assert_suppressed_bare(dumped)
 
 
+def with_findings(dumped: dict) -> dict:
+    """Attach a populated findings array to a window in a dumped document.
+
+    Injected rather than fixtured: this axis produces no findings at all now that semester
+    slices are excluded from the trends pass (D-56), and a factory that published some
+    would assert something the pipeline cannot do. The guard walks dumped dicts and does
+    not care where they came from, which is exactly what makes this safe.
+    """
+    dumped["sections"]["trends"]["per_window"]["2025S"] = dump_doc(sample_trends_entry())
+    return dumped
+
+
 def test_guard_walk_rejects_a_sub_floor_finding() -> None:
-    dumped = dump_doc(make_synthetic_aggregates())
-    finding = dumped["sections"]["trends"]["per_window"]["trailing_4"]["findings"][0]
+    dumped = with_findings(dump_doc(make_synthetic_aggregates()))
+    finding = dumped["sections"]["trends"]["per_window"]["2025S"]["findings"][0]
     finding["baseline"]["n_students"] = 2  # floor is 3
-    with pytest.raises(PublishGuardError, match=r"trailing_4.*n_students=2"):
+    with pytest.raises(PublishGuardError, match=r"2025S.*n_students=2"):
         _assert_floor_respected(dumped, 3)
+
+
+def test_guard_walk_accepts_findings_that_clear_the_floor() -> None:
+    _assert_floor_respected(with_findings(dump_doc(make_synthetic_aggregates())), 3)
 
 
 def test_guard_walk_rejects_a_sub_floor_summary() -> None:
@@ -60,12 +76,12 @@ def test_guard_walk_rejects_a_sub_floor_summary() -> None:
 
 
 def test_guard_walk_names_the_path_to_the_offending_cell() -> None:
-    dumped = dump_doc(make_synthetic_aggregates())
-    dumped["sections"]["trends"]["per_window"]["trailing_4"]["findings"][1]["current"]["n_students"] = 2
+    dumped = with_findings(dump_doc(make_synthetic_aggregates()))
+    dumped["sections"]["trends"]["per_window"]["2025S"]["findings"][1]["current"]["n_students"] = 2
     with pytest.raises(PublishGuardError) as exc:
         _assert_floor_respected(dumped, 3)
     # An operator hitting this at publish time needs the coordinates, not just the fact.
-    assert "sections.trends.per_window.trailing_4.findings[1].current" in str(exc.value)
+    assert "sections.trends.per_window.2025S.findings[1].current" in str(exc.value)
 
 
 def test_guard_accepts_a_measured_zero() -> None:

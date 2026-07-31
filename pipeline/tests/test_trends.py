@@ -19,7 +19,7 @@ from statsboteval_pipeline.trends import (
 from statsboteval_pipeline.windows import build_windows
 
 # W20 2025 falls in 2025S (Thursday 15 May), W45 in 2025W (Thursday 6 Nov), so this axis
-# publishes two semesters plus all_time and trailing_4.
+# publishes two semesters plus all_time, and each semester's slices.
 TWO_SEMESTERS = weeks_range("2025-W20", "2025-W45")
 ONE_SEMESTER = weeks_range("2025-W20", "2025-W25")
 
@@ -148,19 +148,21 @@ def test_semester_compares_against_the_previous_semester() -> None:
     assert baseline.window_id == "2025S"
 
 
-def test_trailing_window_compares_against_the_preceding_four_weeks() -> None:
+def test_semester_slices_are_not_assessed_at_all() -> None:
+    """D-56 deferred slice pairing with the hidden Trends tab — this pins the deferral.
+
+    The rule it guards is not "we haven't got round to it": _pair_for's old trailing branch
+    would have handed a slice the tail of the axis as its baseline, which across a break is
+    weeks nobody was in class for. Findings are floor-checked and published whether or not
+    a tab renders them, so a slice that silently acquires a baseline is wrong output, not a
+    missing feature. Deciding slice pairing is the first task of un-hiding Trends.
+    """
     ids = Ids()
     msgs = spread(ids, TWO_SEMESTERS, students=10, per_student=5)
-    baseline = run(msgs, axis=TWO_SEMESTERS)["trailing_4"].baseline  # type: ignore[attr-defined]
-    assert baseline.kind == "weeks"
-    assert (baseline.from_, baseline.through) == (TWO_SEMESTERS[-8], TWO_SEMESTERS[-5])
-
-
-def test_trailing_window_needs_eight_weeks_of_axis() -> None:
-    ids = Ids()
-    short = weeks_range("2025-W20", "2025-W25")  # six weeks
-    msgs = spread(ids, short, students=10, per_student=5)
-    assert run(msgs, axis=short)["trailing_4"].baseline is None  # type: ignore[attr-defined]
+    per_window = run(msgs, axis=TWO_SEMESTERS)
+    slices = [w.id for w in build_windows(TWO_SEMESTERS) if w.kind == "semester_slice"]
+    assert slices, "the axis must actually publish slices for this to prove anything"
+    assert [wid for wid in slices if wid in per_window] == []
 
 
 def test_all_time_needs_two_semesters_for_a_trajectory() -> None:
@@ -173,11 +175,14 @@ def test_all_time_needs_two_semesters_for_a_trajectory() -> None:
     assert two["all_time"].baseline.kind == "trajectory"  # type: ignore[attr-defined]
 
 
-def test_every_published_window_gets_an_entry() -> None:
+def test_every_selectable_period_gets_an_entry() -> None:
+    # Semesters and all_time, i.e. every window trends actually assesses (see above).
     ids = Ids()
     msgs = spread(ids, TWO_SEMESTERS, students=10, per_student=5)
     per_window = run(msgs, axis=TWO_SEMESTERS)
-    assert set(per_window) == {w.id for w in build_windows(TWO_SEMESTERS)}
+    assert set(per_window) == {
+        w.id for w in build_windows(TWO_SEMESTERS) if w.kind != "semester_slice"
+    }
 
 
 # --- the gate -------------------------------------------------------------------------

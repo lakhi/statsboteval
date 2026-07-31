@@ -25,13 +25,13 @@ from statsboteval_pipeline.contract import (
     Sections,
     SemesterProfile,
     SemesterProfilePoint,
+    SemesterSliceWindow,
     SemesterWindow,
     SessionsSection,
     SessionsWindow,
     TemporalUsage,
     TemporalUsageWeekly,
     TemporalUsageWindow,
-    TrailingWindow,
     TrendsSection,
     TrendsWindow,
     UsageContext,
@@ -47,7 +47,9 @@ from statsboteval_pipeline.contract import (
 )
 
 WEEKS = ["2025-W11", "2025-W12", "2025-W13", "2025-W14"]
-WINDOW_IDS = ("all_time", "2025S", "trailing_4")
+# 2025S runs to W26, so this axis stops mid-semester: the semester is in progress and its
+# slices are therefore "Latest", not "Final" (D-56).
+WINDOW_IDS = ("all_time", "2025S", "2025S.last4", "2025S.last1")
 
 FOOTNOTES = {
     "chat_fragmentation": Footnote(text="The credit-limit UI nudges students toward starting new chats."),
@@ -156,45 +158,60 @@ def trends() -> TrendsSection:
     trajectory against and `2025S` has no predecessor at all — both carry `baseline: null`,
     which is also what exercises the TrendsWindow serializer that reinstates the null.
     Trajectories need two semesters and are exercised by the multi-semester dev fixture.
+
+    No window here carries findings, and that is a property of the axis rather than an
+    omission: since D-56 the semester slices are excluded from the trends pass entirely,
+    and they were the only windows a single-semester axis could have paired. Tests that
+    need a populated findings array inject `sample_trends_entry()` below.
     """
     return TrendsSection(
         per_window={
             "all_time": TrendsWindow(baseline=None),
             "2025S": TrendsWindow(baseline=None),
-            "trailing_4": TrendsWindow(
-                baseline={"kind": "weeks", "from": "2025-W11", "through": "2025-W12"},
-                findings=[
-                    {
-                        "id": "language-de-share",
-                        "tab": "language",
-                        "title": "German share of messages fell",
-                        "measure": "German share of messages",
-                        "kind": "share",
-                        "unit": "% of messages",
-                        "current": {"value": 48.1, "n_students": 12},
-                        "baseline": {"value": 61.8, "n_students": 9},
-                        "delta": -13.7,
-                        "evidence": "robust",
-                        "method": "two-proportion z, BH-adjusted",
-                        "footnote_ids": ["trend_method", "language_heuristic"],
-                    },
-                    {
-                        "id": "engagement-messages-per-session",
-                        "tab": "engagement",
-                        "title": "Messages per conversation rose",
-                        "measure": "Median messages per conversation",
-                        "kind": "median",
-                        "unit": "messages",
-                        "current": {"value": 3.0, "n_students": 12},
-                        "baseline": {"value": 2.0, "n_students": 9},
-                        "delta": 1.0,
-                        "evidence": "indicative",
-                        "method": "Mann-Whitney U (normal approximation)",
-                        "footnote_ids": ["trend_method", "chat_fragmentation"],
-                    },
-                ],
-            ),
         }
+    )
+
+
+def sample_trends_entry() -> TrendsWindow:
+    """A populated findings array, for tests about *handling* findings.
+
+    Deliberately not part of make_synthetic_aggregates(): this 4-week single-semester axis
+    produces no findings at all (see `trends` above), and a fixture that quietly published
+    some would be asserting something the pipeline cannot do. The publish guard walks
+    dumped dicts and does not care where they came from, so it injects this instead.
+    """
+    return TrendsWindow(
+        baseline={"kind": "window", "window_id": "all_time"},
+        findings=[
+            {
+                "id": "language-de-share",
+                "tab": "language",
+                "title": "German share of messages fell",
+                "measure": "German share of messages",
+                "kind": "share",
+                "unit": "% of messages",
+                "current": {"value": 48.1, "n_students": 12},
+                "baseline": {"value": 61.8, "n_students": 9},
+                "delta": -13.7,
+                "evidence": "robust",
+                "method": "two-proportion z, BH-adjusted",
+                "footnote_ids": ["trend_method", "language_heuristic"],
+            },
+            {
+                "id": "engagement-messages-per-session",
+                "tab": "engagement",
+                "title": "Messages per conversation rose",
+                "measure": "Median messages per conversation",
+                "kind": "median",
+                "unit": "messages",
+                "current": {"value": 3.0, "n_students": 12},
+                "baseline": {"value": 2.0, "n_students": 9},
+                "delta": 1.0,
+                "evidence": "indicative",
+                "method": "Mann-Whitney U (normal approximation)",
+                "footnote_ids": ["trend_method", "chat_fragmentation"],
+            },
+        ],
     )
 
 
@@ -250,18 +267,28 @@ def make_synthetic_aggregates() -> Aggregates:
         pipeline_version="0.1.0",
         windows=[
             AllTimeWindow(
-                kind="all_time", id="all_time", label="All time",
+                kind="all_time", id="all_time", label="All time", short_label="All time",
                 coverage={"from": "2025-W11", "through": "2025-W14"},
             ),
             SemesterWindow(
-                kind="semester", id="2025S", label="Summer semester 2025",
+                kind="semester", id="2025S", label="Summer semester 2025", short_label="Whole semester",
                 start_date=date(2025, 3, 1), end_date=date(2025, 6, 30),
                 weeks=weeks_range("2025-W10", "2025-W26"),
                 coverage={"from": "2025-W11", "through": "2025-W14"},
             ),
-            TrailingWindow(
-                kind="trailing", id="trailing_4", label="Last Avl. 4 weeks",
-                weeks=WEEKS, coverage={"from": "2025-W11", "through": "2025-W14"},
+            # semester_weeks counts from W10, the semester's first *member* week, which the
+            # axis does not reach — so the slices start at teaching week 2, not week 1.
+            SemesterSliceWindow(
+                kind="semester_slice", id="2025S.last4", label="Latest 4 weeks · SS 2025",
+                short_label="Latest 4 weeks", parent_window_id="2025S",
+                weeks=WEEKS, semester_weeks=[2, 5],
+                coverage={"from": "2025-W11", "through": "2025-W14"},
+            ),
+            SemesterSliceWindow(
+                kind="semester_slice", id="2025S.last1", label="Latest week · SS 2025",
+                short_label="Latest week", parent_window_id="2025S",
+                weeks=["2025-W14"], semester_weeks=[5, 5],
+                coverage={"from": "2025-W14", "through": "2025-W14"},
             ),
         ],
         dayparts=DAYPARTS,

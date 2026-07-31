@@ -87,7 +87,7 @@ export function weekRangeLabel(week: string): string {
 }
 
 /** Below this many points, month anchors risk labelling nothing, so every tick
- *  gets its Monday date instead. trailing_4 (4 points) is the case in hand. */
+ *  gets its Monday date instead. A four-week slice (4 points) is the case in hand. */
 export const SHORT_AXIS_POINTS = 8;
 
 /** "02 Mar 26"; `longYear` gives "02 Mar 2026". Reads UTC fields — pair it with
@@ -100,7 +100,7 @@ export function formatDay(d: Date, { longYear = false }: { longYear?: boolean } 
 
 /** The selected window's span as calendar dates: Monday of its first covered
  *  week → Sunday of its last. `coverage` is the only date source every window
- *  kind has (all_time and trailing publish no start_date/end_date), and the
+ *  kind has (all_time and semester slices publish no start_date/end_date), and the
  *  pipeline has already clipped it to the published axis — so an in-progress
  *  window's end date can never run past the data. */
 export const formatWindowRange = (win: AnyWindow): string =>

@@ -164,17 +164,30 @@ export type Through1 = string;
 export type Id2 = string;
 export type Kind5 = "all_time";
 export type Label3 = string;
+export type ShortLabel = string | null;
 export type EndDate = string;
 export type Id3 = string;
 export type Kind6 = "semester";
 export type Label4 = string;
+export type ShortLabel1 = string | null;
 export type StartDate = string;
 export type Weeks = string[];
 export type Id4 = string;
-export type Kind7 = "trailing";
+export type Kind7 = "semester_slice";
 export type Label5 = string;
+export type ParentWindowId = string;
+/**
+ * @minItems 2
+ * @maxItems 2
+ */
+export type SemesterWeeks = [number, number];
+export type ShortLabel2 = string;
 export type Weeks1 = string[];
-export type Windows = (AllTimeWindow | SemesterWindow | TrailingWindow)[];
+export type Id5 = string;
+export type Kind8 = "trailing";
+export type Label6 = string;
+export type Weeks2 = string[];
+export type Windows = (AllTimeWindow | SemesterWindow | SemesterSliceWindow | TrailingWindow)[];
 
 /**
  * Root of the aggregates file. Shape law lives here; semantics in docs/aggregates-contract.md.
@@ -634,6 +647,7 @@ export interface AllTimeWindow {
   id: Id2;
   kind: Kind5;
   label: Label3;
+  short_label?: ShortLabel;
   [k: string]: unknown;
 }
 export interface Coverage {
@@ -647,15 +661,63 @@ export interface SemesterWindow {
   id: Id3;
   kind: Kind6;
   label: Label4;
+  short_label?: ShortLabel1;
   start_date: StartDate;
   weeks: Weeks;
   [k: string]: unknown;
 }
-export interface TrailingWindow {
+/**
+ * The closing stretch of one semester (1.8.0, D-56).
+ *
+ * Replaces `TrailingWindow`, which was anchored on the axis and therefore advanced with
+ * extraction whether or not anyone was in class — across a break it drifted into weeks
+ * holding almost nothing, which is where "recent" was least useful and most looked at.
+ * A slice is anchored inside its semester instead, so during teaching weeks it is exactly
+ * what the trailing window showed and across breaks it keeps pointing at the last weeks
+ * that meant something.
+ *
+ * `weeks` is always a contiguous tail of the parent's *covered* weeks, so the id is stable
+ * forever once the semester ends — `2026S.last1` names the same span in every later
+ * publish, which `trailing_4` never did.
+ */
+export interface SemesterSliceWindow {
   coverage: Coverage;
   id: Id4;
   kind: Kind7;
   label: Label5;
+  parent_window_id: ParentWindowId;
+  semester_weeks: SemesterWeeks;
+  short_label: ShortLabel2;
   weeks: Weeks1;
+  [k: string]: unknown;
+}
+/**
+ * DEPRECATED, unemitted since 1.8.0 (D-56) — kept so the *previous* publish still parses.
+ *
+ * Semester slices replaced this window, and deleting the member outright looked free
+ * because nothing produces one. It is not: the API validates every blob it fetches
+ * against the schema it ships with (contract §11), so the moment a 1.8.0 API met the
+ * 1.7.0 document already sitting in the blob, `kind: "trailing"` would match no member of
+ * the union and the dashboard would go down with a 500 — until the new blob was uploaded,
+ * with no safe order to do the two halves in.
+ *
+ * So it stays for one release. Remove it once no reachable blob contains one, which
+ * includes the rollback target.
+ *
+ * What this does and does not buy, stated exactly, because the difference matters when
+ * someone is reading it under pressure: it makes the *deploy* safe in one direction —
+ * ship the bundle and API first, and the 1.7.0 document already in the blob keeps
+ * parsing, so there is no window where the site is down waiting for the upload. It does
+ * NOT make a rollback free once the 1.8.0 blob has been uploaded: a rolled-back 1.7.0 API
+ * cannot parse `semester_slice`, so after publishing, reverting the code means restoring
+ * the previous blob in the same move. Blobs are immutable and versioned, so that is
+ * available — it is a step to remember, not a trap.
+ */
+export interface TrailingWindow {
+  coverage: Coverage;
+  id: Id5;
+  kind: Kind8;
+  label: Label6;
+  weeks: Weeks2;
   [k: string]: unknown;
 }

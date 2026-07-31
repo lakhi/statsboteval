@@ -6,7 +6,7 @@
 // in a pill: keyboard/screen-reader behavior for free, styled to match.
 
 import type { Aggregates } from "@/lib/aggregates.gen";
-import { groupedWindows, isInProgress } from "@/lib/windows";
+import { groupedWindows, optionLabel } from "@/lib/windows";
 
 export function WindowPicker({
   doc,
@@ -39,10 +39,14 @@ export function WindowPicker({
       >
         {groups.map((group) => (
           <optgroup key={group.label} label={group.label}>
+            {/* short_label, not label: the group heading already names the semester, so
+                the option says only which lens on it this is ("Whole semester", "Final 4
+                weeks"). The self-contained `label` is what the page prints into sentences.
+                "(in progress)" now rides on the heading — it describes the semester, not
+                one lens on it, and repeating it on three options read as three claims. */}
             {group.windows.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.label}
-                {isInProgress(w) ? " (in progress)" : ""}
+                {optionLabel(w)}
               </option>
             ))}
           </optgroup>

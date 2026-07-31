@@ -136,7 +136,9 @@ def test_semester_profile_must_reference_a_semester_window() -> None:
     doc = make_synthetic_aggregates()
 
     def repoint(dumped: dict) -> None:
-        dumped["sections"]["temporal_usage"]["semester_profiles"][0]["window_id"] = "trailing_4"
+        # A real registry window that is not a semester — the profile overlay indexes
+        # teaching weeks, so only a whole semester can carry one.
+        dumped["sections"]["temporal_usage"]["semester_profiles"][0]["window_id"] = "2025S.last1"
 
     with pytest.raises(ValidationError, match="not a semester window"):
         rebuild(doc, repoint)

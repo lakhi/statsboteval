@@ -137,13 +137,13 @@ def test_run_synthetic_with_labels_publishes_topics(tmp_path: Path) -> None:
     # proof that a shift survives seeding, aggregation and the publish guard; labelling
     # dominates the runtime, so the suite pays for exactly one corpus of this size.
     per_window = doc["sections"]["trends"]["per_window"]
-    assert set(per_window) == {w["id"] for w in doc["windows"]}
+    # Slices carry no trends entry (D-56); everything selectable above them does.
+    assert set(per_window) == {w["id"] for w in doc["windows"] if w["kind"] != "semester_slice"}
     semesters = [w["id"] for w in doc["windows"] if w["kind"] == "semester"]
     assert len(semesters) >= 2, "40 weeks should always cover two semesters"
 
     assert per_window[semesters[0]]["baseline"] is None  # earliest: no predecessor
     assert per_window[semesters[0]]["findings"] == []
-    assert per_window["trailing_4"]["baseline"]["kind"] == "weeks"
     assert per_window["all_time"]["baseline"] == {"kind": "trajectory"}
 
     latest = per_window[semesters[-1]]["findings"]
@@ -339,9 +339,9 @@ def test_preview_trends_prints_the_candidate_table(
 def test_preview_trends_can_restrict_to_one_window(
     two_semester_corpus: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert cli.main(["preview-trends", "--corpus", str(two_semester_corpus), "--window", "trailing_4"]) == 0
+    assert cli.main(["preview-trends", "--corpus", str(two_semester_corpus), "--window", "2025S"]) == 0
     printed = capsys.readouterr().out
-    assert "=== trailing_4" in printed
+    assert "=== 2025S" in printed
     assert "=== all_time" not in printed
 
 

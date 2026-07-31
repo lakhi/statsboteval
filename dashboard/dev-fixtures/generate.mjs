@@ -1,6 +1,6 @@
 // SYNTHETIC design fixture generator — no real student data, all numbers invented.
 // Emits a contract-v1-shaped aggregates document covering every Phase A section,
-// semester/trailing/all-time windows, and all three cell states (ok / ok:0 /
+// semester/slice/all-time windows, and all three cell states (ok / ok:0 /
 // suppressed), so the dashboard can be designed against realistic shapes before
 // the pipeline publishes them (see docs/aggregates-contract.md).
 //
@@ -87,38 +87,97 @@ for (const [i, monday] of mondays.entries()) {
   if (!semesters.has(sem.id)) semesters.set(sem.id, { ...sem, weeks: [] });
   semesters.get(sem.id).weeks.push(weeks[i]);
 }
+// Full Thursday-rule membership, independent of the axis — the same rule windows.py
+// applies. Needed because teaching-week indices (semester_week, and a slice's
+// semester_weeks) count from a semester's first *member* week, which may sit before the
+// first week this fixture's axis covers. Indexing against coverage instead would slide
+// every curve in the overlay left by the number of missing opening weeks (D-54).
+function fullMembership(startISO, endISO) {
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+  const out = [];
+  let monday = addDays(start, -((start.getUTCDay() + 6) % 7));
+  while (monday <= end) {
+    const thu = addDays(monday, 3);
+    if (thu >= start && thu <= end) out.push(weekLabel(monday));
+    monday = addDays(monday, 7);
+  }
+  return out;
+}
+
 const semesterDates = {
   "2025S": ["2025-03-01", "2025-06-30"],
   "2025W": ["2025-10-01", "2026-01-31"],
   "2026S": ["2026-03-01", "2026-06-30"],
+};
+// Each semester also carries slices of its closing stretch (D-56). `short` is the
+// abbreviated semester name the slice labels read in ("SS 2025"); `running` decides
+// Latest vs Final, exactly as windows.py does it — this axis ends mid-2026S, so only that
+// semester's slices say "Latest".
+// Running = the axis stops before the semester's last member week, which is exactly the
+// contract's own in-progress rule (coverage.through < weeks.at(-1)). This fixture's axis
+// ends in a break week, so every semester in it reads "Final" — the same state the live
+// dashboard is in outside term time. The "Latest" wording is covered by the pipeline's
+// tests rather than here; move LAST_WEEK_MONDAY inside a term to see it on the page.
+const isRunning = (s) => s.weeks.at(-1) < members(s).at(-1);
+const members = (s) => fullMembership(...semesterDates[s.id]);
+const shortName = (s) => (s.id.endsWith("S") ? `SS ${s.id.slice(0, 4)}` : `WS ${s.id.slice(0, 4)}/${(Number(s.id.slice(0, 4)) + 1) % 100}`);
+const sliceFor = (s, take, suffix, noun) => {
+  const held = s.weeks.slice(-take);
+  const short = `${isRunning(s) ? "Latest" : "Final"} ${noun(held.length)}`;
+  return {
+    id: `${s.id}.${suffix}`,
+    kind: "semester_slice",
+    label: `${short} · ${shortName(s)}`,
+    short_label: short,
+    parent_window_id: s.id,
+    weeks: held,
+    semester_weeks: [members(s).indexOf(held[0]) + 1, members(s).indexOf(held.at(-1)) + 1],
+    coverage: { from: held[0], through: held.at(-1) },
+  };
 };
 const windows = [
   {
     id: "all_time",
     kind: "all_time",
     label: "All time",
+    short_label: "All time",
     coverage: { from: weeks[0], through: weeks.at(-1) },
   },
-  ...[...semesters.values()].map((s) => ({
-    id: s.id,
-    kind: "semester",
-    label: s.label,
-    start_date: semesterDates[s.id][0],
-    end_date: semesterDates[s.id][1],
-    weeks: s.weeks,
-    coverage: { from: s.weeks[0], through: s.weeks.at(-1) },
-  })),
-  {
-    id: "trailing_4",
-    kind: "trailing",
-    label: "Last 4 weeks",
-    weeks: weeks.slice(-4),
-    coverage: { from: weeks.at(-4), through: weeks.at(-1) },
-  },
+  ...[...semesters.values()].flatMap((s) => [
+    {
+      id: s.id,
+      kind: "semester",
+      label: s.label,
+      short_label: "Whole semester",
+      start_date: semesterDates[s.id][0],
+      end_date: semesterDates[s.id][1],
+      // Full membership, not the covered weeks: `coverage` below is what clips to the
+      // axis. Publishing coverage here made the fixture disagree with itself — a slice's
+      // semester_weeks counts from the semester's first *member* week, so the index and
+      // the list it indexes into started one week apart (contract._check_windows catches
+      // exactly this, and nothing ran the fixture through it).
+      weeks: members(s),
+      coverage: { from: s.weeks[0], through: s.weeks.at(-1) },
+    },
+    sliceFor(s, 4, "last4", (n) => `${n} weeks`),
+    sliceFor(s, 1, "last1", () => "week"),
+  ]),
 ];
 
 // Distinct students per window (invented; NOT sums of weekly counts).
-const windowStudents = { all_time: 118, "2025S": 61, "2025W": 74, "2026S": 66, trailing_4: 4 };
+const windowStudents = {
+  all_time: 118,
+  "2025S": 61,
+  "2025S.last4": 24,
+  "2025S.last1": 9,
+  "2025W": 74,
+  "2025W.last4": 31,
+  "2025W.last1": 12,
+  "2026S": 66,
+  "2026S.last4": 27,
+  "2026S.last1": 4,
+};
 const rowsFor = (id) => {
   const w = windows.find((x) => x.id === id);
   const member = w.weeks ? new Set(w.weeks) : null;
@@ -200,7 +259,7 @@ function semesterProfiles() {
       window_id: w.id,
       label: w.label,
       kind: w.id.endsWith("S") ? "summer" : "winter",
-      points: w.weeks
+      points: fullMembership(w.start_date, w.end_date)
         .map((week, i) => ({ week, i: i + 1, row: byWeek.get(week) }))
         .filter((p) => p.row)
         .map((p) => ({
@@ -305,7 +364,7 @@ function topicGroup(id, statusShare, { withStatusRule = false, withEmergent = tr
   };
 }
 
-// trailing_4 omitted -> exercises the topics WindowGap state; 2025S omits
+// The one-week slices are omitted -> exercises the topics WindowGap state; 2025S omits
 // emergent_themes -> exercises the per-card absent state. Staff share is small
 // enough to suppress in the smaller windows; "unknown" published only where
 // non-empty (all_time).
@@ -313,7 +372,7 @@ const statusShares = { bachelor: 0.36, master: 0.5, staff: 0.06 };
 const topics = {
   per_window: Object.fromEntries(
     Object.keys(windowStudents)
-      .filter((id) => id !== "trailing_4")
+      .filter((id) => !id.endsWith(".last1"))
       .map((id) => {
         const withEmergent = id !== "2025S";
         return [
@@ -427,13 +486,10 @@ const trends = {
       ],
     },
 
-    // The off-season state: a baseline exists, but nothing was testable. Roughly a third
-    // of the year is break weeks, so this is what the tab shows for months at a time.
-    "trailing_4": {
-      baseline: { kind: "weeks", from: weeks.at(-8), through: weeks.at(-5) },
-      insufficient_data: true,
-      findings: [],
-    },
+    // NOTE: the "baseline exists but nothing was testable" state (insufficient_data) lost
+    // its home when trailing_4 went away (D-56) — it was the window that sat in break weeks
+    // for months. Semester slices carry no trends entry at all, so no window in this
+    // fixture exercises that branch today. Restore one here if Trends is un-hidden.
 
     // Trajectories: one point per semester, so the card draws a slope rather than a delta.
     all_time: {
@@ -483,7 +539,7 @@ const trends = {
 };
 
 const doc = {
-  schema_version: "1.7.0",
+  schema_version: "1.8.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),
@@ -562,6 +618,9 @@ const doc = {
       text: "Volume measures are compared per covered week, so periods of unequal length stay comparable.",
     },
     enrollment_source: { text: "Enrolled totals come from SSC-Psych records." },
+    reach_window_scope: {
+      text: "Reach is measured against the enrolled cohort of the semester this window belongs to, so in a shorter window it reads as the share of that cohort active during those weeks — not over the whole term.",
+    },
     enrollment_scope: {
       text: "The totals include all enrolled bachelor/master students, whereas only the first-year students take the statistics course — data for how many first-year students take it across instructors is not available.",
     },
@@ -773,7 +832,7 @@ const doc = {
       }),
     },
     tokens: {
-      // trailing_4 deliberately omitted → exercises the "no rollup for this
+      // One-week slices deliberately omitted → exercises the "no rollup for this
       // window" state in the dashboard.
       per_window: perWindow(
         (id) => ({
@@ -785,7 +844,7 @@ const doc = {
             { median: 312.0, p25: 148.0, p75: 495.0, mean: 356.2, sd: 248.9 },
           ),
         }),
-        Object.keys(windowStudents).filter((id) => id !== "trailing_4"),
+        Object.keys(windowStudents).filter((id) => !id.endsWith(".last1")),
       ),
     },
     language: {
