@@ -82,6 +82,15 @@ staff) is enrollment-type data in this sense. Handling rules (decision D-39):
 5. Assessed 2026-07-18: the keying choice is internal data-handling within the approved
    linkage — no new data category, purpose, or recipient — and therefore not a content
    amendment requiring re-submission to the committee.
+6. **Enrolled-cohort totals are repo-eligible; the lists they come from are not**
+   (2026-07-31, D-55). `pipeline/cohort_totals.json` holds six numbers — how many bachelor
+   and master students were enrolled in each published semester — derived from the SSC-Psych
+   roster Excels and committed to this public repo. This does not weaken rule 1: an
+   institutional headcount is aggregate, non-identifying, describes no student in the
+   corpus, and is published on the dashboard regardless. The Excels themselves, and every
+   uid in them, stay on the password-protected medium as before. Derivation happens in the
+   roster session beside the lists; this repo records only the resulting counts, never
+   re-derives them, exactly as D-39 set up for the status CSV.
 
 ## Accepted residual risk — repeated releases
 

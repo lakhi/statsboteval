@@ -207,10 +207,41 @@ Initial catalog:
 | `trend_method` | how a trend is selected: gate (floor, size, effect, BH-adjusted p) then relevance ranking; census framing (schema 1.3.0 — D-49) |
 | `per_week_rate` | volume measures compared per covered week; within-period seasonality not corrected, in-progress periods averaged over weeks so far (schema 1.3.0) |
 | `cohort_turnover` | each semester draws a largely different cohort; a between-semester change may reflect who enrolled (schema 1.3.0) |
+| `enrollment_source` | enrolled totals come from SSC-Psych records (schema 1.7.0 — D-55) |
+| `enrollment_scope` | the enrolled totals cover all bachelor/master students, whereas only the first-year students take the statistics course; per-instructor first-year numbers are unavailable (schema 1.7.0 — D-55) |
+| `level_scope` | the figure covers every program level; the program-level filter does not narrow it (schema 1.7.0 — D-55) |
 
 Adding a footnote or attaching an existing id to a metric is additive.
 
-### 6.3 Dayparts (schema 1.6.0 — D-54)
+### 6.3 `enrollment` — enrolled-cohort denominators (schema 1.7.0 — D-55)
+
+```json
+"enrollment": { "per_window": { "2026S": {
+    "bachelor": 2012, "master": 1455,
+    "source": "SSC-Psych roster lists (bachelor_and_master_students_mar_2026, typed)",
+    "as_of": "2026-03-01" } } }
+```
+
+Top-level, **outside `sections`**, and carrying plain integers rather than `CountCell`s.
+It is not a measurement: nothing here passes `floored_count` because there is nothing to
+floor — an institutional headcount is not a count over students who wrote messages, and
+dressing it as a cell would invite exactly that misreading. `source` and `as_of` name the
+roster snapshot so a published number can be traced back.
+
+**Semester windows only** (validated): `all_time` spans three semesters of cohort turnover
+and `trailing_4` is a rolling 4-week slice, so neither has a defensible denominator. The
+dashboard states that in words rather than drawing an empty card.
+
+Keys are clipped at build time to the semester windows the registry actually built, so a
+stale entry in the hand-maintained table can never introduce an unknown window id. The
+table lives at `pipeline/cohort_totals.json`; the identifier-bearing roster lists it was
+derived from stay outside the repo (D-39 custody, `docs/ethics/data-handling.md`).
+
+Reach — active students ÷ enrolled — is display math over one published cell and one
+enrollment integer, and is defined for `bachelor` and `master` only: staff are not
+enrolled and `unknown` has no cohort by definition.
+
+### 6.4 Dayparts (schema 1.6.0 — D-54)
 
 Named blocks of the day that `daypart_heatmap` and `daypart_totals` key on. `from_hour` is
 inclusive, `to_hour` exclusive, and the registry must tile 0..24 contiguously — so nothing
@@ -661,8 +692,9 @@ remains a major break.
 
 - **Segmentation** (per-course via `lv`, program level via `Status`): cohort-wide only —
   **partly reversed.** Program level arrived exactly as predicted, "as additive dimensions
-  inside sections": `topics.by_status` in schema 1.1.0 (D-39) and `usage_context.by_status`
-  in 1.4.0 (D-50), both fed by the roster import rather than by `Status`. Per-course
+  inside sections": `topics.by_status` in schema 1.1.0 (D-39), `usage_context.by_status`
+  in 1.4.0 (D-50), and every remaining section in 1.7.0 (D-55) — all fed by the roster
+  import rather than by `Status`. Per-course
   segmentation stays deferred — `students.lv` does not exist in production
   (`source-data-dictionary.md`), so it is not deferred but impossible.
 - **`trailing_1` window** (last-week heatmap/distributions): additive when wanted; heavy

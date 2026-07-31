@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "Enrolled-cohort denominators per semester window (D-55). Aggregate headcounts only —",
+    "these are institutional totals, not measurements over our students, and nothing here",
+    "passes the privacy floor because there is nothing to floor. The SSC-Psych roster lists",
+    "they were derived from live outside this repo and must never enter it (D-39 custody).",
+    "",
+    "Method: the two combined snapshots carry no program column, so each uid is typed",
+    "against the union of the typed lists and, for a uid in both a BA and an MA list, by the",
+    "same usage-time rule status.resolve_status applies in the pipeline (Master",
+    "Beginnsemester: S -> Mar 1, W -> Oct 1). Using a different rule here would put the",
+    "numerator and the denominator on different definitions of 'master'. Untyped residual",
+    "is 1.6% and is excluded from both levels.",
+    "",
+    "Refresh: re-derive when a new roster snapshot arrives, in the roster-derivation session",
+    "beside the Excels — this repo only records the resulting counts."
+  ],
+  "per_window": {
+    "2025S": {
+      "bachelor": 2011,
+      "master": 1469,
+      "source": "SSC-Psych roster lists (bachelor_students_apr_2025, master_students_mar_2025)",
+      "as_of": "2025-04-01"
+    },
+    "2025W": {
+      "bachelor": 2196,
+      "master": 1444,
+      "source": "SSC-Psych roster lists (bachelor_and_master_students_nov_2025, typed)",
+      "as_of": "2025-11-01"
+    },
+    "2026S": {
+      "bachelor": 2012,
+      "master": 1455,
+      "source": "SSC-Psych roster lists (bachelor_and_master_students_mar_2026, typed)",
+      "as_of": "2026-03-01"
+    }
+  }
+}

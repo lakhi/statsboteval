@@ -1455,3 +1455,156 @@ loudly about a publish that worked.
 measured with a hand-picked `axis_start` of 2025-02-24; `run-weekly` defaults to
 **2025-03-01**, which excludes four days of week 09 — 3,528 published messages, not 3,552.
 Every table in this entry and in the plan now quotes the built document.
+
+## D-55 — 2026-07-31: Program level becomes a global filter; enrolled-cohort reach; Trends hidden; schema 1.7.0
+
+Program level had been in the corpus since D-39 and wired into **Topics** (1.1.0) plus a
+two-measure Adoption card (1.4.0). It was reachable only from a control *inside* the
+Topics panel, one level at a time, so four of six tabs could not answer "and what about
+the bachelors?" at all. Separately, every count on the page was an absolute with no
+denominator: "66 active bachelor students" is unreadable without knowing whether that is
+66 out of 100 or out of 2,000.
+
+**Decided (owner, this session):**
+
+- **The filter is global**, in the header bar beside the window picker, under two binding
+  conditions: the header sentence names the active level, and every tab either honours the
+  filter or says in words why its scope differs. Chosen over per-tab independent state
+  after weighing both: per-tab granularity would leave the dashboard with no single
+  "current view" to screenshot or link, and would silently falsify the cross-tab claims
+  the copy already makes (Timing points at Adoption's Active users; Language divides by
+  Adoption's message total). The comparison need that motivated per-tab state is served by
+  faceting instead — see the level cards below. This follows the analytics-dashboard
+  convention that scope controls are global, persistent and always visible, with view-local
+  controls reserved for what only makes sense in that view.
+- **All four levels** (bachelor, master, staff, unknown-when-present) plus *All users*
+  last. **Bachelor is first and the default on the live public dashboard**, deliberately:
+  the bachelor cohort is the primary audience. Because the default is a subset, naming it
+  in the header is not decoration — it is what stops a reader who never touches the control
+  from taking a subset for the whole.
+- **A "By program level" card on every tab, under *All users* only.** Adoption compares
+  counts and shares; Engagement compares medians and the tried-once share; Timing and
+  Language compare within-level profiles; Topics gets an emergent-themes × levels matrix —
+  the one comparison a filter-flip genuinely cannot substitute for, because fifteen themes
+  across four levels is past what anyone holds across two clicks.
+- **Three percentages, each naming its denominator in the column header.** Share of window
+  (composition), within-level share (profile, so groups of very different size stay
+  comparable), and reach (actives ÷ enrolled). Conflating them is the main failure mode;
+  reach is a *student* measure and therefore never appears on a message-level card.
+- **Adoption's "New registrations per week" chart is removed** (owner): a registration does
+  not imply a message and the chart could not say so. The paired *New signups* tile stays —
+  it shows "signed up" beside "sent at least 1 msg", which is the honest form of the same
+  fact. Consequence: since a signup has no session, the D-39 usage-time rule cannot resolve
+  its level, so that tile renders under *All users* only rather than showing an unscoped
+  number under a level filter. No extension of the D-39 rule to `registered_at` was needed.
+- **Trends is hidden, not deleted** — off the tab strip, still reachable at `?tab=trends`
+  via a `hidden` flag on the tab registry. Its findings are pipeline-selected cohort-wide,
+  so it renders under *All users* only.
+- **Secondary suppression is deferred** (owner, explicitly). Messages partition exactly
+  across levels and the window total is published, so wherever one level falls sub-floor
+  while the others clear it, `bachelor = total − master − staff` recovers the suppressed
+  cell. This is D-50's complementary-suppression shape generalised to a three-way
+  partition. It is **latent, not live** — no window in the current corpus has a sub-floor
+  status group — but expanding `by_status` across five sections multiplies the surface.
+  The fix is standard practice (primary + secondary suppression: suppress the smallest
+  published group in the partition too). Revisit when a publish first produces a sub-floor
+  level group; `test_level_messages_sum_to_the_window_total` documents the arithmetic.
+
+**Enrolled-cohort denominators.** Derived locally from the SSC-Psych roster Excels
+(counts only; no identifier left the password-protected medium, and the lists stay outside
+the repo per D-39 custody):
+
+| window | BA enrolled | MA enrolled | BA reach | MA reach |
+|---|---:|---:|---:|---:|
+| 2025S | 2,011 | 1,469 | 63 → 3.1% | 112 → 7.6% |
+| 2025W | 2,196 | 1,444 | 16 → 0.7% | 64 → 4.4% |
+| 2026S | 2,012 | 1,455 | 66 → 3.3% | 58 → 4.0% |
+
+The two combined snapshots (`nov_2025`, `mar_2026`) carry no program column; each uid is
+typed against the union of the typed lists and, for a uid in both a BA and an MA list, by
+**the same usage-time rule `resolve_status` applies in the pipeline**. Using a different
+rule would put numerator and denominator on different definitions of "master". Untyped
+residual 1.6%, excluded from both levels. Three independently-produced snapshots typed
+through an independently-built union land within a few percent across 18 months, and the
+pipeline's own numerators reproduce the reach table exactly — the cross-check that says
+the method holds. The 2025W bachelor figure is a real finding, not noise: bachelors only
+got access 2025-05-16 and statistics is a summer-semester subject.
+
+Stored as **`pipeline/cohort_totals.json`, committed** — a handful of aggregate
+institutional headcounts, needing no pepper and no corpus lock, diffable in the go-live
+review gate. Chosen over a git-ignored CSV plus an import command and a corpus table.
+`docs/ethics/data-handling.md` records the boundary: aggregate cohort sizes are
+repo-eligible, the lists they come from are not. Published as a **top-level `enrollment`
+block, outside `sections`** — it is not a measurement, never passes `floored_count`
+because there is nothing to floor, and dressing an institutional headcount as a CountCell
+would invite exactly that misreading. **Semester windows only**: all_time spans three
+semesters of cohort turnover and trailing_4 is a rolling 4-week slice.
+
+Both notes ride along wherever an enrolled total appears: provenance ("Enrolled totals come
+from SSC-Psych records") and scope — *the totals include all enrolled bachelor/master
+students, whereas only the first-year students take the statistics course; data for how
+many first-year students take it across instructors is not available* (owner wording).
+The second is load-bearing: an educator reading "3.3% of enrolled bachelor students"
+against their own lecture hall would otherwise conclude the tool failed.
+
+**Also in this bump — the summary-statistics `n` fix.** `StatCallout` printed
+`n = 132 students · 414 sessions · median 2 · …` on session-level cards, where the median
+is over **414 conversations** and the 132 is the floor's contributing-student count. A
+reader binds the first number to *n*; in a thesis table that is an error. `n` now follows
+the unit of observation (`n = 414 conversations, from 132 students`), the median names its
+measured quantity, and the quantile definition (`quantile_type2`, R type 2 — why *Weeks
+active* reads "median 1.5" on integer data) is stated on hover.
+
+**Schema 1.7.0** (additive; a 1.6.0 document still validates and 1.6.0 readers ignore the
+new fields): `by_status` on temporal_usage / sessions / per_student / language per-window
+entries, `weekly_by_status` on temporal_usage and language, a widened
+`usage_context.by_status` (sessions, new/returning, user_classes), and the `enrollment`
+block. `activity_heatmap` is deliberately **not** split — unrendered since D-54 and 44 KB
+per copy. Key validation moved to a single root-level walk (`_check_status_keys`) rather
+than six copies of the validator `TopicsWindowEntry` has carried since 1.1.0.
+
+Verified before publish: every cohort-wide number in the rebuilt production document is
+**byte-identical** to the last published one, so the aggregation refactor changed shapes
+and nothing else. Document grows 669 KB → 1.17 MB raw, **28 KB → 43 KB gzipped**.
+Suppression under the split, measured on the real corpus at N = 3: bachelor and master hold
+up in the windows that matter (2026S bachelor 5/28 daypart cells, 1/27 histogram cells,
+0/5 summaries); staff degrades but stays legible; `trailing_4` has no bachelor activity at
+all, which is why a `LevelGap` empty state ships with this change rather than after it.
+
+**Post-review corrections (same day, before publish).** A code review of the working tree
+found ten issues; all were fixed before committing. Three are worth recording because they
+changed a decision rather than a line:
+
+1. **Absence has two causes and they mean opposite things.** Each tab was asking "does my
+   level slice exist?" and reading `undefined` as measured absence. But a section that
+   publishes no `by_status` *at all* — a pre-1.7.0 document, which is exactly what was live
+   and what a rollback restores — is a section that cannot answer, not one that measured
+   nothing. Under the Bachelor default that made Timing, Engagement and Language each
+   assert "nobody at this program level sent a message in this period", which is false.
+   `sliceByLevel` now returns `{data, scoped}` or `null`: capability-absent falls back to
+   the cohort-wide shape **and says so on screen** (`UnscopedNote`), and only a level
+   missing from a split that *is* published renders `LevelGap`. Verified against the live
+   1.6.0 blob and against the new document's real `trailing_4 × bachelor` gap.
+2. **Within-level shares divide by the level's published message total, never by a sum of
+   the cells being shown.** Summing breaks twice: one suppressed block makes the sum
+   unusable and blanks the whole row, discarding publishable numbers; normalising to the
+   surviving blocks instead would make them total 100%, which asserts the suppressed block
+   is zero — worse than saying nothing. Dayparts and languages both partition messages
+   exactly, so the published total is the honest denominator: published blocks show true
+   shares, the row visibly falls short of 100%, and the shortfall is where the suppressed
+   block went. This is what the card captions already promised.
+3. **The semester overlay now says why it does not follow the filter**, matching the New
+   signups tile. D-55's "honour the filter or say in words why your scope differs" was
+   stated as binding above and then not met by the one card that most looks broken when it
+   silently disappears.
+
+The rest were smaller: `StatCallout` and the engagement data tables leaked the contract's
+internal unit ("sessions") onto cards that say "conversation" everywhere else — fixed with
+one display map at the render boundary rather than by renaming a published field;
+`read_cohort_totals` now raises instead of silently publishing a document with no reach
+figures; the level cards pass the footnotes their daggers point at; `?tab=trends` no longer
+leaves the tab strip keyboard-unreachable or `aria-labelledby` pointing at a nonexistent
+button; and two duplications collapsed (`STATUS_ORDER`/`STATUS_LABELS` now re-export from
+`lib/levels.ts`; the cohort-wide temporal weekly block now goes through the same
+`temporal_weekly()` helper every level uses — re-aggregation confirmed byte-identical
+output).
