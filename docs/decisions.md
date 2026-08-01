@@ -2139,3 +2139,115 @@ New on the live site: signups per program level on Adoption (withheld on 2025W a
 Recent slices, per the joint partition floor), donuts on Adoption's and Language's
 part-to-whole cards, three reordered tabs, list provenance and a collapsed method note on
 Topics, and five trimmed caveats.
+
+---
+
+## D-60 — 2026-08-01: The trend lines stop breaking; the day becomes a ring; Topics reordered
+
+*Five owner requests, all display. No schema move, no re-aggregation — the published bytes
+are the D-59 document, unchanged. Deploy is the bundle half only, the first change since
+D-49 that does not need a blob.*
+
+### Suppressed weeks are bridged, not cut
+
+Since the first trend chart a suppressed week has been drawn as a hole in the line. The
+owner's objection was aesthetic — "the lines look discontinuous, it doesn't look good" —
+and the aesthetic complaint was pointing at a real failure. At this corpus size a semester
+breaks into four stubs, and a broken line reads as *damage to the chart* rather than as a
+statement about the data. It is at its worst on the semester overlay, whose entire purpose
+is comparing curve **shapes**: a fragmented semester cannot be compared with an intact one.
+
+**Nothing is disclosed by bridging.** The segment is a straight interpolation between two
+cells that were already published; it is a rendering of the absence, not a reconstruction
+of the withheld number. The floor is untouched, the blob is untouched, and the tooltip and
+data table still say `suppressed` on the week itself. What a bridge can cost is
+*interpretive*: a reader may take the bridging stroke for measured data.
+
+So the bridge is **dashed**, which is the convention that denies it. Considered and
+rejected: a plain solid connection. On the single-series Timing charts it would have been
+survivable — the gray baseline marks stay, at the owner's explicit request, and they keep
+saying which weeks are withheld. It fails on the multi-series charts, where dots are off by
+design: solid bridges there would leave suppression with **no channel at all** — no gap, no
+mark, and the note removed — and the chart would silently assert measured values. The dash
+also does something no baseline mark can: it sits on the line that owns it, so on the
+four-language chart it says *which* language was withheld. A shared mark on the zero line
+could never disambiguate that.
+
+Mechanism: two `<Line>`s on one `dataKey` — a dashed one with `connectNulls` under a solid
+one with `connectNulls={false}`. The solid stroke covers the real segments exactly, so
+dashes surface only across a gap. Recharts has no per-segment stroke API; this is the way
+to get one. `needsBridge` is shared between `TrendChart` and `SemesterOverlay` so the two
+cannot drift on what counts as a gap, and it skips the dashed twin where suppression is
+only leading or trailing — there is nothing to bridge *to*, and two coincident strokes
+fringe on subpixel boundaries wherever they are not needed.
+
+Notes changed accordingly: "Gaps in a line are suppressed weeks" is gone (there are no
+gaps), replaced by "A dashed segment spans a suppressed week". The three single-series
+Timing cards keep their key and name both channels — mark and dash.
+
+### The day becomes a ring
+
+`When during the day` was four horizontal bars. Dayparts partition the window's messages
+**exactly** (`aggregate.py` bins each message into one block; verified on the production
+2026S bachelor slice, 6 + 134 + 258 + 115 = 513 = the published messages total, and again
+on the synthetic all-time window, 5236 = 5236), which is precisely the case a part-to-whole
+ring states better than anything else. It reads against the published messages total for
+the window and level — never a client-side sum of the four cells (invariant 4).
+
+The bars are **not deleted**. They are the correct rendering in two cases the ring cannot
+handle honestly, and `DaypartFigure` picks between them:
+
+- **A suppressed block** — all-or-nothing, as on every other ring here: a ring over the
+  surviving three would show them as the whole day. Bars say "withheld" in place of one bar
+  and keep the other three readable. On the corpus today this is the common case: only
+  `all_time` publishes all four in the synthetic document, and the narrow Recent slices
+  will not either.
+- **No published messages total** for this window and level — no denominator, no shares,
+  and summing the blocks to invent one is the re-aggregation invariant 4 forbids.
+
+**The ring uses a sequential ramp, not the categorical palette.** `DaypartBars` has always
+insisted the blocks are "an ordered sequence, not four identities", which is why the bars
+take a single hue. A ring must fill four arcs, and four unrelated hues would assert exactly
+the identity the bars refuse. A light-to-dark ramp in clock order is that same claim
+rendered as color instead of as position, and the ring then reads as a clock face. The
+objection to a ramp — that darker reads as larger — does not bite here: the angle carries
+the count, and in every window we have the darkest block is not the largest. The steps are
+~1.6x apart in luminance, which separates them under CVD as well as by hue.
+
+The Mon–Fri / Sat–Sun strip survives under either figure. It is a *second* partition of the
+same messages, published as two independently floored cells, and it is the one number a
+reader would otherwise lose in the swap.
+
+### Shares inside the arcs
+
+Both donuts (Language totals, Adoption's level ring) now print each share inside its arc,
+for slices with room — below ~8% the arc is shorter than the text. The legend is unchanged
+and still carries every row, including the ones with no in-arc label; the arc label is
+`aria-hidden` so a screen reader does not hear "83% 83%".
+
+The constraint worth recording: **white is not readable on all four palette slots.**
+Measured against white, the green is 2.9:1 and the amber 2.2:1; near-black gives 6.0:1 and
+7.8:1 on the same two, while white is right on the accent (6.4:1) and the neutral (5.0:1).
+The choice flips twice across four hues, so it cannot be a `fill="white"` at the draw site.
+`lib/palette.ts` is the one table — `inkOn(fill)` — and it covers the daypart ramp too.
+This is the failure mode that survives review: three of four slices look fine.
+
+### Two smaller ones
+
+- **Language card symmetry.** The grid was 2:3, and the donut card was also visibly
+  *shorter* than its neighbour — `ChartCard`'s `<section>` sat inside a `col-span` wrapper,
+  and the wrapper stretched while the section did not. Even split plus `h-full` on the card
+  shell. The even pair is also what gives the ring room for its in-arc labels.
+- **Topics order and title.** The deductive card moves from last to **second**, reversing
+  the 2026-07-19 editorial call: the grid is two columns, so position 2 is top-right, and
+  the pair a reader meets first becomes "what came out of the chats" beside "what a
+  published study looked for" — the tab's actual argument. Title is now
+  `Deductive Categories (for cross-study validation, from Bergmann et al. 2026)`, and the
+  deck drops its second "Bergmann et al." — the attribution was being made twice in
+  adjacent lines.
+
+### Deploy
+
+**Bundle half only.** Every string here lives in the dashboard, not in the footnote
+registry, and no cell changes shape. `--skip-extract --skip-classify` if the blob is
+refreshed at all; it does not need to be.

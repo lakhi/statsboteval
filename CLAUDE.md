@@ -34,6 +34,12 @@ travel in the blob. **D-59 (built 2026-08-01, not yet published) moves the schem
 *registration* date, which is how a registrant who never wrote gets a level at all —
 plus a round of caveat removals across all five tabs, donuts on Adoption's and Language's
 part-to-whole cards, and three cards moved to the top of their tab. Both halves again.
+**D-60 (built 2026-08-01, not yet published) is display-only** — no schema move, no
+re-aggregation, **bundle half only**: suppressed weeks in every line chart are now bridged
+by a dashed segment instead of cut into a gap, Timing's daypart bars become a ring (with
+the bars kept as the fallback wherever a block is suppressed or no denominator is
+published), both donuts print shares inside their arcs, Language's two cards are an even
+split, and Topics' deductive card moves to position 2 and is retitled.
 Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
@@ -138,10 +144,12 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
   is never reassigned by a later BA→MA move, and a level that signed up but never wrote
   has no `by_status` slice, so published levels can sum to less than the window total.
 - **Dayparts are four *equal* six-hour blocks, and the equality is load-bearing** (D-54).
-  Bar length reads as intensity, so unequal bins invert the finding — the rejected 2–8 h
-  draft made the densest period of the day (12–14 at 408 msg/h) the shortest bar on the
-  chart. Re-cutting them unevenly silently lies. `_daypart_of` is a scan, not `hour // 6`,
-  so a re-cut degrades the chart instead of corrupting the buckets.
+  Bar length — since D-60, arc angle — reads as intensity, so unequal bins invert the
+  finding: the rejected 2–8 h draft made the densest period of the day (12–14 at 408 msg/h)
+  the shortest bar on the chart. Re-cutting them unevenly silently lies. `_daypart_of` is a
+  scan, not `hour // 6`, so a re-cut degrades the chart instead of corrupting the buckets.
+  The blocks stay an *ordered sequence*, never four identities — which is why the ring
+  wears a sequential ramp in clock order and the bars a single hue (`DAYPART_RAMP`).
 - **`semester_week` indexes a semester's full Thursday-rule membership, never its
   coverage** (D-54). A semester whose opening weeks fall outside the axis must still start
   at the week it really started, or every curve in the overlay slides left by the number of
