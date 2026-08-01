@@ -2316,3 +2316,19 @@ legend arrangement is still right wherever the ring is one figure among several.
 ### Deploy
 
 Bundle half only, again. Nothing here touches a cell, a footnote text or the schema.
+
+### Publish record — 2026-08-01
+
+D-61 went live as the code half only, ~21:0x UTC, second bundle deploy of the day. Blob
+untouched: still `v1/aggregates_2026-W30_20260801T192936Z.json`, schema 1.9.0, provenance
+production, `data_through_week` 2026-W30.
+
+Verified by diffing the served JS chunks against the previous deploy's, which is stronger
+than grepping one bundle for a string that might never have been there: the removed
+disclosure's header array `["Language","Messages","Share"]` went 1 → 0, and `layout:
+"stacked"` went 0 → 1.
+
+Still not verified by a human or a browser in-session: how the card actually renders. The
+two fixes that motivated this — the caption/arc-label collision and the void under the
+figure — are both geometry, and geometry is the one class of change a string diff cannot
+confirm. Look at it.
