@@ -1,6 +1,6 @@
 ---
 name: go-live
-description: Publish StatsBotEval to the live Azure URL — re-aggregate the corpus, upload the aggregates blob, and deploy the dashboard/API bundle. Use when the user says go live, publish, deploy, ship it, make it live, or push the dashboard to production. Asks which run-weekly mode to use before touching anything.
+description: Publish StatsBotEval to the live Azure URL — re-aggregate the corpus, upload the aggregates blob, and deploy the dashboard/API bundle. Use when the user says go live, publish, deploy, ship it, make it live, or push the dashboard to production. Runs re-aggregate-only by default; extract and classify stay opt-in.
 ---
 
 # Go live
@@ -34,29 +34,32 @@ been run when relevant. If the user asks for it explicitly, run
 `cd pipeline && .venv/bin/python -m pytest -q` in the background (~4 minutes) and read it
 before uploading, not after.
 
-## 2 · Ask which run-weekly mode to use
+## 2 · Pick the run-weekly mode — default, do not ask
 
-**Always ask — never assume.** The modes differ in what they touch, what they cost, and what
-they need connected. Use AskUserQuestion with these options:
+**Run `--skip-extract --skip-classify` unless the invocation says otherwise.** Do not stop
+to ask; the operator asked for a publish, and the default mode is the one that touches
+nothing outside this machine.
 
-| mode | flags | needs | costs |
-|---|---|---|---|
-| Re-aggregate only — **the default** | `--skip-extract --skip-classify` | nothing | nothing |
-| Refresh data | `--skip-classify` | university VPN (production MySQL) | nothing |
-| Full weekly run | *(no flags)* | VPN + Azure OpenAI | per new message |
-| Publish an existing reviewed document | `--from FILE` | nothing | nothing |
+| mode | flags | needs | costs | when |
+|---|---|---|---|---|
+| **Re-aggregate only — the default** | `--skip-extract --skip-classify` | nothing | nothing | anything that does not need newer StatsBot activity |
+| Refresh data | `--skip-classify` | university VPN (production MySQL) | nothing | only when asked |
+| Full weekly run | *(no flags)* | VPN + Azure OpenAI | per new message | only when asked |
+| Publish an existing reviewed document | `--from FILE` | nothing | nothing | only when asked |
 
-**Extract and classify are opt-in, never implied.** If the user does not choose, fall back to
-`--skip-extract --skip-classify`, and say plainly in the question that this default
-**publishes the corpus as it already stands and does not pull in newer StatsBot activity** —
-otherwise silence reads as "refresh everything" and the operator finds out from the numbers.
-Both opt-in modes have a real precondition (VPN) or a real cost (per-message Azure OpenAI),
-which is exactly why neither may happen by default.
+**Extract and classify remain opt-in, and the default is what makes not asking safe.** It
+publishes the corpus as it already stands: no VPN, no Azure OpenAI spend, no write of any
+kind toward the source. The three other modes each have a real precondition or a real
+per-message cost, so none of them may be inferred from "go live" — take them only when the
+operator names them (a mode in the invocation, "refresh the data", "full run", "publish
+that reviewed file").
 
-State the recommendation in the option description — the text of the turn that asks is not
-shown to the user, so the reasoning has to live in the options themselves. A presentation or
-schema change that leaves the numbers alone wants **re-aggregate only**; a genuine weekly
-refresh is the case for opting in.
+**Say which mode is running, before running it,** in one line: re-aggregate only,
+`--skip-extract --skip-classify`, **does not pull in newer StatsBot activity — the corpus
+is whatever the last extract left**. Not asking removes the moment the operator would have
+noticed the corpus is stale, so the statement has to replace it. If `data_through_week`
+turns out to be older than the operator plausibly expects, say so rather than shipping
+past it.
 
 Remember constraint 5: extract is strictly read-only against the live StatsBot DB, and
 `--skip-extract` is the flag that avoids needing it at all.
