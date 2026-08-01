@@ -108,6 +108,14 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
 - **`floored_count()` is the only path from a corpus number to a published cell.** The
   floor tests *distinct contributing students*, never the value. `n_students == 0` publishes
   `ok(0)` — a measured zero is not identifying, and suppressing it would destroy meaning.
+- **A cell can pass the floor and still be published — by subtraction** (D-59). Where a
+  measure partitions the window across levels (`messages`, `sessions`, and both signup
+  cells: one unit, one level), publishing the total and all-but-one level hands back the
+  withheld one exactly. `_joint_partition_floor` therefore withholds such a measure on
+  *every* level once it is withheld on one, generalizing the `new_users`/`returning_users`
+  joint floor from two cells to n; `publish._assert_no_recoverable_partition` blocks any
+  document that violates it. `active_students`/`new_users`/`returning_users` are exempt
+  across levels because a transitioner counts under both, so no remainder is a value.
 - **`prompt_tokens` counts the entire re-sent conversation context**, growing within a
   session. It is not a message-size metric; use `completion_tokens`.
 - **The retention baseline reads *behind* `axis_start`** (D-50). `first_seen` in

@@ -410,6 +410,19 @@ document where the floor is applied jointly rather than per cell. `by_status` re
 students do not — a bachelor→master transitioner active on both sides of their semester
 boundary appears under both levels, which `status_multi` states.
 
+**The floor across a level partition (1.9.0, D-59).** `messages`, `sessions`,
+`new_registrations` and `new_registrations_active` each assign every unit to exactly one
+level, so the levels **partition the window total** — and publishing the total with
+all-but-one level publishes that level by subtraction, whatever `floored_count` said about
+it. So the floor is applied **jointly** across the split: if one level's cell is withheld,
+that measure is withheld on every level of that window (`aggregate._joint_partition_floor`),
+leaving a remainder that is a sum of unknowns. This is the same reasoning that already
+governs the `new_users` / `returning_users` pair, generalized from two cells to n.
+`active_students`, `new_users` and `returning_users` are exempt across levels: a
+transitioner is counted under both, so those sums can exceed the total and a remainder is
+not a value. `publish._assert_no_recoverable_partition` refuses any document that violates
+this — including one produced by hand or by an older pipeline.
+
 **Signups per level (1.9.0, D-59).** `new_registrations` / `new_registrations_active` on a
 `by_status` entry are resolved from the roster at the **registration date** — the same
 D-39 rule read at a different instant, because a registration is the one event a

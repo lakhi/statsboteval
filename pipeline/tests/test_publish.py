@@ -16,6 +16,7 @@ from statsboteval_pipeline.export_schema import SCHEMA_PATH
 from statsboteval_pipeline.publish import (
     PublishGuardError,
     _assert_floor_respected,
+    _assert_no_recoverable_partition,
     _assert_suppressed_bare,
     guard,
     publish,
@@ -82,6 +83,61 @@ def test_guard_walk_names_the_path_to_the_offending_cell() -> None:
         _assert_floor_respected(dumped, 3)
     # An operator hitting this at publish time needs the coordinates, not just the fact.
     assert "sections.trends.per_window.2025S.findings[1].current" in str(exc.value)
+
+
+def with_level_split(dumped: dict, measure: str, cells: list[dict], total: int) -> dict:
+    """Give all_time a program-level split with hand-chosen cells.
+
+    Injected rather than fixtured, the same reasoning `with_findings` uses: the factory
+    publishes no by_status at all, and the guard walks dumped dicts without caring where
+    they came from. Hand-built is also the point — `_joint_partition_floor` makes this
+    shape unbuildable by the pipeline, so the only way to prove the guard catches it is to
+    forge one, which is exactly the hand-edited-document case the guard is the backstop for.
+    """
+    window = dumped["sections"]["usage_context"]["per_window"]["all_time"]
+    window["totals"][measure] = {"status": "ok", "value": total}
+    window["by_status"] = {
+        level: {"active_students": {"status": "ok", "value": 9}, "messages": {"status": "ok", "value": 9},
+                measure: cell}
+        for level, cell in zip(("bachelor", "master", "staff"), cells)
+    }
+    return dumped
+
+
+def test_guard_rejects_a_lone_suppressed_level_cell() -> None:
+    """One withheld level beside a published total is arithmetic, not privacy (D-59)."""
+    dumped = with_level_split(
+        dump_doc(make_synthetic_aggregates()),
+        "new_registrations",
+        [{"status": "ok", "value": 40}, {"status": "ok", "value": 58}, {"status": "suppressed"}],
+        100,
+    )
+    with pytest.raises(PublishGuardError) as exc:
+        _assert_no_recoverable_partition(dumped)
+    # The operator needs the number that escaped, not just the fact that one did.
+    assert "recoverable as 100 - 98 = 2" in str(exc.value)
+
+
+def test_guard_allows_two_suppressed_level_cells() -> None:
+    """Two unknowns share the remainder, so neither is individually recoverable."""
+    dumped = with_level_split(
+        dump_doc(make_synthetic_aggregates()),
+        "new_registrations",
+        [{"status": "ok", "value": 40}, {"status": "suppressed"}, {"status": "suppressed"}],
+        100,
+    )
+    _assert_no_recoverable_partition(dumped)
+
+
+def test_guard_ignores_a_measure_the_levels_do_not_partition() -> None:
+    """active_students double-counts transitioners, so its remainder is not a value."""
+    dumped = with_level_split(
+        dump_doc(make_synthetic_aggregates()),
+        "active_students",
+        [{"status": "ok", "value": 40}, {"status": "ok", "value": 58}, {"status": "suppressed"}],
+        100,
+    )
+    _assert_no_recoverable_partition(dumped)
 
 
 def test_guard_accepts_a_measured_zero() -> None:

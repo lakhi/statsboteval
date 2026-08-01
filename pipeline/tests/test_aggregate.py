@@ -377,6 +377,28 @@ def test_signups_of_a_level_with_no_messages_are_not_published(con2: duckdb.Duck
     assert published == 2
 
 
+def test_a_withheld_level_cell_withholds_that_measure_on_every_level(
+    con2: duckdb.DuckDBPyConnection,
+) -> None:
+    """The remainder must not be a value (D-59, found at the go-live review gate).
+
+    Signups partition the window exactly, so publishing three levels and withholding the
+    fourth publishes the fourth by subtraction. Here syn-0004 is the only staff registrant
+    (1 student, floor 3), so staff's pair is withheld — and every other level's pair must
+    go with it, or `45 - the published ones` hands back the withheld number exactly.
+    """
+    con2.executemany(
+        "INSERT INTO student_status VALUES (?, ?, ?, 'synthetic-roster')",
+        [("syn-0001", "bachelor", None), ("syn-0002", "master", None), ("syn-0004", "staff", None)],
+    )
+    win = build2(con2, floor_n=3)["sections"]["usage_context"]["per_window"]["all_time"]
+    for level, slice_ in win["by_status"].items():
+        assert slice_["new_registrations"] == {"status": "suppressed"}, level
+        assert slice_["new_registrations_active"] == {"status": "suppressed"}, level
+    # The window total stays published — it is a count over every level, not a level's own.
+    assert win["totals"]["new_registrations"] == {"status": "ok", "value": 3}
+
+
 def test_user_classes_bergmann_rules(con2: duckdb.DuckDBPyConnection) -> None:
     doc = build2(con2, floor_n=1)
     classes = doc["sections"]["usage_context"]["per_window"]["all_time"]["user_classes"]

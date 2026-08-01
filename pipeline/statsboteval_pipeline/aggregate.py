@@ -325,6 +325,55 @@ def floored_count(value: int, n_students: int, floor_n: int) -> OkCell | Suppres
     return suppressed()
 
 
+def _joint_partition_floor(
+    slices: dict[str, UsageContextByStatus],
+) -> dict[str, UsageContextByStatus]:
+    """Withhold a measure on EVERY level as soon as it is withheld on one (D-59).
+
+    Caught by the go-live review gate before the first 1.9.0 publish, and the reason this
+    exists rather than the per-cell floor alone: **these measures partition the window
+    exactly.** Every message, session and registration belongs to exactly one level, so if
+    three of four levels publish and one is withheld, the withheld number is
+    `totals.<measure> - sum(the published ones)` — reconstructed with primary-school
+    arithmetic. The 1.9.0 signup split made it real on the production corpus (three
+    windows, each recovering 1–2 staff signups) and the synthetic pipeline showed the same
+    shape on `messages` (173 recoverable), so this covers every measure that partitions,
+    not just the pair that exposed it.
+
+    The floor is a floor on *what a reader can learn*, not on what a cell literally
+    contains, which is why `retention_pair` already applies its floor jointly across the
+    new/returning split. This is the same rule over an n-way partition: with two or more
+    cells withheld the remainder is a sum of unknowns and nothing individual escapes.
+
+    `active_students`, `new_users` and `returning_users` are deliberately absent: a
+    transitioner is counted under both levels (`status_multi`), so those sums can exceed
+    the window total and a remainder is not a value.
+
+    Deliberately all-or-nothing rather than secondary suppression (withholding the
+    smallest publishable cell until the remainder is ambiguous). Secondary suppression
+    keeps more numbers, but which cell it sacrifices depends on the data, so the same
+    level appears and disappears between publishes for reasons no note on the page can
+    explain — and a reader comparing two windows would read the difference as behavior.
+    All-or-nothing degrades to a row of "—", which says exactly what happened.
+
+    Costs nothing on today's production corpus: all six windows publish every level cell
+    for all four measures. It bites only where a level is already nearly invisible.
+    """
+    measures = ("messages", "sessions", "new_registrations", "new_registrations_active")
+    withheld = {
+        measure
+        for measure in measures
+        for slice_ in slices.values()
+        if (cell := getattr(slice_, measure)) is None or cell.status == "suppressed"
+    }
+    if not withheld:
+        return slices
+    return {
+        level: slice_.model_copy(update={measure: suppressed() for measure in withheld})
+        for level, slice_ in slices.items()
+    }
+
+
 def _summary(
     values: list[float], students: set[str], floor_n: int, *, with_mean_sd: bool = True
 ) -> SummaryStats | None:
@@ -914,7 +963,10 @@ def build_aggregates(
                 ],
             ),
             user_classes=_user_classes(user_dates, floor_n),
-            by_status={level: usage_by_status(level, group) for level, group in w_levels.items()} or None,
+            by_status=_joint_partition_floor(
+                {level: usage_by_status(level, group) for level, group in w_levels.items()}
+            )
+            or None,
         )
 
         session_windows[window.id] = SessionsWindow(

@@ -66,6 +66,52 @@ def _assert_floor_respected(node: Any, floor_n: int, path: str = "$") -> None:
             _assert_floor_respected(item, floor_n, f"{path}[{index}]")
 
 
+# Measures where every unit belongs to exactly ONE program level, so the levels partition
+# the window total. `active_students`, `new_users` and `returning_users` are absent on
+# purpose: a bachelor→master transitioner is counted under both levels (`status_multi`),
+# so those sums can exceed the total and a remainder is not a value.
+_PARTITIONING_MEASURES = ("messages", "sessions", "new_registrations", "new_registrations_active")
+
+
+def _assert_no_recoverable_partition(dumped: dict[str, Any]) -> None:
+    """A lone withheld level cell is not withheld — it is `total − the others` (D-59).
+
+    The floor protects what a reader can *learn*, so a cell can pass `floored_count` and
+    still be published in effect. That happens when a measure partitions the window
+    exactly and exactly one level is suppressed: subtract the published levels from the
+    published total and the withheld number falls out, exact. Two or more suppressed and
+    the remainder is a sum of unknowns, which is safe.
+
+    Blocking, in the guard rather than in a test, because this is a property of the bytes
+    leaving the machine and it depends on the data: a document that is clean this week can
+    trip next week on the same code. `aggregate._joint_partition_floor` keeps every partitioning measure
+    clear of it by construction, so this should never fire on a document this pipeline
+    built; it fires on a hand-edited or replayed one, and on the day a new partitioning
+    measure is added and forgotten.
+    """
+    for window_id, window in (dumped.get("sections", {}).get("usage_context", {}).get("per_window", {})).items():
+        by_status = window.get("by_status") or {}
+        if not by_status:
+            continue
+        for measure in _PARTITIONING_MEASURES:
+            total = window.get("totals", {}).get(measure)
+            if not isinstance(total, dict) or total.get("status") != "ok":
+                continue  # a withheld total leaves nothing to subtract from
+            cells = [level.get(measure) for level in by_status.values()]
+            present = [c for c in cells if isinstance(c, dict)]
+            withheld = [c for c in present if c.get("status") == "suppressed"]
+            if len(withheld) != 1:
+                continue
+            published = sum(c["value"] for c in present if c.get("status") == "ok")
+            raise PublishGuardError(
+                f"$.sections.usage_context.per_window.{window_id}: one level's `{measure}` is "
+                f"suppressed while the others and the window total are published, so it is "
+                f"recoverable as {total['value']} - {published} = {total['value'] - published}. "
+                "Levels partition this measure exactly — withhold it on every level "
+                "(see aggregate._joint_partition_floor) or do not publish the total."
+            )
+
+
 def guard(doc: Aggregates) -> dict[str, Any]:
     dumped = dump_doc(doc)
     try:
@@ -78,6 +124,7 @@ def guard(doc: Aggregates) -> dict[str, Any]:
         raise PublishGuardError(f"committed-schema validation failed: {exc.message}") from exc
     _assert_suppressed_bare(dumped)
     _assert_floor_respected(dumped, doc.privacy_floor_n)
+    _assert_no_recoverable_partition(dumped)
     return dumped
 
 

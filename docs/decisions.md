@@ -2084,6 +2084,35 @@ already an accessible `<table>` with a caption, making it the one card on the da
 where the disclosure is the same numbers a third time. `showTable` defaults to true and no
 other caller passes it.
 
+### The review gate earned its keep: a floor bypass, caught before the first publish
+
+Aggregating 1.9.0 for review showed six suppressed cells that were not suppressed at all.
+Signups partition a window exactly — one registrant, one registration date, one level — so
+publishing `totals.new_registrations` alongside three of four levels published the fourth
+by subtraction: 2025W `45 − 43 = 2` staff, `2026S.last4` `33 − 31 = 2`, `2026S.last1`
+`9 − 8 = 1`. Each is an exact student count of a group below the floor. The live 1.8.0
+document has zero such cells; this change would have introduced the first.
+
+The floor is a floor on **what a reader can learn**, not on what a cell literally holds —
+which is why the `new_users`/`returning_users` pair has always been floored jointly.
+`_joint_partition_floor` generalizes that from two cells to an n-way split: if one level's
+cell is withheld, the measure is withheld on every level of that window, so the remainder
+is a sum of unknowns.
+
+Applied to every exactly-partitioning measure, not only the pair that exposed it —
+`messages` and `sessions` have the same property, and the synthetic pipeline was already
+producing a document with 173 recoverable messages. Cost on the production corpus today:
+nothing (all six windows publish every level cell for all four measures). Cost after the
+signup split: three short windows (2025W, both Recent slices) withhold the per-level
+signup tile, where staff is a single registrant. All-or-nothing rather than secondary
+suppression, because which cell secondary suppression sacrifices depends on the data — the
+same level would appear and vanish between publishes for reasons no note on the page can
+explain, and a reader comparing two windows would read that as behavior.
+
+`publish._assert_no_recoverable_partition` is the backstop, blocking, in the guard rather
+than in a test: this is a property of the bytes leaving the machine and it depends on the
+data, so a document that is clean this week can trip next week on unchanged code.
+
 ### Deploy
 
 Both halves. `daypart_definition`, the topics ids and `signup_level_rule` travel in the
