@@ -1,13 +1,34 @@
-// DaypartTotals → horizontal bars, one per six-hour block (D-54).
+// DaypartTotals → a part-to-whole ring, or horizontal bars where a ring would lie (D-54,
+// D-60). `DaypartFigure` picks; the two renderings below are what it picks between.
 //
-// Horizontal because the labels ("Afternoon 12–18") are long and a vertical axis
-// would either truncate or rotate them. One measure, so one hue — the accent —
-// never a per-bar color: the blocks are an ordered sequence, not four identities.
-// Equal-width blocks are what makes bar length directly comparable; the
-// daypart_definition footnote says so on the card.
+// The ring is the primary form since D-60. Dayparts partition the window's messages
+// exactly — `aggregate.py` bins each message into one block — so the four counts and the
+// published messages total are a whole and its parts, which is the one thing a ring says
+// better than anything else. It is drawn against that published total, never against a
+// client-side sum of the four cells (invariant 4), and it uses the sequential ramp rather
+// than four categorical hues, for the reason the bars give below.
+//
+// The bars remain, unchanged, as the fallback — and they are not a lesser rendering, they
+// are the correct one whenever a ring would assert something untrue:
+//
+//  * **A suppressed block.** All-or-nothing, as on every other ring here: a ring over the
+//    surviving three would show them as the whole day. The bars can say "withheld" in
+//    place of one bar and keep the other three readable, which a ring cannot.
+//  * **No published messages total for this window and level.** Without a denominator
+//    there are no shares to print, and summing the blocks to invent one is exactly the
+//    re-aggregation invariant 4 forbids.
+//
+// Bars are horizontal because the labels ("Afternoon 12–18") are long and a vertical axis
+// would either truncate or rotate them. One measure, so one hue — the accent — never a
+// per-bar color: the blocks are an ordered sequence, not four identities. The ring honours
+// the same claim with a light-to-dark ramp in clock order (see `DAYPART_RAMP`), which is
+// the sequence rendered as color instead of as position. Equal-width blocks are what makes
+// bar length directly comparable; the daypart_definition footnote says so on the card.
 
 import type { Daypart, DaypartTotals } from "@/lib/aggregates.gen";
 import { formatCount } from "@/lib/format";
+import { DAYPART_RAMP } from "@/lib/palette";
+import { PieShare } from "./PieShare";
 
 type Cell = DaypartTotals["by_daypart"][string];
 
@@ -45,6 +66,75 @@ function Bar({ cell, max, floorN, label }: { cell: Cell; max: number; floorN: nu
   );
 }
 
+/** Weekend/weekday: published as two independently floored cells, never as one number and
+ *  a remainder — subtracting across them would recover a withheld side. A second partition
+ *  of the same messages, so it rides under either figure rather than inside one. */
+function SpanStrip({ totals }: { totals: DaypartTotals }) {
+  const span = (cell: Cell) =>
+    cell.status === "ok" ? formatCount(cell.value) : <span className="text-suppressed">—</span>;
+  return (
+    <div className="mt-3 flex gap-6 border-t border-hairline pt-2 text-xs text-ink-2">
+      <span>
+        Mon–Fri <span className="font-semibold tabular-nums text-ink">{span(totals.weekday)}</span>
+      </span>
+      <span>
+        Sat–Sun <span className="font-semibold tabular-nums text-ink">{span(totals.weekend)}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The card's figure: ring where the numbers support one, bars where they do not.
+ *
+ * The choice lives here rather than in TimingTab so the two preconditions travel with the
+ * renderings they gate. `windowMessages` is the window-and-level's published messages
+ * total, or null when none is published — see the header for why each blocks the ring.
+ */
+export function DaypartFigure({
+  totals,
+  dayparts,
+  floorN,
+  windowMessages,
+  windowLabel,
+}: {
+  totals: DaypartTotals;
+  dayparts: Daypart[];
+  floorN: number;
+  windowMessages: number | null;
+  windowLabel: string;
+}) {
+  const cells = dayparts.map((part) => totals.by_daypart[part.id]);
+  const ringable =
+    dayparts.length > 0 &&
+    windowMessages !== null &&
+    windowMessages > 0 &&
+    cells.every((cell) => cell != null && cell.status === "ok");
+  if (!ringable) {
+    return <DaypartBars totals={totals} dayparts={dayparts} floorN={floorN} />;
+  }
+  const slices = dayparts.map((part, i) => ({
+    key: part.id,
+    label: `${part.label} ${hours(part)}`,
+    value: (totals.by_daypart[part.id] as { status: "ok"; value: number }).value,
+    color: DAYPART_RAMP[i % DAYPART_RAMP.length],
+  }));
+  return (
+    <div>
+      <PieShare
+        slices={slices}
+        total={windowMessages}
+        centerLabel={`messages in ${windowLabel}`}
+        valueLabel="Messages"
+        ariaLabel={`Messages by six-hour block of the day, ${windowLabel}: ${slices
+          .map((s) => `${s.label} ${formatCount(s.value)}`)
+          .join(", ")}.`}
+      />
+      <SpanStrip totals={totals} />
+    </div>
+  );
+}
+
 export function DaypartBars({
   totals,
   dayparts,
@@ -56,8 +146,6 @@ export function DaypartBars({
 }) {
   const cells = dayparts.map((p) => totals.by_daypart[p.id]).filter(Boolean);
   const max = Math.max(1, ...cells.map((c) => (c.status === "ok" ? c.value : 0)));
-  const span = (cell: Cell) =>
-    cell.status === "ok" ? formatCount(cell.value) : <span className="text-suppressed">—</span>;
   return (
     <div>
       <div
@@ -79,16 +167,7 @@ export function DaypartBars({
           );
         })}
       </div>
-      {/* Weekend/weekday: published as two independently floored cells, never as one
-          number and a remainder — subtracting across them would recover a withheld side. */}
-      <div className="mt-3 flex gap-6 border-t border-hairline pt-2 text-xs text-ink-2">
-        <span>
-          Mon–Fri <span className="font-semibold tabular-nums text-ink">{span(totals.weekday)}</span>
-        </span>
-        <span>
-          Sat–Sun <span className="font-semibold tabular-nums text-ink">{span(totals.weekend)}</span>
-        </span>
-      </div>
+      <SpanStrip totals={totals} />
     </div>
   );
 }

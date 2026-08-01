@@ -8,7 +8,7 @@ import { resolveFootnotes, symbolsFor } from "@/lib/footnotes";
 import { sliceToWindow } from "@/lib/windows";
 import { ActivityHeatmap, heatmapTableRows } from "../cells/ActivityHeatmap";
 import { ChartCard, DataTable } from "../cells/ChartCard";
-import { DaypartBars, daypartTableRows } from "../cells/DaypartBars";
+import { DaypartFigure, daypartTableRows } from "../cells/DaypartBars";
 import { ALL, sliceByLevel } from "@/lib/levels";
 import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
 import { SemesterOverlay, semesterTableRows } from "../cells/SemesterOverlay";
@@ -45,7 +45,13 @@ function TrendCard({
       title={title}
       markers={symbolsFor(footnotes, weekly.footnote_ids)}
       footnotes={footnotes}
-      suppressionKey={hasSuppressed(entries) ? "Gray baseline marks are suppressed weeks" : null}
+      // D-60: the line no longer breaks, so the key names both channels — the mark that
+      // says which week, and the dash pattern that says the stretch is not measured.
+      suppressionKey={
+        hasSuppressed(entries)
+          ? "Gray baseline marks are suppressed weeks, bridged by a dashed line"
+          : null
+      }
       note={note}
       floorN={doc.privacy_floor_n}
       table={
@@ -138,6 +144,15 @@ export function TimingTab({ doc, win, level }: TabProps) {
   // the row visibly falls short of 100%, and the gap is where the suppressed block went.
   const levelMessages = (levelKey: string): number | null =>
     valueOf(doc.sections.usage_context?.per_window[win.id]?.by_status?.[levelKey]?.messages);
+  // The denominator behind the daypart ring (D-60): the published messages total for what
+  // is actually on screen. Under a level filter that is the level's own cell — but only if
+  // the daypart totals themselves were sliced by level; on a document with no split the
+  // figures are cohort-wide (`unscoped`, said in words above), and reading them against
+  // one level's messages would print shares over 100% and call them shares of the day.
+  const daypartDenominator =
+    level === ALL || scoped?.scoped === false
+      ? valueOf(doc.sections.usage_context?.per_window[win.id]?.totals.messages)
+      : levelMessages(level);
   const daypartShare = (levelKey: string, part: string): string | null => {
     const value = valueOf(byStatus?.[levelKey]?.daypart_totals?.by_daypart[part]);
     const total = levelMessages(levelKey);
@@ -179,12 +194,17 @@ export function TimingTab({ doc, win, level }: TabProps) {
             title="When during the day"
             markers={symbolsFor(totalsFootnotes, totals.footnote_ids)}
             footnotes={totalsFootnotes}
+            // Two channels, and which one is on screen depends on the data (D-60): a
+            // suppressed block sends the card back to bars, where suppression is a striped
+            // bar; a suppressed Mon–Fri/Sat–Sun cell leaves the figure alone and shows as
+            // a dash under it. Naming the wrong one is worse than naming neither.
             suppressionKey={
-              Object.values(totals.by_daypart).some((c) => c.status === "suppressed") ||
-              totals.weekend.status === "suppressed" ||
-              totals.weekday.status === "suppressed"
+              Object.values(totals.by_daypart).some((c) => c.status === "suppressed")
                 ? "Striped bars are suppressed"
-                : null
+                : totals.weekend.status === "suppressed" ||
+                    totals.weekday.status === "suppressed"
+                  ? "A dash in place of a count is suppressed"
+                  : null
             }
             floorN={doc.privacy_floor_n}
             table={
@@ -195,7 +215,13 @@ export function TimingTab({ doc, win, level }: TabProps) {
               />
             }
           >
-            <DaypartBars totals={totals} dayparts={dayparts} floorN={doc.privacy_floor_n} />
+            <DaypartFigure
+              totals={totals}
+              dayparts={dayparts}
+              floorN={doc.privacy_floor_n}
+              windowMessages={daypartDenominator}
+              windowLabel={win.label}
+            />
           </ChartCard>
         ) : (
           <WindowGap what="time-of-day" windowLabel={win.label} />
@@ -260,7 +286,7 @@ export function TimingTab({ doc, win, level }: TabProps) {
             footnotes={profileFootnotes}
             suppressionKey={
               profiles.some((p) => p.points.some((pt) => pt.messages.status === "suppressed"))
-                ? "Gaps in a line are suppressed weeks"
+                ? "A dashed segment spans a suppressed week"
                 : null
             }
             floorN={doc.privacy_floor_n}
