@@ -147,22 +147,22 @@ type HeatmapGrid = {
 
 ### 6.1 Windows
 
-Named week-sets that every `per_window` rollup keys on. One registry covers all-time,
-semesters, and slices of a semester's closing stretch; UI presets map onto it completely
-(current semester = semester window with the latest coverage; previous semesters = older
-ones; last month and last week = that semester's `.last4` and `.last1`).
+Named week-sets that every `per_window` rollup keys on. One registry covers all-time, every
+semester, and two slices of the **anchor** semester's closing stretch; UI presets map onto
+it completely (current semester = semester window with the latest coverage = the anchor;
+previous semesters = older ones; last month and last week = the anchor's `.last4` and
+`.last1`).
 
 ```json
 "windows": [
-  { "id": "all_time",   "kind": "all_time", "label": "All time", "short_label": "All time",
+  { "id": "all_time",   "kind": "all_time", "label": "All time",
     "coverage": { "from": "2025-W11", "through": "2026-W27" } },
   { "id": "2026S",      "kind": "semester", "label": "Summer semester 2026",
-    "short_label": "Whole semester",
     "start_date": "2026-03-01", "end_date": "2026-06-30",
     "weeks": ["2026-W10", "…", "2026-W26"],
     "coverage": { "from": "2026-W10", "through": "2026-W26" } },
-  { "id": "2026S.last4", "kind": "semester_slice", "label": "Final 4 weeks · SS 2026",
-    "short_label": "Final 4 weeks", "parent_window_id": "2026S",
+  { "id": "2026S.last4", "kind": "semester_slice", "label": "Previous 4 weeks · SS 2026",
+    "short_label": "Previous 4 weeks", "parent_window_id": "2026S",
     "weeks": ["2026-W23", "2026-W24", "2026-W25", "2026-W26"],
     "semester_weeks": [14, 17],
     "coverage": { "from": "2026-W23", "through": "2026-W26" } }
@@ -178,30 +178,44 @@ ones; last month and last week = that semester's `.last4` and `.last1`).
 - Semester generation is a **pipeline rule, not config**: SS = 1 Mar–30 Jun, WS = 1 Oct–
   31 Jan (following year), ids `"YYYYS"`/`"YYYYW"` by starting calendar year, for every
   semester intersecting the data range. Calendar knowledge lives in Python only.
-- **Semester slices** (1.8.0, D-56): each semester publishes `{id}.last4` and `{id}.last1`
-  — the last up-to-four and the last one of its *covered* weeks. `.last4` is omitted when
-  the semester has a single covered week, where it would duplicate `.last1`.
+- **Semester slices** (1.8.0, D-56; narrowed to the anchor at D-57): the **anchor
+  semester** — the one with the latest coverage — publishes `{id}.last4` and `{id}.last1`,
+  the last up-to-four and the last one of its *covered* weeks. No other semester is sliced.
+  `.last4` is omitted when the anchor has a single covered week, where it would duplicate
+  `.last1`.
+  - **The anchor follows the data, not the calendar.** It is the last semester the axis
+    reaches, so between a term opening and its first complete week being extracted, the
+    anchor is still the previous term — which is the point: a slice must never advance into
+    weeks nobody was in class for. That was `trailing_4`'s failure mode.
   - The `4` in the id names the rule's cap, not a fact about the window. Early in a term
     the window holds fewer weeks, and the **label states the count it actually holds**
-    ("Latest 3 weeks").
-  - Labels are state-dependent: **`Latest` while the parent semester is in progress,
-    `Final` once it has ended.** The same week-set answers "how is it going" for a running
-    term and "how did it close" for a finished one.
+    ("Previous 3 weeks").
+  - Labels are **state-free** (D-57): `Previous N weeks` and `Last available week` read
+    correctly whether the anchor term is running or finished. 1.8.0 briefly varied them
+    (`Latest` vs `Final`); readers must not depend on either wording.
   - `semester_weeks` is the `[first, last]` 1-based teaching-week span **within the
     parent's full membership, never its coverage**. Published for alignment, rendered
-    nowhere: SS terms run 17 weeks and WS terms 18, so "final 4 weeks" spans different
-    teaching weeks on each side of a cross-semester comparison.
-  - Ids are stable forever once a semester ends, which `trailing_4` never was — a link to
-    `?window=2026S.last1` resolves to the same span in every later publish.
+    nowhere: SS terms run 17 weeks and WS terms 18, so a four-week tail spans different
+    teaching weeks on each side of a comparison between terms.
+  - Ids are stable in **meaning** — `2026S.last1` names the same span in every publish that
+    contains it, which `trailing_4` never did — but not in **presence**: once WS 2026 opens
+    and becomes the anchor, `2026S.last1` leaves the registry. A `?window=` link to a
+    retired slice finds no window and the dashboard falls back to its default. Accepted at
+    D-57 as the cost of dropping cross-semester slice comparison.
   - `enrollment` is **not** keyed by slices; a reader follows `parent_window_id` to the
     parent's headcount (§6.3). Reach then means the share of that term's cohort active in
     those weeks, which `reach_window_scope` states.
-- `short_label` is what a reader sees where context already names the parent (inside the
-  picker's group heading); `label` is self-contained, for sentences. **Optional on
-  `all_time` and `semester`** so a document published before 1.8.0 stays valid under this
-  schema — the API validates every blob it fetches against the schema it ships with (§11),
-  so a required field would make deploying before publishing a 500 rather than a degraded
-  render. Readers fall back to `label`.
+- `label` is self-contained (it names its own semester) and is what readers render
+  everywhere — picker options, captions, gap states. `short_label` survives on
+  `semester_slice` alone, as the stem `label` is built from; **nothing renders it** since
+  D-57 flattened the picker to fixed groups, and it is kept rather than removed because §10
+  makes deleting a field from a kind that stays a major break. It is declared but
+  **unemitted** on `all_time` and `semester`, where `label` is already the short form.
+  Those two declarations stay **optional**, which is a deployment property: the API
+  validates every blob it fetches against the schema it ships with (§11), so a required
+  field there would have made deploying 1.8.0 before publishing a 500 rather than a
+  degraded render — and that same tolerance is what let D-57 stop emitting them with no
+  schema change at all.
 - Every key of every `per_window` object must exist in this registry (validated).
 - **Not every registry window carries every section.** `sections.trends` covers semesters
   and `all_time` only; slices are excluded from the trends pass (D-56) until slice pairing

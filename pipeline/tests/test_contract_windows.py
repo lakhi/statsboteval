@@ -41,7 +41,6 @@ def test_semester_window_round_trip() -> None:
         kind="semester",
         id="2025S",
         label="Summer semester 2025",
-        short_label="Whole semester",
         start_date="2025-03-01",
         end_date="2025-06-30",
         weeks=["2025-W10", "2025-W11"],
@@ -112,7 +111,10 @@ def test_a_pre_1_8_0_document_still_validates() -> None:
     dumped = dump_doc(make_synthetic_aggregates())
     dumped["windows"] = [w for w in dumped["windows"] if w["kind"] != "semester_slice"]
     for window in dumped["windows"]:
-        del window["short_label"]
+        # `pop`, not `del`: since D-57 the pipeline no longer emits short_label on these
+        # kinds, so the synthetic document already lacks it. The point stands either way —
+        # a 1.7.0 registry has no short_label anywhere.
+        window.pop("short_label", None)
     dumped["windows"].append(
         {
             "kind": "trailing",

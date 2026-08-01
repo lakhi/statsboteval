@@ -22,8 +22,8 @@ export function findWindow(windows: Windows, id: string | null): AnyWindow | und
  *  still accumulating data. (Contract §6.1 — no client-side date math needed.)
  *
  *  Only semesters can be in progress: a slice's weeks *are* its coverage, so it is always
- *  complete by construction. The state it reports lives in its label instead — "Latest"
- *  while its semester runs, "Final" once that semester has ended. */
+ *  complete by construction, and its own label ("Last available week") is true either way.
+ *  The marker therefore lands on the semester option and nowhere else. */
 export function isInProgress(win: AnyWindow): boolean {
   if (win.kind !== "semester") return false;
   return win.weeks.length > 0 && win.coverage.through < win.weeks[win.weeks.length - 1];
@@ -33,15 +33,6 @@ export function isInProgress(win: AnyWindow): boolean {
  *  published over the full range; a window filter just narrows what is shown. */
 export function sliceToWindow(series: WeeklyEntry[], win: AnyWindow): WeeklyEntry[] {
   return series.filter((e) => e.week >= win.coverage.from && e.week <= win.coverage.through);
-}
-
-/** What the picker shows inside a group, where the heading already names the semester.
- *  Falls back to the self-contained `label`: `short_label` is optional on the pre-1.8.0
- *  window kinds so the previously published document keeps parsing (contract §6.1). */
-export function optionLabel(win: AnyWindow): string {
-  // Narrowed on `kind` rather than `"short_label" in win`: every generated window
-  // interface carries an index signature, so the `in` check widens the result to unknown.
-  return win.kind === "trailing" ? win.label : (win.short_label ?? win.label);
 }
 
 /** Does this window hold exactly one ISO week of data? Some measures are defined away by
@@ -62,30 +53,26 @@ export function parentWindowId(win: AnyWindow): string | null {
   return win.kind === "semester_slice" ? win.parent_window_id : null;
 }
 
-/** The semester a window belongs to: itself, its parent, or none for all_time. */
-export function semesterOf(doc: Aggregates, win: AnyWindow): AnyWindow | undefined {
-  if (win.kind === "semester") return win;
-  const parent = parentWindowId(win);
-  return parent ? doc.windows.find((w) => w.id === parent) : undefined;
-}
-
 /**
- * Picker groups, in display order: one group per semester (newest first) holding the whole
- * semester and its slices, then all-time.
+ * Picker groups, in display order: semesters (newest first), the anchor semester's slices,
+ * then all-time.
  *
- * Grouping follows `parent_window_id` rather than parsing ids — the link is published
- * exactly so the client never has to infer it. Within a group, registry order is display
- * order (whole semester, then the wider slice, then the narrower), which is the pipeline's
- * statement and not something to re-sort here.
+ * Three fixed groups, not one per semester (D-57). Only the anchor is sliced, so nesting
+ * would produce two headings holding a single option each and repeat the same three words
+ * under the third. Slices are filtered by `kind` rather than by parent: whichever semester
+ * they belong to, they are "Recent", and their own labels name it ("Previous 4 weeks ·
+ * SS 2026"). Registry order is display order within a group — the pipeline emits the wider
+ * slice first, and that is its statement to make, not ours to re-sort.
  */
 export function groupedWindows(doc: Aggregates): { label: string; windows: AnyWindow[] }[] {
   const semesters = doc.windows
     .filter((w) => w.kind === "semester")
     .sort((a, b) => (a.coverage.through < b.coverage.through ? 1 : -1));
-  const groups = semesters.map((semester) => ({
-    label: semester.label + (isInProgress(semester) ? " (in progress)" : ""),
-    windows: [semester, ...doc.windows.filter((w) => parentWindowId(w) === semester.id)],
-  }));
+  const recent = doc.windows.filter((w) => w.kind === "semester_slice");
   const allTime = doc.windows.filter((w) => w.kind === "all_time");
-  return [...groups, { label: "Everything", windows: allTime }].filter((g) => g.windows.length > 0);
+  return [
+    { label: "Semesters", windows: semesters },
+    { label: "Recent", windows: recent },
+    { label: "Everything", windows: allTime },
+  ].filter((g) => g.windows.length > 0);
 }

@@ -676,9 +676,10 @@ export interface SemesterWindow {
  * what the trailing window showed and across breaks it keeps pointing at the last weeks
  * that meant something.
  *
- * `weeks` is always a contiguous tail of the parent's *covered* weeks, so the id is stable
- * forever once the semester ends — `2026S.last1` names the same span in every later
- * publish, which `trailing_4` never did.
+ * `weeks` is always a contiguous tail of the parent's *covered* weeks, so an id is stable
+ * in MEANING — `2026S.last1` names the same span in every publish that contains it, which
+ * `trailing_4` never did — but not in PRESENCE: only the anchor semester is sliced (D-57),
+ * so `2026S.last1` leaves the registry once WS 2026 opens.
  */
 export interface SemesterSliceWindow {
   coverage: Coverage;

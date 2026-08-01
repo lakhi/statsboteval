@@ -20,9 +20,11 @@ publishes; the dashboard serves five educator-question tabs plus Topics and **Tr
 (period comparisons, schema 1.3.0, D-49 — built 2026-07-30, not yet published). Timing was
 rebuilt on schema 1.6.0 (D-54): dayparts replace the 168-cell hour grid, a semester-rhythm
 overlay renders under All-time, and week axes read as month anchors. **Schema 1.8.0 (D-56)
-is built and not yet published**: `trailing_4` is gone and every semester carries slices of
-its closing stretch (`2026S.last4`, `2026S.last1`), grouped under it in the picker. Corpus
-scale:
+went live 2026-07-31** — `trailing_4` is gone, replaced by slices of a semester's closing
+stretch — and **D-57 (built 2026-08-01, not yet published) narrows those slices to the
+anchor semester alone**: `2026S.last4` / `2026S.last1` sit in a flat `Recent` group beside
+`Semesters` and `Everything`, and no other semester is sliced. D-57 is a data-and-display
+change only; the schema stays 1.8.0. Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 
@@ -124,13 +126,21 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
   whole point of replacing `trailing_4`: an axis-anchored "recent" window advances with
   extraction whether or not anyone was in class, so across a break it drifted into weeks
   holding almost nothing. Anything that re-derives a slice from `axis[-4:]` reintroduces
-  the bug — and note the label's word changes with state (`Latest` while the term runs,
-  `Final` once it has ended), so a fixed label is also wrong.
-- **`short_label` is optional on `all_time` and `semester` for a deployment reason**
-  (D-56). The API validates every fetched blob against the schema it ships with, so making
-  it required would turn "API deployed before the blob is published" from a degraded render
-  into a 500. Old documents must stay valid under new schemas; `api/tests/fixtures/
-  aggregates_synthetic.json` is a 1.0.0 document kept as that proof.
+  the bug.
+- **Only the anchor semester is sliced, and the anchor follows the data** (D-57). It is the
+  last semester the *axis* reaches, not the one the calendar says we are in: between a term
+  opening and its first complete week being extracted, "recent" must still point at the
+  previous term. Deriving the anchor from `date.today()` reintroduces `trailing_4`'s bug in
+  a new place. Labels are state-free since D-57 (`Previous N weeks`, `Last available week`)
+  — do not restore the `Latest`/`Final` branch 1.8.0 briefly shipped.
+- **`short_label` is declared but unemitted outside `semester_slice`, and stays that way**
+  (D-56, D-57). It is optional on `all_time` and `semester` for a deployment reason: the
+  API validates every fetched blob against the schema it ships with, so making it required
+  would turn "API deployed before the blob is published" from a degraded render into a 500.
+  Old documents must stay valid under new schemas; `api/tests/fixtures/
+  aggregates_synthetic.json` is a 1.0.0 document kept as that proof. It is still *required*
+  on `semester_slice` and nothing renders it — deleting it is a **major** break under
+  contract §10, which is why an unread field is the cheaper of the two options.
 - **One label version never mixes models or inference settings** (D-41). Changing either
   means a new version and a full re-classify. **`CLASSIFIER_BATCH_SIZE` is an inference
   setting, not a throughput knob** (D-45): it sets how many decisions one call is asked

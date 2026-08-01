@@ -69,29 +69,31 @@ def test_break_only_axis_has_no_semesters_and_therefore_no_slices() -> None:
 # --- semester slices (D-56) -----------------------------------------------------------
 
 
-def test_completed_semester_slices_read_as_final() -> None:
+def test_slice_names_its_semester_and_holds_its_closing_weeks() -> None:
     axis = weeks_range("2025-W09", "2025-W30")  # runs past the end of 2025S
     w = window(build_windows(axis), "2025S.last4")
     assert isinstance(w, SemesterSliceWindow)
     assert w.parent_window_id == "2025S"
-    assert w.label == "Final 4 weeks · SS 2025"
-    assert w.short_label == "Final 4 weeks"
+    assert w.label == "Previous 4 weeks · SS 2025"
+    assert w.short_label == "Previous 4 weeks"
     assert w.weeks == ["2025-W23", "2025-W24", "2025-W25", "2025-W26"]
     assert (w.coverage.from_, w.coverage.through) == ("2025-W23", "2025-W26")
-    assert window(build_windows(axis), "2025S.last1").label == "Final week · SS 2025"
+    assert window(build_windows(axis), "2025S.last1").label == "Last available week · SS 2025"
 
 
-def test_running_semester_slices_read_as_latest() -> None:
-    # Same week-set, different question: a term in progress is "how is it going", a term
-    # that has ended is "how did it close". One fixed word cannot be right in both states.
-    axis = weeks_range("2025-W09", "2025-W20")
-    assert window(build_windows(axis), "2025S.last4").label == "Latest 4 weeks · SS 2025"
-    assert window(build_windows(axis), "2025S.last1").label == "Latest week · SS 2025"
+def test_labels_do_not_depend_on_whether_the_term_is_still_running() -> None:
+    # D-56 said "Latest" mid-term and "Final" afterwards; D-57 dropped the branch because
+    # both phrasings below are true readings of either state, and the picker already marks
+    # the semester itself "(in progress)". Same week-set, same words.
+    running = build_windows(weeks_range("2025-W09", "2025-W20"))
+    ended = build_windows(weeks_range("2025-W09", "2025-W30"))
+    assert window(running, "2025S.last4").label == window(ended, "2025S.last4").label
+    assert window(running, "2025S.last1").label == window(ended, "2025S.last1").label
 
 
 def test_winter_slice_label_spans_the_new_year() -> None:
     axis = weeks_range("2025-W38", "2026-W07")
-    assert window(build_windows(axis), "2025W.last1").label == "Final week · WS 2025/26"
+    assert window(build_windows(axis), "2025W.last1").label == "Last available week · WS 2025/26"
 
 
 def test_short_slice_states_the_count_it_actually_holds() -> None:
@@ -99,7 +101,7 @@ def test_short_slice_states_the_count_it_actually_holds() -> None:
     # exact failure that got trailing_4 renamed to "Last Avl. 4 weeks" instead of fixed.
     axis = weeks_range("2025-W09", "2025-W12")  # 2025S covered: W10, W11, W12
     w = window(build_windows(axis), "2025S.last4")
-    assert w.label == "Latest 3 weeks · SS 2025"
+    assert w.label == "Previous 3 weeks · SS 2025"
     assert w.weeks == ["2025-W10", "2025-W11", "2025-W12"]
 
 
@@ -124,15 +126,37 @@ def test_semester_weeks_index_full_membership_not_coverage() -> None:
     assert window(build_windows(axis), "2025S.last4").semester_weeks == [3, 6]
 
 
-def test_every_semester_gets_its_own_slices() -> None:
+def test_only_the_anchor_semester_is_sliced() -> None:
+    # D-57: every semester stays selectable, but only the newest carries slices. The two
+    # slice windows sit at the end of the registry, which is also their display order under
+    # the picker's "Recent" heading — wider first.
     axis = weeks_range("2025-W09", "2026-W12")
     ids = [w.id for w in build_windows(axis)]
-    assert ids == [
-        "all_time",
-        "2025S", "2025S.last4", "2025S.last1",
-        "2025W", "2025W.last4", "2025W.last1",
-        "2026S", "2026S.last4", "2026S.last1",
-    ]
+    assert ids == ["all_time", "2025S", "2025W", "2026S", "2026S.last4", "2026S.last1"]
+
+
+@pytest.mark.parametrize(
+    ("axis_end", "anchor", "last_week", "first_of_four"),
+    [
+        # The rollover table from the D-56 plan, re-pinned against anchor-only emission.
+        # These are the moments the anchor moves, and the reason it must not be read off
+        # the axis tail: on 2026-W39 the calendar says WS has begun, but no teaching week
+        # has been extracted yet, so "recent" still belongs to the summer term.
+        ("2026-W30", "2026S", "2026-W26", "2026-W23"),  # deep in the July/August break
+        ("2026-W39", "2026S", "2026-W26", "2026-W23"),  # WS 2026 opens, no covered week yet
+        ("2026-W41", "2026W", "2026-W41", "2026-W40"),  # first covered WS weeks: only two
+        ("2026-W47", "2026W", "2026-W47", "2026-W44"),  # term running, a full four
+    ],
+)
+def test_the_anchor_follows_the_data_not_the_calendar(
+    axis_end: str, anchor: str, last_week: str, first_of_four: str
+) -> None:
+    windows = build_windows(weeks_range("2025-W09", axis_end))
+    slices = [w for w in windows if w.kind == "semester_slice"]
+    assert [w.id for w in slices] == [f"{anchor}.last4", f"{anchor}.last1"]
+    assert all(w.parent_window_id == anchor for w in slices)
+    assert window(windows, f"{anchor}.last1").weeks == [last_week]
+    assert window(windows, f"{anchor}.last4").weeks[0] == first_of_four
 
 
 def test_empty_axis_rejected() -> None:

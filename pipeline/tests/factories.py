@@ -266,12 +266,14 @@ def make_synthetic_aggregates() -> Aggregates:
         data_provenance="synthetic",
         pipeline_version="0.1.0",
         windows=[
+            # `short_label` is unemitted on these two kinds since D-57, so the fixture omits
+            # it too — a synthetic document should look like one the pipeline would write.
             AllTimeWindow(
-                kind="all_time", id="all_time", label="All time", short_label="All time",
+                kind="all_time", id="all_time", label="All time",
                 coverage={"from": "2025-W11", "through": "2025-W14"},
             ),
             SemesterWindow(
-                kind="semester", id="2025S", label="Summer semester 2025", short_label="Whole semester",
+                kind="semester", id="2025S", label="Summer semester 2025",
                 start_date=date(2025, 3, 1), end_date=date(2025, 6, 30),
                 weeks=weeks_range("2025-W10", "2025-W26"),
                 coverage={"from": "2025-W11", "through": "2025-W14"},
@@ -279,14 +281,14 @@ def make_synthetic_aggregates() -> Aggregates:
             # semester_weeks counts from W10, the semester's first *member* week, which the
             # axis does not reach — so the slices start at teaching week 2, not week 1.
             SemesterSliceWindow(
-                kind="semester_slice", id="2025S.last4", label="Latest 4 weeks · SS 2025",
-                short_label="Latest 4 weeks", parent_window_id="2025S",
+                kind="semester_slice", id="2025S.last4", label="Previous 4 weeks · SS 2025",
+                short_label="Previous 4 weeks", parent_window_id="2025S",
                 weeks=WEEKS, semester_weeks=[2, 5],
                 coverage={"from": "2025-W11", "through": "2025-W14"},
             ),
             SemesterSliceWindow(
-                kind="semester_slice", id="2025S.last1", label="Latest week · SS 2025",
-                short_label="Latest week", parent_window_id="2025S",
+                kind="semester_slice", id="2025S.last1", label="Last available week · SS 2025",
+                short_label="Last available week", parent_window_id="2025S",
                 weeks=["2025-W14"], semester_weeks=[5, 5],
                 coverage={"from": "2025-W14", "through": "2025-W14"},
             ),

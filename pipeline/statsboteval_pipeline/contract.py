@@ -228,17 +228,26 @@ class Coverage(BaseModel):
         return self
 
 
-# `label` is self-contained (it names its own semester); `short_label` is what a reader sees
-# when the surrounding context already names the parent — inside the picker's group heading.
-# Both are authored here rather than in the client so wording can change on a blob upload
-# with no code deploy, which is how D-52 shipped a rename.
+# `label` is self-contained (it names its own semester) and is what every reader renders —
+# picker options, card captions, gap states. Authored here rather than in the client so
+# wording can change on a blob upload with no code deploy, which is how D-52 shipped a
+# rename and how D-57 shipped this one.
 #
-# `short_label` is OPTIONAL on the two pre-1.8.0 kinds, and that is a deployment property,
-# not laziness. The API validates every fetched blob against the schema it ships with
-# (contract §11), so a required field here would make the currently-published document fail
-# validation the moment the new API is deployed — a 500, not a degraded render, for however
-# long the blob upload trails the deploy. Optional keeps the sequence safe in the order that
-# is actually available: deploy first, publish second. Readers fall back to `label`.
+# `short_label` survives only on `SemesterSliceWindow`, as the stem `label` is built from:
+# the part of a slice's name that is not its semester. Nothing renders it since D-57
+# flattened the picker back to fixed groups, and it stays for the same reason
+# `semester_weeks` does — a published, unrendered field that keeps the document
+# self-describing. Deleting it is not free: contract §10 makes removing a field from a kind
+# that stays a MAJOR break, which is a 2.0.0 and a new blob prefix to save sixty bytes.
+#
+# The two declarations below are what is left of that field on the pre-1.8.0 kinds. They
+# are unemitted since D-57 — with no group heading to shorten against, `label` is already
+# the short form and "Whole semester" was read by nothing — and they stay OPTIONAL, which
+# is a deployment property rather than laziness. The API validates every fetched blob
+# against the schema it ships with (contract §11), so a required field here would have made
+# the then-published document fail validation the moment the 1.8.0 API deployed: a 500, not
+# a degraded render, for however long the blob upload trailed the deploy. That tolerance is
+# what now lets the emission stop with no schema change at all.
 class AllTimeWindow(BaseModel):
     kind: Literal["all_time"]
     id: str
@@ -268,10 +277,21 @@ class SemesterSliceWindow(BaseModel):
     what the trailing window showed and across breaks it keeps pointing at the last weeks
     that meant something.
 
-    `weeks` is always a contiguous tail of the parent's *covered* weeks, so the id is stable
-    forever once the semester ends — `2026S.last1` names the same span in every later
-    publish, which `trailing_4` never did.
+    `weeks` is always a contiguous tail of the parent's *covered* weeks, so an id is stable
+    in MEANING — `2026S.last1` names the same span in every publish that contains it, which
+    `trailing_4` never did — but not in PRESENCE: only the anchor semester is sliced (D-57),
+    so `2026S.last1` leaves the registry once WS 2026 opens.
     """
+
+    # This docstring is PUBLISHED: pydantic exports it as the JSON Schema `description`, so
+    # editing it drifts `schema/aggregates.schema.json` and trips the export guard. Keep it
+    # to what a schema consumer needs; reasoning that only a maintainer needs goes in
+    # comments like this one, which stay out of the artifact.
+    #
+    # On the presence caveat above: a `?window=` link naming a retired slice finds no window
+    # and the dashboard falls back to its default. Accepted at D-57 as the cost of dropping
+    # cross-semester slice comparison — the alternative was publishing four windows nobody
+    # could select in order to keep old bookmarks alive.
 
     kind: Literal["semester_slice"]
     id: str

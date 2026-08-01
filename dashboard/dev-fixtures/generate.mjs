@@ -110,25 +110,21 @@ const semesterDates = {
   "2025W": ["2025-10-01", "2026-01-31"],
   "2026S": ["2026-03-01", "2026-06-30"],
 };
-// Each semester also carries slices of its closing stretch (D-56). `short` is the
-// abbreviated semester name the slice labels read in ("SS 2025"); `running` decides
-// Latest vs Final, exactly as windows.py does it — this axis ends mid-2026S, so only that
-// semester's slices say "Latest".
-// Running = the axis stops before the semester's last member week, which is exactly the
-// contract's own in-progress rule (coverage.through < weeks.at(-1)). This fixture's axis
-// ends in a break week, so every semester in it reads "Final" — the same state the live
-// dashboard is in outside term time. The "Latest" wording is covered by the pipeline's
-// tests rather than here; move LAST_WEEK_MONDAY inside a term to see it on the page.
-const isRunning = (s) => s.weeks.at(-1) < members(s).at(-1);
+// Only the ANCHOR semester carries slices of its closing stretch (D-56, narrowed at D-57),
+// and the anchor is the last one on the axis — the same rule windows.py applies. `short` is
+// the abbreviated semester name a slice label reads in ("SS 2026"). Labels are state-free,
+// so nothing here has to know whether the term is still running.
 const members = (s) => fullMembership(...semesterDates[s.id]);
 const shortName = (s) => (s.id.endsWith("S") ? `SS ${s.id.slice(0, 4)}` : `WS ${s.id.slice(0, 4)}/${(Number(s.id.slice(0, 4)) + 1) % 100}`);
-const sliceFor = (s, take, suffix, noun) => {
+const sliceFor = (s, take, suffix, stem) => {
   const held = s.weeks.slice(-take);
-  const short = `${isRunning(s) ? "Latest" : "Final"} ${noun(held.length)}`;
+  const short = stem(held.length);
   return {
     id: `${s.id}.${suffix}`,
     kind: "semester_slice",
     label: `${short} · ${shortName(s)}`,
+    // Unrendered since D-57 flattened the picker; published as the stem of `label`, and
+    // kept because removing a required field is a major break (contract §10).
     short_label: short,
     parent_window_id: s.id,
     weeks: held,
@@ -136,44 +132,38 @@ const sliceFor = (s, take, suffix, noun) => {
     coverage: { from: held[0], through: held.at(-1) },
   };
 };
+const anchor = [...semesters.values()].at(-1);
 const windows = [
   {
     id: "all_time",
     kind: "all_time",
     label: "All time",
-    short_label: "All time",
     coverage: { from: weeks[0], through: weeks.at(-1) },
   },
-  ...[...semesters.values()].flatMap((s) => [
-    {
-      id: s.id,
-      kind: "semester",
-      label: s.label,
-      short_label: "Whole semester",
-      start_date: semesterDates[s.id][0],
-      end_date: semesterDates[s.id][1],
-      // Full membership, not the covered weeks: `coverage` below is what clips to the
-      // axis. Publishing coverage here made the fixture disagree with itself — a slice's
-      // semester_weeks counts from the semester's first *member* week, so the index and
-      // the list it indexes into started one week apart (contract._check_windows catches
-      // exactly this, and nothing ran the fixture through it).
-      weeks: members(s),
-      coverage: { from: s.weeks[0], through: s.weeks.at(-1) },
-    },
-    sliceFor(s, 4, "last4", (n) => `${n} weeks`),
-    sliceFor(s, 1, "last1", () => "week"),
-  ]),
+  ...[...semesters.values()].map((s) => ({
+    id: s.id,
+    kind: "semester",
+    label: s.label,
+    start_date: semesterDates[s.id][0],
+    end_date: semesterDates[s.id][1],
+    // Full membership, not the covered weeks: `coverage` below is what clips to the
+    // axis. Publishing coverage here made the fixture disagree with itself — a slice's
+    // semester_weeks counts from the semester's first *member* week, so the index and
+    // the list it indexes into started one week apart (contract._check_windows catches
+    // exactly this, and nothing ran the fixture through it).
+    weeks: members(s),
+    coverage: { from: s.weeks[0], through: s.weeks.at(-1) },
+  })),
+  sliceFor(anchor, 4, "last4", (n) => `Previous ${n} weeks`),
+  sliceFor(anchor, 1, "last1", () => "Last available week"),
 ];
 
-// Distinct students per window (invented; NOT sums of weekly counts).
+// Distinct students per window (invented; NOT sums of weekly counts). Six entries, matching
+// the registry above: only the anchor semester is sliced (D-57).
 const windowStudents = {
   all_time: 118,
   "2025S": 61,
-  "2025S.last4": 24,
-  "2025S.last1": 9,
   "2025W": 74,
-  "2025W.last4": 31,
-  "2025W.last1": 12,
   "2026S": 66,
   "2026S.last4": 27,
   "2026S.last1": 4,

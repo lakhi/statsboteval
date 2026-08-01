@@ -1,5 +1,5 @@
 import type { Aggregates } from "./aggregates.gen";
-import type { AnyWindow } from "./windows";
+import { parentWindowId, type AnyWindow } from "./windows";
 
 /**
  * The program-level filter (D-55). `"all"` is not a published key — it means "read the
@@ -115,7 +115,7 @@ export function sliceByLevel<A, B>(
  * is the right denominator.
  */
 export function enrollmentFor(doc: Aggregates, win: AnyWindow) {
-  const parent = win.kind === "semester_slice" ? win.parent_window_id : null;
+  const parent = parentWindowId(win);
   return doc.enrollment?.per_window?.[win.id] ?? (parent ? doc.enrollment?.per_window?.[parent] : undefined);
 }
 

@@ -1743,3 +1743,96 @@ D-55 — `curl -sf` returned an empty body and the JSON parse raised on nothing,
 upload had already succeeded. Ruled out the new middleware as a cause: that curl sends no
 `Accept-Encoding`, so it is served uncompressed. This is the second occurrence of the same
 cold-start flake and it should now be fixed rather than noted again (issue #10).
+
+## D-57 — 2026-08-01: One "Recent" group replaces per-semester slice groups; still schema 1.8.0
+
+**Reverses D-56 decisions 2 and 4, one day after they shipped.** Slices are published for
+the **anchor semester only** — the one with the latest coverage — their labels lose the
+`Latest`/`Final` state-dependence, and the picker returns to its pre-D-56 shape:
+`Semesters` / `Recent` / `Everything`.
+
+D-56 decision 2 read: *"slices are published for **every** semester, not only the anchor —
+the whole point is comparing one term's closing weeks with another's."* Seen in use, that
+comparison is not wanted. What it cost was visible immediately: the picker went from 5
+options to 10, three of them repeating the same three words under each of three headings,
+and the two lenses an educator actually asks for ("how did the last month go", "what
+happened last week") stopped being one glance away. The owner's verdict on 2026-08-01 was
+that the earlier flat picker simply read better, which it does.
+
+**What is *not* reversed is the anchoring**, and that is the whole of D-56 worth keeping.
+"Previous 4 weeks · SS 2026" still means four *teaching* weeks, chosen inside a semester
+rather than off the axis tail. The reason `trailing_4` had to die — an axis-anchored
+"recent" advancing into break weeks that held almost nothing — is untouched. D-56 was
+right about the anchor and wrong about the fan-out.
+
+**No schema change; still 1.8.0.** Nothing about the document's shape moves:
+`SemesterSliceWindow`, `parent_window_id`, `semester_weeks` and `contract._check_windows`
+all stand as built. What changes is *which* windows are emitted (data), two label strings
+(data), and how the client groups them (display). `aggregates.gen.ts` was not regenerated.
+
+`schema/aggregates.schema.json` does carry a **one-line diff, and it is documentation**:
+pydantic exports a model's docstring as the JSON Schema `description`, and
+`SemesterSliceWindow`'s docstring had to stop claiming that a slice id "is stable forever
+once the semester ends" — true under D-56, false the moment only the anchor is sliced. No
+property, `required` entry, type or discriminator changed. §10 governs fields, types and
+meanings, so a corrected description is not a schema event and does not bump the version.
+Worth knowing generally: **a docstring on a contract model is a published artifact**, and
+the export guard is what says so out loud.
+
+Consequently **both deploy orders are safe**, a first for this run of changes: bundle-first
+briefly shows six correctly-labelled entries under `Recent`, blob-first briefly shows three
+groups holding one item each. Neither is a 500, which is worth contrasting with the
+deploy-order problem D-56 had to design around.
+
+The distinction that makes this free: a *union of window kinds* is something a validating
+reader cannot be lenient about, but *how many windows are in the registry* was never fixed
+by the schema — every new semester already changes it. The registry is data that happens to
+live next to the schema.
+
+**Decisions taken (owner, 2026-08-01).**
+
+1. **Anchor-only slicing.** Every semester stays individually selectable, as it always was;
+   only the newest is sliced. The anchor follows the *data*, not the calendar — it is the
+   last semester the axis reaches, so between a term opening and its first complete week
+   being extracted, "recent" still points at the previous term. Pinned by
+   `test_the_anchor_follows_the_data_not_the_calendar`, parametrised on the rollover table
+   D-56 verified by simulation.
+2. **State-free labels**, reversing D-56 decision 4. `Previous N weeks` and `Last available
+   week` are true readings whether the term is running or finished, so the `Latest`/`Final`
+   branch was buying a distinction the words already carry — and the picker marks the
+   semester itself "(in progress)" regardless. The truthful-count rule is kept: three weeks
+   in, the label says "Previous 3 weeks".
+3. **Older slices are dropped from the document, not merely hidden.** 10 windows → 6;
+   **667.0 KB → 461.5 KB** uncompressed, **33.4 KB → 26.7 KB** gzipped, measured on the two
+   real documents (the plan's 461.6 was a pre-implementation estimate got by pruning the
+   D-56 document, which keeps the longer `Final …` label strings). Windows nobody can
+   select still cost review time at every publish.
+4. **Sentence case** (`Previous 4 weeks`), matching `All time` and the card headings.
+
+**Accepted regression: slice ids are stable in meaning but no longer in presence.** §6.1
+promised *"a link to `?window=2026S.last1` resolves to the same span in every later
+publish"*. It still names the same span wherever it appears, but once WS 2026 opens and
+becomes the anchor, `2026S.last1` leaves the registry: `findWindow` returns undefined and
+the dashboard falls back to its default. Signed off as the price of dropping cross-semester
+slice comparison.
+
+**`short_label` stays, unrendered — deliberately, and against the instinct to delete it.**
+Nothing reads it once the picker's group headings are fixed and generic. But §10 makes
+removing a field from a kind that stays a **major** break, so deleting it would cost a
+2.0.0 and a new blob prefix to save sixty bytes. It is kept as the stem `label` is built
+from, in the same *published, rendered nowhere* category §6.1 already accepts for
+`semester_weeks`. Its declarations on `all_time` and `semester` stay too and simply stop
+being emitted — which their `| None = None` tolerates by design. That optionality was added
+at D-56 purely to survive a deploy gap; it turned out to be what let a later change delete
+data with no schema event at all.
+
+Deleted with the framing that needed them: `optionLabel` and `semesterOf` in
+`lib/windows.ts` (the latter already dead — nothing outside the module imported it), the
+per-semester `groupedWindows` body, the `running`/`word` branch in `windows.py::_slices`,
+and the fixture's `isRunning` ternary.
+
+**Publish record (D-57).** *Pending — to be filled in on the next publish. Mode:
+re-aggregate only (`--skip-extract --skip-classify`); the corpus stands as extracted
+2026-07-14, which is already after SS 2026 ended, so the anchor and its slice weeks are the
+ones D-56 published on 2026-07-31. Review gate: every retained window byte-identical to
+that document, the four dropped windows the only difference.*
