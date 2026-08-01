@@ -29,8 +29,10 @@ If `state` is `QuotaExceeded`, the F1 daily CPU quota is burned (usually a crash
 **deploying will not help** — it resets on the hour boundary of the daily window (09:00 UTC).
 Say so and stop.
 
-Run the pipeline suite before a data publish. `cd pipeline && .venv/bin/python -m pytest -q`
-takes ~4 minutes; start it in the background and read it before uploading, not after.
+Do not run the pipeline test suite as part of this skill by default — assume it has already
+been run when relevant. If the user asks for it explicitly, run
+`cd pipeline && .venv/bin/python -m pytest -q` in the background (~4 minutes) and read it
+before uploading, not after.
 
 ## 2 · Ask which run-weekly mode to use
 
