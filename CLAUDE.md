@@ -21,10 +21,10 @@ publishes; the dashboard serves five educator-question tabs plus Topics and **Tr
 rebuilt on schema 1.6.0 (D-54): dayparts replace the 168-cell hour grid, a semester-rhythm
 overlay renders under All-time, and week axes read as month anchors. **Schema 1.8.0 (D-56)
 went live 2026-07-31** — `trailing_4` is gone, replaced by slices of a semester's closing
-stretch — and **D-57 (built 2026-08-01, not yet published) narrows those slices to the
-anchor semester alone**: `2026S.last4` / `2026S.last1` sit in a flat `Recent` group beside
-`Semesters` and `Everything`, and no other semester is sliced. D-57 is a data-and-display
-change only; the schema stays 1.8.0. Corpus scale:
+stretch — and **D-57 went live 2026-08-01**, narrowing those slices to the anchor semester
+alone: `2026S.last4` / `2026S.last1` sit in a flat `Recent` group beside `Semesters` and
+`Everything`, and no other semester is sliced. D-57 was a data-and-display change only; the
+schema stays 1.8.0. Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 

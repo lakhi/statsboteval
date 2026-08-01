@@ -1831,8 +1831,46 @@ Deleted with the framing that needed them: `optionLabel` and `semesterOf` in
 per-semester `groupedWindows` body, the `running`/`word` branch in `windows.py::_slices`,
 and the fixture's `isRunning` ternary.
 
-**Publish record (D-57).** *Pending — to be filled in on the next publish. Mode:
-re-aggregate only (`--skip-extract --skip-classify`); the corpus stands as extracted
-2026-07-14, which is already after SS 2026 ended, so the anchor and its slice weeks are the
-ones D-56 published on 2026-07-31. Review gate: every retained window byte-identical to
-that document, the four dropped windows the only difference.*
+**Publish record (D-57).** Went live 2026-08-01: blob
+`v1/aggregates_2026-W30_20260801T100020Z.json` (+ `latest.json`), schema **1.8.0**,
+`data_provenance: "production"`, axis 2025-W09 → 2026-W30, floor N=3, labels
+`statsboteval-v2` / `lang-heuristic-v1`, all-time 379 active users / 3,528 messages —
+identical to the D-56 publish, as intended. Mode: **re-aggregate only**
+(`--skip-extract --skip-classify`); the corpus stands as extracted 2026-07-14, already
+after SS 2026 ended, so the anchor and its slice weeks are the ones D-56 published.
+
+The review gate held: all seven sections **byte-identical** for `all_time`, `2025S`,
+`2025W`, `2026S`, `2026S.last4` and `2026S.last1`, with `enrollment` and `footnotes`
+unchanged. The only differences are the four dropped windows and the two relabelled slices.
+Document 667.0 KB → **461.5 KB**, 26.7 KB on the wire.
+
+**Deployed bundle-first, blob-second**, matching D-56 — and the gap was the useful part.
+With the 1.8.0 bundle live and the *ten-window* D-56 blob still in place,
+`/api/v1/aggregates` returned 200 and the page rendered: the old ids resolved, and the
+now-unemitted `short_label` fell back to `label` through the previous build's `optionLabel`.
+The D-56 optionality did exactly what its comment said it would, in the one moment that
+could have proved it wrong.
+
+**Three operational notes.**
+
+*No stale-read this time.* D-56 recorded the API serving the previous document for ~7
+minutes past its 300 s TTL, needing an explicit `az webapp restart`. Here the new document
+was live on the first check with no intervention. So the D-56 stall was not a standing
+property of the cache — do not build a restart into the routine on the strength of one
+occurrence.
+
+*The publish script's final verification curl failed for the third consecutive release*
+(D-55, D-56, now D-57): `curl -sf` returns an empty body and the JSON parse raises on
+nothing, **after** the upload has already succeeded. The upload was verified correct by
+downloading `v1/latest.json` directly and by querying the live API, both of which agreed.
+This has now cost three publishes a false alarm and should stop being noted and start being
+fixed (issue #10). Note for whoever does: it is not the gzip middleware — that curl sends no
+`Accept-Encoding` and is served uncompressed.
+
+*Generated artifacts drift silently where nothing guards them.* `schema/aggregates.schema.json`
+has an export guard (`test_schema_export.py`) and it caught the docstring change
+immediately. `dashboard/src/lib/aggregates.gen.ts` is generated from that same schema, has
+no guard, and is even excluded in `eslint.config.mjs` — so it kept the falsified "stable
+forever" sentence until review caught it by reading. A drift guard on `gen:types` output
+would close the gap; until then, regenerating it belongs in the checklist for any change
+that touches a contract docstring.
