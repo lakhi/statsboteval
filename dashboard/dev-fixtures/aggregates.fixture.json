@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.8.0",
+  "schema_version": "1.9.0",
   "generated_at": "2026-07-06T05:12:33Z",
   "data_through_week": "2026-W27",
   "data_through_date": "2026-07-05",
@@ -226,11 +226,14 @@
     "signup_activation": {
       "text": "Both counts are window-scoped. Someone who signed up late and first wrote afterwards counts in the window they wrote in."
     },
+    "signup_level_rule": {
+      "text": "A signup has no conversation behind it, so its program level is read from the roster at the registration date rather than at usage time. Someone who signed up as a bachelor student and later moved to the master programme counts here as bachelor."
+    },
     "status_multi": {
       "text": "A student who moved from bachelor to master inside the selected window is counted under both levels, so the student counts can exceed the window total by a few."
     },
     "daypart_definition": {
-      "text": "Times are Vienna local. The day is split into four equal six-hour blocks — night 00–06, morning 06–12, afternoon 12–18, evening 18–24 — so the bars are directly comparable. Each block counts the messages sent inside it, so a chat that runs past a boundary contributes to both."
+      "text": "Each block counts the messages sent inside it, so a chat that runs past a boundary contributes to both."
     },
     "semester_week_alignment": {
       "text": "Week 1 is the semester's first ISO week (the first week whose Thursday falls inside the semester), so the curves line up on teaching week rather than calendar date. Semesters draw largely different cohorts and differ in course structure — summer and winter especially — so compare the shape of a curve rather than its height. A semester still in progress ends where the data does."
@@ -22870,9 +22873,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 64
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 45
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "master": {
@@ -22918,9 +22930,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 71
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 50
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "staff": {
@@ -22965,9 +22986,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 12
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 8
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "unknown": {
@@ -23010,9 +23040,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 6
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 4
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             }
           }
@@ -23118,9 +23157,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 33
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 23
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "master": {
@@ -23166,9 +23214,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 36
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 25
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "staff": {
@@ -23211,9 +23268,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 6
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 4
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             }
           }
@@ -23319,9 +23385,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 40
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 28
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "master": {
@@ -23367,9 +23442,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 44
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 31
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "staff": {
@@ -23412,9 +23496,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 8
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 6
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             }
           }
@@ -23520,9 +23613,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 36
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 25
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "master": {
@@ -23568,9 +23670,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 39
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 27
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "staff": {
@@ -23613,9 +23724,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 7
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 5
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             }
           }
@@ -23720,9 +23840,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 15
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 11
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "master": {
@@ -23767,9 +23896,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 16
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 11
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "staff": {
@@ -23808,9 +23946,17 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 3
+              },
+              "new_registrations_active": {
+                "status": "suppressed"
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             }
           }
@@ -23905,9 +24051,16 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "suppressed"
+              },
+              "new_registrations_active": {
+                "status": "suppressed"
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "master": {
@@ -23946,9 +24099,16 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "suppressed"
+              },
+              "new_registrations_active": {
+                "status": "suppressed"
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             },
             "staff": {
@@ -23994,9 +24154,18 @@
                   "user_class_window"
                 ]
               },
+              "new_registrations": {
+                "status": "ok",
+                "value": 0
+              },
+              "new_registrations_active": {
+                "status": "ok",
+                "value": 0
+              },
               "footnote_ids": [
                 "status_rule",
-                "status_multi"
+                "status_multi",
+                "signup_level_rule"
               ]
             }
           }
@@ -41437,8 +41606,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -41492,8 +41660,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -41533,8 +41700,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -41586,8 +41752,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -41692,8 +41857,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -41747,8 +41911,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -41788,8 +41951,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -41841,8 +42003,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -41936,8 +42097,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -41987,8 +42147,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -42026,8 +42185,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -42075,8 +42233,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -42174,8 +42331,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -42224,8 +42380,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -42262,8 +42417,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -42311,8 +42465,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             }
@@ -42610,8 +42763,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -42665,8 +42817,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -42706,8 +42857,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -42809,8 +42959,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -42864,8 +43013,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -42905,8 +43053,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -43005,8 +43152,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -43055,8 +43201,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -43092,8 +43237,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             }
@@ -43448,8 +43592,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -43503,8 +43646,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -43544,8 +43686,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -43597,8 +43738,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -43701,8 +43841,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -43756,8 +43895,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -43797,8 +43935,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -43850,8 +43987,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -43950,8 +44086,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -44001,8 +44136,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -44039,8 +44173,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -44088,8 +44221,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             }
@@ -44441,8 +44573,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -44495,8 +44626,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -44536,8 +44666,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -44589,8 +44718,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -44692,8 +44820,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -44747,8 +44874,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -44788,8 +44914,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -44841,8 +44966,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -44941,8 +45065,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -44990,8 +45113,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -45029,8 +45151,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -45078,8 +45199,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             }
@@ -45422,8 +45542,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -45473,8 +45592,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -45513,8 +45631,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -45563,8 +45680,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -45661,8 +45777,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -45713,8 +45828,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -45753,8 +45867,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -45804,8 +45917,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             },
@@ -45906,8 +46018,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "method_themes": {
@@ -45957,8 +46068,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "software_themes": {
@@ -45995,8 +46105,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               },
               "emergent_themes": {
@@ -46045,8 +46154,7 @@
                 },
                 "footnote_ids": [
                   "multi_label",
-                  "label_provenance",
-                  "status_rule"
+                  "label_provenance"
                 ]
               }
             }

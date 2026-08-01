@@ -142,6 +142,8 @@ export type ByStatus5 = {
 export type ActiveStudents1 = OkCell | SuppressedCell;
 export type FootnoteIds9 = string[] | null;
 export type Messages1 = OkCell | SuppressedCell;
+export type NewRegistrations = (OkCell | SuppressedCell) | null;
+export type NewRegistrationsActive = (OkCell | SuppressedCell) | null;
 export type NewUsers = (OkCell | SuppressedCell) | null;
 export type ReturningUsers = (OkCell | SuppressedCell) | null;
 export type Sessions = (OkCell | SuppressedCell) | null;
@@ -153,8 +155,8 @@ export type Sporadic = OkCell | SuppressedCell;
 export type ActiveStudents2 = OkCell | SuppressedCell;
 export type FootnoteIds11 = string[] | null;
 export type Messages2 = OkCell | SuppressedCell;
-export type NewRegistrations = OkCell | SuppressedCell;
-export type NewRegistrationsActive = (OkCell | SuppressedCell) | null;
+export type NewRegistrations1 = OkCell | SuppressedCell;
+export type NewRegistrationsActive1 = (OkCell | SuppressedCell) | null;
 export type NewUsers1 = (OkCell | SuppressedCell) | null;
 export type ReturningUsers1 = (OkCell | SuppressedCell) | null;
 export type Sessions1 = OkCell | SuppressedCell;
@@ -604,15 +606,23 @@ export interface UsageContextWindow {
  * Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).
  *
  * 1.7.0 (D-55) widens this from the two measures the by-level card needed to what the
- * KPI tiles need, because the level filter now scopes the whole tab. `new_registrations`
- * is *not* here and will not be: a registration has no session, so the usage-time rule
- * does not reach it, and splitting only the `_active` half of that pair would be worse
- * than not splitting — the tile renders under All users only instead.
+ * KPI tiles need, because the level filter now scopes the whole tab.
+ *
+ * 1.9.0 (D-59) adds the signup pair, reversing D-55's "and will not be". The old
+ * reasoning — a registration has no session, so the usage-time rule does not reach it —
+ * described the *implementation* (levels were resolved from a session's start) rather
+ * than the data: the roster row carries the transition semester, and a registration
+ * carries a date, which is all `status.status_at` needs. A 2026-08-01 probe found all
+ * 550 registrants covered by the roster, 131 of whom never wrote a message — the
+ * population the usage-time rule structurally cannot see. Both halves are split
+ * together; splitting only the `_active` half would still be worse than not splitting.
  */
 export interface UsageContextByStatus {
   active_students: ActiveStudents1;
   footnote_ids?: FootnoteIds9;
   messages: Messages1;
+  new_registrations?: NewRegistrations;
+  new_registrations_active?: NewRegistrationsActive;
   new_users?: NewUsers;
   returning_users?: ReturningUsers;
   sessions?: Sessions;
@@ -631,8 +641,8 @@ export interface UsageContextTotals {
   active_students: ActiveStudents2;
   footnote_ids?: FootnoteIds11;
   messages: Messages2;
-  new_registrations: NewRegistrations;
-  new_registrations_active?: NewRegistrationsActive;
+  new_registrations: NewRegistrations1;
+  new_registrations_active?: NewRegistrationsActive1;
   new_users?: NewUsers1;
   returning_users?: ReturningUsers1;
   sessions: Sessions1;

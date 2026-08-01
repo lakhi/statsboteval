@@ -103,11 +103,23 @@ def read_status(con: duckdb.DuckDBPyConnection) -> dict[str, StatusRow]:
     }
 
 
-def resolve_status(row: StatusRow | None, session_started_ms: int) -> str:
-    """Status at usage time, session-level: 'bachelor' | 'master' | 'staff' | 'unknown'."""
+def status_at(row: StatusRow | None, local_date: date) -> str:
+    """Status on a given Vienna-local date: 'bachelor' | 'master' | 'staff' | 'unknown'.
+
+    The rule itself, keyed on a date rather than on an event. `resolve_status` applies it
+    to a session's start; `aggregate` applies it to a signup's registration date (D-59),
+    which is the one moment a registrant without a single conversation still has. One
+    function so the transition boundary cannot be implemented twice and drift — the
+    Beginnsemester cutoff is the whole rule, and two copies of it is two answers.
+    """
     if row is None:
         return UNKNOWN
     if row.ma_start_semester is None:
         return row.status
+    return "master" if local_date >= semester_start(row.ma_start_semester) else row.status
+
+
+def resolve_status(row: StatusRow | None, session_started_ms: int) -> str:
+    """Status at usage time, session-level: 'bachelor' | 'master' | 'staff' | 'unknown'."""
     session_date = datetime.fromtimestamp(session_started_ms / 1000, tz=timezone.utc).astimezone(_VIENNA).date()
-    return "master" if session_date >= semester_start(row.ma_start_semester) else row.status
+    return status_at(row, session_date)

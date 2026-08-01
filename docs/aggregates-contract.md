@@ -240,13 +240,14 @@ Initial catalog:
 | `signup_activation` | "sent at least 1 msg" is window-scoped on both sides; a late signup counts in the window they first wrote in (schema 1.4.0) |
 | `status_multi` | a BA→MA transitioner active on both sides of the boundary is counted under both levels, so student counts can exceed the total (schema 1.4.0) |
 | `reach_window_scope` | reach divides by the enrolled cohort of the semester the window belongs to, so in a slice it is the share of that cohort active in those weeks, not over the term (schema 1.8.0 — D-56) |
-| `daypart_definition` | Vienna local; four **equal** six-hour blocks (00–06, 06–12, 12–18, 18–24) so bar length is directly comparable; a chat crossing a boundary counts in both (schema 1.6.0 — D-54) |
+| `daypart_definition` | a chat crossing a block boundary counts in both (schema 1.6.0 — D-54; cut to that clause alone in D-59, because both cards print each block's hour range beside its label and the deck states Vienna local — the blocks are still four **equal** six-hour bins, which is what makes bar length comparable) |
 | `semester_week_alignment` | week 1 is the semester's first ISO week (Thursday rule); cohorts and course structure differ between semesters, so compare shape not height; an in-progress semester ends where the data does (schema 1.6.0 — D-54) |
 | `duration_definition` | session duration = last − first server `created_at` in the session; single-message sessions = 0 |
 | `weeks_active_window` | weeks active counts only the weeks inside the selected window, so the shares are not comparable between windows of different length (schema 1.5.0 — D-53) |
 | `multi_label` | a message may carry several categories/themes; topic counts do not sum to the message total (schema 1.1.0) |
 | `label_provenance` | topics come from automated classification; `label_versions.classification` names the exact version (schema 1.1.0) |
 | `status_rule` | program level from coordinator roster lists; BA→MA transitioners counted by status at usage time, session-level (D-39) |
+| `signup_level_rule` | a signup has no conversation, so its program level is read from the roster at the **registration date** rather than at usage time; a later BA→MA move does not reassign it. **Attached to `usage_context.by_status` entries only** — under All users no level is claimed (schema 1.9.0 — D-59) |
 | `trend_method` | how a trend is selected: gate (floor, size, effect, BH-adjusted p) then relevance ranking; census framing (schema 1.3.0 — D-49) |
 | `per_week_rate` | volume measures compared per covered week; within-period seasonality not corrected, in-progress periods averaged over weeks so far (schema 1.3.0) |
 | `cohort_turnover` | each semester draws a largely different cohort; a between-semester change may reflect who enrolled (schema 1.3.0) |
@@ -383,7 +384,10 @@ does. Both `messages` and `active_students` are published; the dashboard plots m
                         "footnote_ids": ["user_class_definitions", "user_class_window"] },
       "by_status": { "<bachelor|master|staff|unknown>": {         // 1.4.0, absent w/o roster
                         "active_students": CountCell, "messages": CountCell,
-                        "footnote_ids": ["status_rule", "status_multi"] } } } } }
+                        "new_registrations": CountCell,             // 1.9.0
+                        "new_registrations_active": CountCell,      // 1.9.0
+                        "footnote_ids": ["status_rule", "status_multi",
+                                         "signup_level_rule"] } } } } }
 ```
 
 `totals` feeds the KPI tiles for the selected window (invariant 4: never client-summed) —
@@ -405,6 +409,16 @@ total is recoverable by subtraction, so if either side is sub-floor neither is p
 document where the floor is applied jointly rather than per cell. `by_status` resolves program level per session (D-39): messages partition exactly,
 students do not — a bachelor→master transitioner active on both sides of their semester
 boundary appears under both levels, which `status_multi` states.
+
+**Signups per level (1.9.0, D-59).** `new_registrations` / `new_registrations_active` on a
+`by_status` entry are resolved from the roster at the **registration date** — the same
+D-39 rule read at a different instant, because a registration is the one event a
+registrant who never wrote still has. This reverses 1.7.0's "a signup has no session, so
+it cannot be attributed to a level": the obstacle was the session-keyed implementation,
+not the data. `signup_level_rule` states it on the tile. Two consequences to know:
+a later BA→MA move does not reassign an earlier signup, and a level that **signed up but
+never wrote** has no `by_status` entry at all (the key set comes from the window's
+messages), so the published levels can sum to less than `totals.new_registrations`.
 
 `user_classes` reproduces the operational definitions of Bergmann et al. (2026), verified
 verbatim against OSF script `30_Analysis Step 3 - Table K1 & subgroup analysis.R`
@@ -572,7 +586,11 @@ document still validates and 1.0.0 readers ignore this section (invariant 5).*
 - `by_status` keys are the closed set `bachelor | master | staff | unknown`; a status
   group appears only when non-empty, and every cell inside it floors independently —
   the floor, not the schema, is the small-group defense. Resolution is the D-39
-  usage-time rule at session level (`status_rule` footnote).
+  usage-time rule at session level. **A topics distribution carries no `status_rule`
+  id** (D-59): it rode along on every level slice until 1.9.0 and rendered as a third
+  symbol on all four cards, restating what the level filter above them already says. The
+  id is alive in §6.2 — four other cards reference it, including this tab's own by-level
+  comparison card, which resolves it from the registry rather than from these ids.
 - Deductive item labels are the public manuscript category names; theme labels are the
   frozen/reviewed theme strings (the D-33 operator review is the privacy control for
   emergent labels entering this file).

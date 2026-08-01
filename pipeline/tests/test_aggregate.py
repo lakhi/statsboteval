@@ -327,7 +327,22 @@ def test_usage_context_by_status(con2: duckdb.DuckDBPyConnection) -> None:
     assert win["by_status"]["bachelor"]["messages"] == {"status": "ok", "value": 3}  # ids 1, 2, 7
     assert win["by_status"]["master"]["messages"] == {"status": "ok", "value": 3}  # ids 3, 4, 5
     assert win["by_status"]["unknown"]["messages"] == {"status": "ok", "value": 2}  # ids 6, 8
-    assert win["by_status"]["unknown"]["footnote_ids"] == ["status_rule", "status_multi"]
+    assert win["by_status"]["unknown"]["footnote_ids"] == [
+        "status_rule",
+        "status_multi",
+        "signup_level_rule",
+    ]
+    # D-59: signups split by roster status on the REGISTRATION date. The three in-axis
+    # registrations land one per level and sum to the window total.
+    assert win["totals"]["new_registrations"] == {"status": "ok", "value": 3}
+    assert win["by_status"]["bachelor"]["new_registrations"] == {"status": "ok", "value": 1}
+    assert win["by_status"]["master"]["new_registrations"] == {"status": "ok", "value": 1}
+    # syn-0004 registered in W11 and never wrote: it has no roster row, so it lands in
+    # 'unknown' — and it is in a level slice at all only because the split is keyed on the
+    # registration, not on a session. This is the population D-55's rule could not reach.
+    assert win["by_status"]["unknown"]["new_registrations"] == {"status": "ok", "value": 1}
+    assert win["by_status"]["unknown"]["new_registrations_active"] == {"status": "ok", "value": 0}
+    assert win["by_status"]["bachelor"]["new_registrations_active"] == {"status": "ok", "value": 1}
     # No roster at all -> the section publishes no split rather than an "unknown" bucket.
     con2.execute("DELETE FROM student_status")
     assert build2(con2, floor_n=1)["sections"]["usage_context"]["per_window"]["all_time"].get("by_status") is None
@@ -336,6 +351,30 @@ def test_usage_context_by_status(con2: duckdb.DuckDBPyConnection) -> None:
         e["week"]: e["cell"] for e in suppressed_doc["sections"]["usage_context"]["weekly"]["registrations"]["series"]
     }
     assert weekly3 == {"2025-W10": {"status": "suppressed"}, "2025-W11": {"status": "suppressed"}}
+
+
+def test_signups_of_a_level_with_no_messages_are_not_published(con2: duckdb.DuckDBPyConnection) -> None:
+    """The known edge of the D-59 split, pinned so changing it stays a decision.
+
+    `by_status` keys come from the window's *messages* (that is what makes a level slice a
+    slice of something). A level that signed up but never wrote therefore has no slice at
+    all, and its signups appear only in the cohort-wide total: here syn-0004 is staff,
+    never wrote, and the published levels sum to 2 against a window total of 3.
+
+    Nothing on the page lies as a result — Adoption's by-level card has no signup column,
+    and under a Staff filter the tab shows its level-gap state rather than a zero row — but
+    the day a level slice is built from registrations too, this assertion should fail and
+    be rewritten rather than quietly agree.
+    """
+    con2.executemany(
+        "INSERT INTO student_status VALUES (?, ?, ?, 'synthetic-roster')",
+        [("syn-0001", "bachelor", None), ("syn-0002", "master", None), ("syn-0004", "staff", None)],
+    )
+    win = build2(con2, floor_n=1)["sections"]["usage_context"]["per_window"]["all_time"]
+    assert "staff" not in win["by_status"]
+    assert win["totals"]["new_registrations"] == {"status": "ok", "value": 3}
+    published = sum(win["by_status"][level]["new_registrations"]["value"] for level in win["by_status"])
+    assert published == 2
 
 
 def test_user_classes_bergmann_rules(con2: duckdb.DuckDBPyConnection) -> None:

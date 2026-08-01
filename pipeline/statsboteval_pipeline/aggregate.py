@@ -82,7 +82,7 @@ from .contract import TopicDistribution, TopicGroup, TopicItem, TopicsSection, T
 from .extract import read_last_extracted_at
 from .language import LABEL_VERSION as LANGUAGE_LABEL_VERSION
 from .stats import classify_user, is_frequent, quantile_type2
-from .status import read_status, resolve_status
+from .status import read_status, resolve_status, status_at
 from .trends import build_trends
 from .windows import build_windows
 
@@ -178,6 +178,15 @@ FOOTNOTES = {
         text="Both counts are window-scoped. Someone who signed up late and first wrote "
         "afterwards counts in the window they wrote in."
     ),
+    # 1.9.0 (D-59). Emitted on the by-level slices only, because the caveat exists only
+    # there: under All users no level is claimed and the sentence would be noise. It says
+    # the quiet part of the split — every other number on the tab is resolved at usage
+    # time, this one cannot be, because the people it counts may never have used anything.
+    "signup_level_rule": Footnote(
+        text="A signup has no conversation behind it, so its program level is read from the "
+        "roster at the registration date rather than at usage time. Someone who signed up as "
+        "a bachelor student and later moved to the master programme counts here as bachelor."
+    ),
     "status_multi": Footnote(
         text="A student who moved from bachelor to master inside the selected window is counted "
         "under both levels, so the student counts can exceed the window total by a few."
@@ -192,13 +201,14 @@ FOOTNOTES = {
         "window necessarily yields fewer weeks per student; the shares are not comparable "
         "between windows of different length."
     ),
-    # 1.6.0 (D-54). The "equal blocks" clause is not decoration: it tells the reader the
-    # bar heights are directly comparable, which is the whole reason the blocks are equal.
+    # 1.6.0 (D-54), cut to the boundary rule in D-59. The blocks are still four EQUAL
+    # six-hour bins and that equality is still load-bearing (see DAYPARTS) — what changed
+    # is only whether the note repeats it: both cards print each block's hour range beside
+    # its own label ("Night 00–06"), and "Vienna local" is in the panel deck one line
+    # above, so two of the three sentences restated what the reader could already see.
     "daypart_definition": Footnote(
-        text="Times are Vienna local. The day is split into four equal six-hour blocks — "
-        "night 00–06, morning 06–12, afternoon 12–18, evening 18–24 — so the bars are "
-        "directly comparable. Each block counts the messages sent inside it, so a chat "
-        "that runs past a boundary contributes to both."
+        text="Each block counts the messages sent inside it, so a chat that runs past a "
+        "boundary contributes to both."
     ),
     "semester_week_alignment": Footnote(
         text="Week 1 is the semester's first ISO week (the first week whose Thursday falls "
@@ -444,6 +454,11 @@ class CorpusView:
     positives: dict[str, dict[str, set[int]]]  # domain -> code -> history_ids
     first_seen: dict[str, date]  # pseudonym -> first message ever, PRE-axis rows included
     message_status: dict[int, str]  # history_id -> program level at usage time; {} = no roster
+    # D-59: pseudonym -> program level on the REGISTRATION date; {} = no roster imported.
+    # Separate from message_status rather than folded into `registrations` because the
+    # weekly registrations series tallies (pseudonym, week) pairs and has no use for a
+    # level — widening the tuple would touch `tally` to serve one caller.
+    registration_status: dict[str, str]
 
 
 def read_corpus_view(
@@ -531,11 +546,18 @@ def read_corpus_view(
     ]
 
     registrations: list[tuple[str, str]] = []  # (pseudonym, week)
+    registration_status: dict[str, str] = {}
     for pseudonym, registered_at in con.execute("SELECT pseudonym, registered_at FROM students").fetchall():
         local_date = registered_at.replace(tzinfo=timezone.utc).astimezone(VIENNA).date()
         if axis_start is not None and local_date < axis_start:
             continue
         registrations.append((pseudonym, date_to_week(local_date)))
+        # The D-39 rule at the registration instant (D-59). Same `status_at`, same
+        # Beginnsemester boundary, different date — a signup is the one event a registrant
+        # who never wrote still has. Left empty when no roster is imported, which every
+        # section reads as "publish no by_status".
+        if status_rows:
+            registration_status[pseudonym] = status_at(status_rows.get(pseudonym), local_date)
 
     # Label positives, read here rather than inside the topics block: build_trends needs
     # exactly the same material, and a second query would be a second source of truth for
@@ -561,6 +583,7 @@ def read_corpus_view(
         positives=positives,
         first_seen=first_seen,
         message_status=message_status,
+        registration_status=registration_status,
     )
 
 
@@ -580,6 +603,7 @@ def build_aggregates(
         con, now=now, axis_start=axis_start, classification_version=classification_version
     )
     msgs, sessions, registrations = view.msgs, view.sessions, view.registrations
+    registration_status = view.registration_status
     axis, windows = view.axis, view.windows
     first, through = view.first_week, view.through_week
     positives = view.positives
@@ -832,6 +856,18 @@ def build_aggregates(
             start: date | None = window_start,
         ) -> UsageContextByStatus:
             students = {m.pseudonym for m in level_msgs}
+            # Signups of this level (D-59), keyed on the registration date rather than on
+            # a session — see `signup_level_rule`. `level_regs` is not a subset of
+            # `students`: most of its members never wrote, which is the entire reason the
+            # pair could not be split before.
+            #
+            # Known edge, pinned in tests: the by_status key set comes from this window's
+            # MESSAGES, so a level that signed up and never wrote has no slice and its
+            # signups appear only in the cohort-wide total. Deliberate — a slice is a slice
+            # of activity, and manufacturing an all-zero level to carry a signup count
+            # would put a row of zeros on every by-level card on the dashboard.
+            level_regs = [p for p in new_regs if registration_status.get(p) == level]
+            level_activated = {p for p in set(level_regs) if p in active}
             # Sessions *of this level*, not "sessions whose student is in this level": a
             # transitioner's pre-boundary conversations belong to bachelor even though the
             # same person also appears under master (resolve_status is session-keyed).
@@ -849,7 +885,11 @@ def build_aggregates(
                 new_users=level_new,
                 returning_users=level_returning,
                 user_classes=_user_classes(level_dates, floor_n),
-                footnote_ids=["status_rule", "status_multi"],
+                new_registrations=floored_count(len(level_regs), len(set(level_regs)), floor_n),
+                new_registrations_active=floored_count(
+                    len(level_activated), len(level_activated), floor_n
+                ),
+                footnote_ids=["status_rule", "status_multi", "signup_level_rule"],
             )
 
         usage_windows[window.id] = UsageContextWindow(
@@ -987,7 +1027,7 @@ def build_aggregates(
                 ).fetchall()
             )
 
-        def topic_distribution(domain: str, subset: list[_Message], with_status_rule: bool) -> TopicDistribution:
+        def topic_distribution(domain: str, subset: list[_Message]) -> TopicDistribution:
             def display(code: str) -> str:
                 return DEDUCTIVE_LABELS.get(code, code) if domain == "deductive" else code
 
@@ -1001,22 +1041,24 @@ def build_aggregates(
                         description=theme_descriptions.get(code) if domain == "emergent_theme" else None,
                     )
                 )
-            footnote_ids = ["multi_label", "label_provenance"] + (["status_rule"] if with_status_rule else [])
+            # D-59: no `status_rule` on a level slice. It rode along here since D-39 and
+            # rendered as a third symbol on all four cards under a single level, restating
+            # on every card what the filter above them already says. The one place on this
+            # tab where the roster rule earns its symbol — the by-level comparison card —
+            # resolves it from the registry directly, not from these ids.
             return TopicDistribution(
                 items=items,
                 n_total=floored_count(len(subset), len({m.pseudonym for m in subset}), floor_n),
-                footnote_ids=footnote_ids,
+                footnote_ids=["multi_label", "label_provenance"],
             )
 
-        def topic_group(subset: list[_Message], *, with_status_rule: bool = False) -> dict[str, Any]:
+        def topic_group(subset: list[_Message]) -> dict[str, Any]:
             return {
-                "deductive": topic_distribution("deductive", subset, with_status_rule),
-                "method_themes": topic_distribution("method_theme", subset, with_status_rule),
-                "software_themes": topic_distribution("software_theme", subset, with_status_rule),
+                "deductive": topic_distribution("deductive", subset),
+                "method_themes": topic_distribution("method_theme", subset),
+                "software_themes": topic_distribution("software_theme", subset),
                 "emergent_themes": (
-                    topic_distribution("emergent_theme", subset, with_status_rule)
-                    if positives["emergent_theme"]
-                    else None
+                    topic_distribution("emergent_theme", subset) if positives["emergent_theme"] else None
                 ),
             }
 
@@ -1031,7 +1073,7 @@ def build_aggregates(
                     for m in w_msgs:
                         grouped[view.message_status[m.history_id]].append(m)
                     topic_by_status = {
-                        status: TopicGroup(**topic_group(group_msgs, with_status_rule=True))
+                        status: TopicGroup(**topic_group(group_msgs))
                         for status, group_msgs in sorted(grouped.items())
                     }
                 topics_windows[window.id] = TopicsWindowEntry(**topic_group(w_msgs), by_status=topic_by_status)

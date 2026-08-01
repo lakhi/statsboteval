@@ -340,10 +340,9 @@ function topicDistribution(id, labels, statusShare, footnote_ids, descriptions) 
   return { items, n_total: cell(n, msgs), ...(footnote_ids && { footnote_ids }) };
 }
 
-function topicGroup(id, statusShare, { withStatusRule = false, withEmergent = true } = {}) {
-  const notes = withStatusRule
-    ? ["multi_label", "label_provenance", "status_rule"]
-    : ["multi_label", "label_provenance"];
+function topicGroup(id, statusShare, { withEmergent = true } = {}) {
+  // D-59: a level slice carries the same two ids the cohort-wide group does.
+  const notes = ["multi_label", "label_provenance"];
   return {
     deductive: topicDistribution(id, DEDUCTIVE, statusShare, notes),
     method_themes: topicDistribution(id, METHOD_THEMES, statusShare, notes),
@@ -373,11 +372,11 @@ const topics = {
               ...Object.fromEntries(
                 Object.entries(statusShares).map(([status, share]) => [
                   status,
-                  topicGroup(id, share, { withStatusRule: true, withEmergent }),
+                  topicGroup(id, share, { withEmergent }),
                 ]),
               ),
               ...(id === "all_time" && {
-                unknown: topicGroup(id, 0.04, { withStatusRule: true, withEmergent }),
+                unknown: topicGroup(id, 0.04, { withEmergent }),
               }),
             },
           },
@@ -529,7 +528,7 @@ const trends = {
 };
 
 const doc = {
-  schema_version: "1.8.0",
+  schema_version: "1.9.0",
   generated_at: "2026-07-06T05:12:33Z",
   data_through_week: weeks.at(-1),
   data_through_date: iso(addDays(LAST_WEEK_MONDAY, 6)),
@@ -585,11 +584,14 @@ const doc = {
     signup_activation: {
       text: "Both counts are window-scoped. Someone who signed up late and first wrote afterwards counts in the window they wrote in.",
     },
+    signup_level_rule: {
+      text: "A signup has no conversation behind it, so its program level is read from the roster at the registration date rather than at usage time. Someone who signed up as a bachelor student and later moved to the master programme counts here as bachelor.",
+    },
     status_multi: {
       text: "A student who moved from bachelor to master inside the selected window is counted under both levels, so the student counts can exceed the window total by a few.",
     },
     daypart_definition: {
-      text: "Times are Vienna local. The day is split into four equal six-hour blocks — night 00–06, morning 06–12, afternoon 12–18, evening 18–24 — so the bars are directly comparable. Each block counts the messages sent inside it, so a chat that runs past a boundary contributes to both.",
+      text: "Each block counts the messages sent inside it, so a chat that runs past a boundary contributes to both.",
     },
     semester_week_alignment: {
       text: "Week 1 is the semester's first ISO week (the first week whose Thursday falls inside the semester), so the curves line up on teaching week rather than calendar date. Semesters draw largely different cohorts and differ in course structure — summer and winter especially — so compare the shape of a curve rather than its height. A semester still in progress ends where the data does.",
@@ -729,14 +731,19 @@ const doc = {
             footnote_ids: ["user_class_definitions", "user_class_window"],
           },
           // 1.7.0 widens this from two measures to what the KPI tiles need, because the
-          // level filter now scopes the whole tab. new_registrations stays out: a signup
-          // has no session, so the usage-time rule cannot resolve its level.
+          // level filter now scopes the whole tab. 1.9.0 adds the signup pair (D-59),
+          // resolved from the roster at the registration date — deliberately NOT a share
+          // of the window's actives, because most signups never wrote.
           by_status: Object.fromEntries(
             Object.entries(levelsFor(id)).map(([status, share]) => {
               const students = Math.round(n * share);
               const lvlNew = Math.round(students * 0.68);
               const lvlOne = Math.round(students * 0.55);
               const lvlMonthly = Math.round(students * 0.1);
+              // Signups outrun actives at every level: the population the usage-time rule
+              // could not see is exactly the registrants who never wrote (D-59).
+              const lvlSignups = Math.round(n * share * 1.3);
+              const lvlActivated = Math.round(lvlSignups * 0.7);
               return [
                 status,
                 {
@@ -752,7 +759,9 @@ const doc = {
                     frequent: cell(0, 0),
                     footnote_ids: ["user_class_definitions", "user_class_window"],
                   },
-                  footnote_ids: ["status_rule", "status_multi"],
+                  new_registrations: cell(lvlSignups, lvlSignups),
+                  new_registrations_active: cell(lvlActivated, lvlActivated),
+                  footnote_ids: ["status_rule", "status_multi", "signup_level_rule"],
                 },
               ];
             }),

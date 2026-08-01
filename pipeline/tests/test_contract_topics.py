@@ -62,7 +62,9 @@ def test_schema_version_bumped_minor() -> None:
     # enrollment block behind the reach percentages (D-55). 1.8.0 replaces the trailing
     # window with per-semester slices — a *removal* from the window union, unlike every
     # bump above it, which is why the same tripwire covers a non-additive change (D-56).
-    assert SCHEMA_VERSION == "1.8.0"
+    # 1.9.0 splits the signup pair by program level, resolved from the roster at the
+    # registration date (D-59) — additive, two optional cells on usage_context.by_status.
+    assert SCHEMA_VERSION == "1.9.0"
 
 
 def test_description_optional_and_absent_not_null() -> None:

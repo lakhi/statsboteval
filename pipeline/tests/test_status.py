@@ -1,7 +1,7 @@
 """Phase B Task 21: student-status dimension (synthetic rosters only)."""
 
 import shutil
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import duckdb
@@ -17,6 +17,7 @@ from statsboteval_pipeline.status import (
     read_status,
     resolve_status,
     semester_start,
+    status_at,
 )
 
 PEPPER = "test-pepper"
@@ -123,6 +124,21 @@ def test_transitioner_resolution_across_boundary_incl_break_months() -> None:
 def test_non_transitioner_and_unknown_resolution() -> None:
     assert resolve_status(StatusRow("p", "staff", None, "doktorat"), vienna_ms("2025-06-15 10:00")) == "staff"
     assert resolve_status(None, vienna_ms("2025-06-15 10:00")) == "unknown"
+
+
+def test_status_at_is_the_same_rule_keyed_on_a_date(tmp_path: Path) -> None:
+    """D-59: signups resolve through `status_at`, sessions through `resolve_status`.
+
+    The same boundary must answer the same way whichever door it is reached through —
+    that identity is the reason the rule was extracted rather than copied.
+    """
+    row = StatusRow("p", "bachelor", "2025W", "list")
+    assert status_at(row, date(2025, 9, 30)) == "bachelor"
+    assert status_at(row, date(2025, 10, 1)) == "master"  # first day of WS
+    assert status_at(None, date(2025, 10, 1)) == "unknown"
+    assert status_at(StatusRow("p", "staff", None, "doktorat"), date(2025, 10, 1)) == "staff"
+    # Same instant, both doors.
+    assert status_at(row, date(2025, 10, 1)) == resolve_status(row, vienna_ms("2025-10-01 00:30"))
 
 
 def test_erasure_covers_student_status(tmp_path: Path) -> None:

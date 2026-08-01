@@ -130,7 +130,9 @@ def test_transitioner_splits_by_session_date(con: duckdb.DuckDBPyConnection) -> 
     assert by_status["bachelor"]["deductive"]["n_total"] == {"status": "ok", "value": 1}
     assert by_status["master"]["deductive"]["n_total"] == {"status": "ok", "value": 1}
     assert by_status["staff"]["deductive"]["n_total"] == {"status": "ok", "value": 1}
-    assert by_status["master"]["deductive"]["footnote_ids"] == ["multi_label", "label_provenance", "status_rule"]
+    # D-59: no `status_rule` here. A level slice carries the same two ids the cohort-wide
+    # group does; the roster rule is the by-level card's business, not every card's.
+    assert by_status["master"]["deductive"]["footnote_ids"] == ["multi_label", "label_provenance"]
 
 
 def test_sub_floor_status_group_suppresses_but_appears(con: duckdb.DuckDBPyConnection) -> None:

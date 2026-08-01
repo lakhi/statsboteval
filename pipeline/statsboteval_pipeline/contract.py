@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 
-SCHEMA_VERSION = "1.8.0"
+SCHEMA_VERSION = "1.9.0"
 
 FootnoteId = str
 
@@ -451,10 +451,16 @@ class UsageContextByStatus(BaseModel):
     """Adoption by program level (1.4.0, D-50; the D-39 usage-time rule).
 
     1.7.0 (D-55) widens this from the two measures the by-level card needed to what the
-    KPI tiles need, because the level filter now scopes the whole tab. `new_registrations`
-    is *not* here and will not be: a registration has no session, so the usage-time rule
-    does not reach it, and splitting only the `_active` half of that pair would be worse
-    than not splitting — the tile renders under All users only instead.
+    KPI tiles need, because the level filter now scopes the whole tab.
+
+    1.9.0 (D-59) adds the signup pair, reversing D-55's "and will not be". The old
+    reasoning — a registration has no session, so the usage-time rule does not reach it —
+    described the *implementation* (levels were resolved from a session's start) rather
+    than the data: the roster row carries the transition semester, and a registration
+    carries a date, which is all `status.status_at` needs. A 2026-08-01 probe found all
+    550 registrants covered by the roster, 131 of whom never wrote a message — the
+    population the usage-time rule structurally cannot see. Both halves are split
+    together; splitting only the `_active` half would still be worse than not splitting.
     """
 
     active_students: CountCell
@@ -463,6 +469,12 @@ class UsageContextByStatus(BaseModel):
     new_users: CountCell | None = None  # 1.7.0, same complementary suppression as totals
     returning_users: CountCell | None = None  # 1.7.0
     user_classes: UserClasses | None = None  # 1.7.0
+    # 1.9.0 (D-59). Level read from the roster at the REGISTRATION date, not at usage
+    # time — a different instant under the same rule, which `signup_level_rule` states on
+    # the tile. Optional like every other 1.7.0+ addition: a document published before
+    # this schema has neither, and readers must keep rendering it (invariant 5).
+    new_registrations: CountCell | None = None
+    new_registrations_active: CountCell | None = None
     # Repeated on every status entry, as TopicDistribution does: the note belongs to the
     # figure, and a dict-of-groups has no other place to hang it.
     footnote_ids: list[FootnoteId] | None = None
