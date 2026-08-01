@@ -2251,3 +2251,30 @@ This is the failure mode that survives review: three of four slices look fine.
 **Bundle half only.** Every string here lives in the dashboard, not in the footnote
 registry, and no cell changes shape. `--skip-extract --skip-classify` if the blob is
 refreshed at all; it does not need to be.
+
+### Publish record — 2026-08-01
+
+D-60 went live as the **code half only**, ~20:36 UTC. No blob was uploaded and none needed
+to be: the live document is still D-59's `v1/aggregates_2026-W30_20260801T192936Z.json`,
+schema 1.9.0, provenance production, `data_through_week` 2026-W30 (the 2026-07-28 extract).
+Every string this change touches lives in the bundle, so re-aggregating would have minted a
+new immutable blob with byte-identical content.
+
+Verified beyond `healthz`, which only says the process boots — the nine served JS chunks
+were fetched back and grepped:
+
+- present: `A dashed segment spans a suppressed week`, `bridged by a dashed line`,
+  `A dash in place of a count is suppressed`, the new deductive title and deck, and the
+  daypart ramp's `#cfe1ef`;
+- absent: `Gaps in a line are suppressed weeks`, `Bergmann-style Deductive`;
+- absent: any inlined synthetic fixture (the `NEXT_PUBLIC_DATA_SOURCE=fixture` hazard in
+  the go-live skill — the build ran with no `NEXT_PUBLIC_*` in the environment).
+
+Not verified: the rendered page. No browser was connected to this session, so nobody has
+yet *looked* at the ring, the bridged lines or the in-arc shares on production data. String
+presence proves the deploy landed; it does not prove the figures draw.
+
+Worth knowing when reading the live Timing tab: the ring appears only where all four
+dayparts clear the floor **and** the window publishes a messages total. Windows with a
+suppressed block fall back to the bars, so the card's form differs between windows by
+design. On the synthetic document only `all_time` qualifies.
