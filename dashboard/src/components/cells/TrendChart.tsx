@@ -1,9 +1,28 @@
 "use client";
 
-// WeeklySeries → trend line(s). Contract invariant 2 is the whole job:
-// ok renders as a point, ok:0 as a true zero, suppressed as a gap — plus, in
-// single-series mode, a gray baseline mark so the gap is visibly "withheld"
-// rather than missing. Series are pre-sliced to the selected window upstream.
+// WeeklySeries → trend line(s). Contract invariant 2 is the whole job: ok renders as a
+// point, ok:0 as a true zero, suppressed as neither.
+//
+// Until D-60 a suppressed week was drawn as a hole in the line. It read as damage rather
+// than as a statement, and on a corpus this size a semester could break into four stubs.
+// A suppressed week is now **bridged by a dashed segment**: the eye follows one line, and
+// the dashes say the span between those two points was not measured. Nothing new is
+// disclosed by this — the bridge is a straight interpolation between two cells that were
+// already published, so it carries no information about the withheld week. What it buys
+// is a legible curve; what it costs is the risk a reader takes the bridge for data, which
+// is exactly what the dash pattern is there to deny.
+//
+// The mechanism is two <Line>s on one dataKey: a dashed one with connectNulls (the whole
+// path, bridges included) under a solid one with connectNulls={false}. The solid line
+// covers the real segments exactly, so dashes surface only across a gap. Per-segment
+// stroke styling has no API in recharts; this is the way to get it.
+//
+// Single-series charts additionally keep the gray baseline mark under each suppressed
+// week (D-60 keeps it, owner's call): the dashed bridge says "not measured here", the
+// mark says which week, and neither reads as zero. Multi-series charts have no marks —
+// with four languages a lone baseline dot could not say *which* series was withheld,
+// which is precisely the ambiguity the dashed bridge resolves by sitting on the line
+// that owns it. Series are pre-sliced to the selected window upstream.
 
 import {
   CartesianGrid,
@@ -44,6 +63,25 @@ function buildRows(series: TrendSeries[]): Row[] {
     }
   }
   return [...rows.values()];
+}
+
+/** Is there a hole with published weeks on both sides? Leading and trailing suppression
+ *  has nothing to bridge *to*, so a series that only opens or closes short gets no dashed
+ *  twin — one line is cheaper than two, and two coincident strokes fringe on subpixel
+ *  boundaries wherever they are not needed. Shared with SemesterOverlay: one rule, so the
+ *  two line charts cannot drift into disagreeing about what counts as a gap. */
+export function needsBridge(rows: ReadonlyArray<Record<string, unknown>>, id: string): boolean {
+  let seen = false;
+  let gapAfterValue = false;
+  for (const row of rows) {
+    if (row[id] == null) {
+      if (seen) gapAfterValue = true;
+    } else {
+      if (gapAfterValue) return true;
+      seen = true;
+    }
+  }
+  return false;
 }
 
 function TrendTooltip({
@@ -144,6 +182,26 @@ export function TrendChart({
             axisLine={false}
           />
           <Tooltip content={<TrendTooltip series={series} floorN={floorN} />} />
+          {/* The bridges, under every solid line so a neighbouring series' real data always
+              wins the overlap. No dots, no activeDot, no tooltip entry: this stroke is not
+              a datum, it is the absence of one, drawn so the curve stays readable. */}
+          {series.map((s) =>
+            needsBridge(rows, s.id) ? (
+              <Line
+                key={`${s.id}__bridge`}
+                dataKey={s.id}
+                stroke={s.color}
+                strokeWidth={2}
+                strokeDasharray="3 4"
+                strokeLinecap="round"
+                connectNulls
+                dot={false}
+                activeDot={false}
+                legendType="none"
+                isAnimationActive={false}
+              />
+            ) : null,
+          )}
           {series.map((s) => (
             <Line
               key={s.id}

@@ -12,6 +12,11 @@
 // the Language tab uses, assigned by chronological position so a new semester appends a
 // color rather than repainting the others. Validated for CVD separation against the card
 // surface; the contrast WARN on the two lighter hues is met by the legend and data table.
+//
+// Suppressed weeks are bridged by a dashed segment rather than left as holes (D-60) — see
+// TrendChart's header for why, and for the two-<Line> mechanism. It matters more here than
+// anywhere: the whole card is a comparison of curve *shapes*, and a semester broken into
+// fragments cannot be compared to one that is not.
 
 import {
   CartesianGrid,
@@ -24,6 +29,7 @@ import {
 } from "recharts";
 import type { SemesterProfile } from "@/lib/aggregates.gen";
 import { formatCount } from "@/lib/format";
+import { needsBridge } from "./TrendChart";
 
 const SERIES_COLORS = ["var(--color-accent)", "var(--color-series-en)", "var(--color-series-other)"];
 
@@ -124,6 +130,23 @@ export function SemesterOverlay({
             axisLine={false}
           />
           <Tooltip content={<OverlayTooltip profiles={profiles} />} />
+          {profiles.map((profile, i) =>
+            needsBridge(rows, profile.window_id) ? (
+              <Line
+                key={`${profile.window_id}__bridge`}
+                dataKey={profile.window_id}
+                stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                strokeWidth={2}
+                strokeDasharray="3 4"
+                strokeLinecap="round"
+                connectNulls
+                dot={false}
+                activeDot={false}
+                legendType="none"
+                isAnimationActive={false}
+              />
+            ) : null,
+          )}
           {profiles.map((profile, i) => (
             <Line
               key={profile.window_id}
