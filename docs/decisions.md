@@ -2118,3 +2118,24 @@ data, so a document that is clean this week can trip next week on unchanged code
 Both halves. `daypart_definition`, the topics ids and `signup_level_rule` travel in the
 blob, and the schema moves. `--skip-extract --skip-classify` — nothing here needs newer
 StatsBot activity.
+
+### Publish record — 2026-08-01
+
+D-59 went live on **schema 1.9.0**, both halves, `--skip-extract --skip-classify` (no new
+StatsBot activity pulled in; the corpus is still the 2026-07-28 extract, `data_through_week`
+2026-W30).
+
+- Reviewed document: `pipeline/data/aggregates-review-20260801-d59.json`; every pre-existing
+  total and level cell **identical** to the 1.8.0 document it replaces, which is the whole
+  claim of a presentation change.
+- Blob: `v1/aggregates_2026-W30_20260801T192936Z.json` + `v1/latest.json`, identical bytes.
+- Live: `schema_version` 1.9.0, `data_provenance` production.
+- The publish script tracebacked *after* a successful upload on its verification curl
+  (issue #10, unfixed — the curl does not decompress the gzipped response added in D-56).
+  A second run then failed on the immutable-blob no-overwrite rule, which is how the first
+  run's success was confirmed. Worth fixing before it costs someone a duplicate publish.
+
+New on the live site: signups per program level on Adoption (withheld on 2025W and both
+Recent slices, per the joint partition floor), donuts on Adoption's and Language's
+part-to-whole cards, three reordered tabs, list provenance and a collapsed method note on
+Topics, and five trimmed caveats.
