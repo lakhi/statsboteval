@@ -214,10 +214,13 @@ export function LanguageTab({ doc, win, level }: TabProps) {
       ) : null}
       {/* Order (D-59): the level comparison leads under All users, then Totals, then the
           weekly chart. Under a single level the level card is absent, so Totals leads —
-          which is the same reading order one card shorter. */}
-      <div className="grid gap-4 lg:grid-cols-5">
+          which is the same reading order one card shorter.
+          Widths (D-60): an even split, not 2:3. The donut is the tab's part-to-whole
+          statement and was reading as an aside at two fifths; the even pair also gives the
+          ring room for its in-arc percentages. */}
+      <div className="grid gap-4 lg:grid-cols-2">
         {showsLevelCard(level) && levels.length > 0 ? (
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-2">
             <ProgramLevelCard
               title="By program level"
               tableCaption={`Language mix by program level, ${win.label}`}
@@ -238,7 +241,7 @@ export function LanguageTab({ doc, win, level }: TabProps) {
           </div>
         ) : null}
 
-        <div className="lg:col-span-2">
+        <div>
           {totals ? (
             <ChartCard
               title={`Totals — ${win.label}`}
@@ -291,12 +294,15 @@ export function LanguageTab({ doc, win, level }: TabProps) {
           )}
         </div>
 
-        <div className="lg:col-span-3">
+        <div>
           <ChartCard
             title="Messages by language per week"
             markers={symbolsFor(footnotes, weekly.footnote_ids)}
             footnotes={footnotes}
-            suppressionKey={anySuppressed ? "Gaps in a line are suppressed weeks" : null}
+            // D-60. On a four-series chart the dash pattern is the *only* channel that can
+            // say which language was withheld — it sits on that language's own line, where
+            // a shared baseline mark could not.
+            suppressionKey={anySuppressed ? "A dashed segment spans a suppressed week" : null}
             floorN={doc.privacy_floor_n}
             table={
               <DataTable

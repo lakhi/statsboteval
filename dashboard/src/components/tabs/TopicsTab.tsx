@@ -28,15 +28,27 @@ type CardDef = {
   noun: [string, string];
 };
 
-// Order is an editorial decision (2026-07-19): emergent themes lead — the
-// data-driven answer to the tab's question — and the deductive codebook moves
-// last, kept for cross-study validation.
+// Order is an editorial decision. Emergent themes still lead — the data-driven answer to
+// the tab's question — but the deductive codebook moves from last to second (D-60,
+// reversing 2026-07-19): the grid is two columns, so position 2 is the top-right card, and
+// the pair a reader meets first is now "what came out of the chats" beside "what a
+// published study looked for". That contrast is the tab's argument; the two fixed-list
+// cards below it are supporting detail, and demoting them costs nothing because neither is
+// a finding on its own.
 const CARDS: CardDef[] = [
   {
     key: "emergent_themes",
     title: "Emergent themes",
     deck: "Data-driven themes from the chats themselves (reviewed set).",
     noun: ["theme", "themes"],
+  },
+  {
+    key: "deductive",
+    // "Bergmann-style" was doing the attribution work twice, in the title and again in the
+    // deck (D-60). The citation now sits in the title, where a reader meets it once.
+    title: "Deductive Categories (for cross-study validation, from Bergmann et al. 2026)",
+    deck: "The 13 predefined codebook categories, kept for cross-study validation.",
+    noun: ["category", "categories"],
   },
   {
     key: "method_themes",
@@ -49,12 +61,6 @@ const CARDS: CardDef[] = [
     title: "Analysis software",
     deck: "Explicitly named software (fixed list).",
     noun: ["software", "software"],
-  },
-  {
-    key: "deductive",
-    title: "Bergmann-style Deductive Categories (for validation)",
-    deck: "The 13 predefined Bergmann et al. codebook categories, kept for cross-study validation.",
-    noun: ["category", "categories"],
   },
 ];
 

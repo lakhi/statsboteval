@@ -38,7 +38,12 @@ export function ChartCard({
 }) {
   const hasNotes = footnotes.length > 0 || suppressionKey || note;
   return (
-    <section className="rounded-lg border border-edge bg-card p-5">
+    // h-full so a card in a stretch-aligned grid reaches the row's height (D-60). Without
+    // it a ChartCard nested inside a col-span wrapper stops at its own content: the wrapper
+    // stretched, the section did not, and Language's donut card sat visibly short beside
+    // its neighbour. A no-op where the grid is items-start (Timing) or where ChartCard is
+    // itself the grid child (Topics).
+    <section className="h-full rounded-lg border border-edge bg-card p-5">
       <h3 className="text-sm font-semibold text-ink">
         {title}
         {markers ? <sup className="ml-0.5 font-normal text-accent-deep">{markers}</sup> : null}
