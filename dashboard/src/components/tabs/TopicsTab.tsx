@@ -8,6 +8,7 @@ import { ALL, sliceByLevel } from "@/lib/levels";
 import { CategoryBars, categoryTableRows, type CategoryRow } from "../cells/CategoryBars";
 import { ChartCard, DataTable } from "../cells/ChartCard";
 import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
+import { NoteText } from "../cells/NoteText";
 import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
 import {
   levelsIn,
@@ -310,7 +311,7 @@ export function TopicsTab({ doc, win, level }: TabProps) {
           <span className="font-display italic">Notes (all cards).</span>{" "}
           {tabFootnotes.map((f) => (
             <span key={f.id}>
-              <sup className="text-accent-deep">{f.symbol}</sup> {f.text}{" "}
+              <sup className="text-accent-deep">{f.symbol}</sup> <NoteText text={f.text} />{" "}
             </span>
           ))}
         </p>

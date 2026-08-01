@@ -233,9 +233,10 @@ Initial catalog:
 | `chat_fragmentation` | credit-limit UI nudges new-chat clicks; conversation counts may overstate distinct dialogues (D-08) |
 | `bachelor_onboarding` | bachelor cohort exists only from 2025-05-16; cross-boundary trends partly reflect composition |
 | `language_heuristic` | language detected by local heuristic (`lang-heuristic-v1`); short/mixed messages may misclassify |
-| `user_class_definitions` | the class rules in days, per Bergmann et al. (2026); states that `frequent` is a subset of monthly (schema 1.4.0 — D-50) |
+| `user_class_definitions` | the class rules in days, per Bergmann et al. (2026); states that `frequent` is a subset of monthly (schema 1.4.0 — D-50); ends with the OSF materials URL, which the dashboard renders as a link (D-58) |
 | `user_class_window` | classes are computed from in-window activity only, so a sub-30-day window cannot contain a monthly user (schema 1.4.0) |
-| `retention_definition` | new = first-ever message inside the window, returning = wrote before it, the two summing to active users; the baseline includes pre-`axis_start` pilot use, and in `all_time` "returning" is the pilot cohort (schema 1.4.0) |
+| `retention_definition` | new = first-ever message inside the window, returning = wrote before it, the two summing to active users (schema 1.4.0; cut to the definition alone in D-58) |
+| `retention_all_time` | in `all_time` the only earlier period is the 2024/25 pilot, so "returning" there is the pilot cohort rather than semester-to-semester loyalty. **Attached to `usage_context.per_window.all_time.totals` and to no other window** — the pipeline places it because it is the side that knows the window kind (D-58) |
 | `signup_activation` | "sent at least 1 msg" is window-scoped on both sides; a late signup counts in the window they first wrote in (schema 1.4.0) |
 | `status_multi` | a BA→MA transitioner active on both sides of the boundary is counted under both levels, so student counts can exceed the total (schema 1.4.0) |
 | `reach_window_scope` | reach divides by the enrolled cohort of the semester the window belongs to, so in a slice it is the share of that cohort active in those weeks, not over the term (schema 1.8.0 — D-56) |
@@ -253,7 +254,15 @@ Initial catalog:
 | `enrollment_scope` | the enrolled totals cover all bachelor/master students, whereas only the first-year students take the statistics course; per-instructor first-year numbers are unavailable (schema 1.7.0 — D-55) |
 | `level_scope` | the figure covers every program level; the program-level filter does not narrow it (schema 1.7.0 — D-55) |
 
-Adding a footnote or attaching an existing id to a metric is additive.
+Adding a footnote or attaching an existing id to a metric is additive. A footnote id is a
+key in an open map, not a schema field, so minting one is a **data** change and does not
+move `schema_version` (D-58 minted `retention_all_time` on 1.8.0).
+
+**A reader must tolerate an id it cannot resolve.** Readers deployed before the blob that
+introduces an id will fetch a document without it — the house deploy order guarantees that
+window. Rendering the id string itself is acceptable inside a Note paragraph, where it
+reads as a diagnostic, and not acceptable where the text stands alone as prose; the
+dashboard's `footnoteText` returns null for exactly that case.
 
 ### 6.3 `enrollment` — enrolled-cohort denominators (schema 1.7.0 — D-55)
 
@@ -364,7 +373,10 @@ does. Both `messages` and `active_students` are published; the dashboard plots m
                   "sessions": CountCell, "new_registrations": CountCell,
                   "new_registrations_active": CountCell,          // 1.4.0
                   "new_users": CountCell, "returning_users": CountCell,
-                  "footnote_ids": ["retention_definition", "signup_activation"] },
+                  // D-58: one id per number in the tile row, and window-dependent —
+                  // "retention_all_time" is inserted second on all_time only.
+                  "footnote_ids": ["retention_definition", "signup_activation",
+                                   "chat_fragmentation"] },
       "user_classes": { "one_time": CountCell, "monthly": CountCell,
                         "sporadic": CountCell,
                         "frequent": CountCell,                    // 1.4.0, subset of monthly
@@ -596,8 +608,9 @@ container: aggregates            (private; API reads via connection string — D
 ## 10 · Evolution policy
 
 Within a major version, allowed (minor bump): new optional fields, new sections, new
-metrics inside sections, new windows, new footnotes, new `label_versions` keys, new
-language keys. Never within a major version: removing/renaming fields, changing a field's
+metrics inside sections, new windows, new footnotes (**a data change — see §6.2**: a
+footnote id is a key in an open map, not a schema field, so minting one does not by itself
+move `schema_version`), new `label_versions` keys, new language keys. Never within a major version: removing/renaming fields, changing a field's
 type or a cell's meaning, changing week/date formats. Breaking = major bump + new blob
 prefix + coordinated reader upgrade. `data_through_week` regressing (erasure republish of
 a shorter history) is *not* a schema event.

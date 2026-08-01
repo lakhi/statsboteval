@@ -569,16 +569,21 @@ const doc = {
       text: "Language is detected by a local heuristic (lang-heuristic-v1); very short or mixed-language messages may be misclassified.",
     },
     user_class_definitions: {
-      text: "Classes follow the operational definitions of Bergmann et al. (2026), applied to the selected window: one-time = all messages within 24 hours and spanning under 3 days; monthly = active over 30 days or more with no gap of 30 days or longer; sporadic = everything else. Frequent counts the monthly users who additionally never paused for 14 days, so it is a subset of monthly and is not added to the other three.",
+      text: "Classes follow the operational definitions of Bergmann et al. (2026), applied to the selected window: one-time = all messages within 24 hours and spanning under 3 days; monthly = active over 30 days or more with no gap of 30 days or longer; sporadic = everything else. Frequent counts the monthly users who additionally never paused for 14 days, so it is a subset of monthly and is not added to the other three. Materials: https://osf.io/v8ydk/overview",
     },
     user_class_window: {
       text: "Each student is classified from their activity inside the selected window only, so a window shorter than 30 days cannot contain a monthly user by definition.",
     },
     retention_definition: {
-      text: "New = the student's first-ever message falls inside the selected window; returning = they had already used StatsBot before it. The two add up to the active users. First use is counted from the whole recorded history, including the 2024/25 pilot months that the charts above do not show, so a student who tried StatsBot during the pilot and came back counts as returning. In the all-time window there is no earlier period except that pilot, so returning there names the pilot cohort rather than semester-to-semester loyalty.",
+      text: "New = the student's first-ever message falls inside the selected window; returning = they had already used StatsBot before it. The two add up to the active users.",
+    },
+    // Emitted on the all_time window only (D-58), which is what makes this fixture worth
+    // regenerating: the Adoption tile has to render three lines there and two everywhere else.
+    retention_all_time: {
+      text: "All time has no earlier period except the 2024/25 pilot, so returning here names the pilot cohort rather than semester-to-semester loyalty.",
     },
     signup_activation: {
-      text: "Counts the students who signed up in this window and sent at least one message within the same window; someone who signed up late and first wrote afterwards is counted in the window they wrote in.",
+      text: "Both counts are window-scoped. Someone who signed up late and first wrote afterwards counts in the window they wrote in.",
     },
     status_multi: {
       text: "A student who moved from bachelor to master inside the selected window is counted under both levels, so the student counts can exceed the window total by a few.",
@@ -707,7 +712,14 @@ const doc = {
             new_registrations: cell(n, signups),
             new_registrations_active: cell(activated, activated),
             ...retention,
-            footnote_ids: ["retention_definition", "signup_activation"],
+            // D-58: one id per number in the tile row, with retention_all_time emitted
+            // only where the pipeline emits it — on all_time alone.
+            footnote_ids: [
+              "retention_definition",
+              ...(id === "all_time" ? ["retention_all_time"] : []),
+              "signup_activation",
+              "chat_fragmentation",
+            ],
           },
           user_classes: {
             one_time: cell(oneTime, oneTime),

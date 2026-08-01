@@ -290,7 +290,13 @@ def test_usage_context_totals_and_registrations(con2: duckdb.DuckDBPyConnection)
         # No corpus message predates this window, so every active student is new.
         "new_users": {"status": "ok", "value": 3},
         "returning_users": {"status": "ok", "value": 0},
-        "footnote_ids": ["retention_definition", "signup_activation"],
+        # D-58: all_time is the one window that also carries retention_all_time.
+        "footnote_ids": [
+            "retention_definition",
+            "retention_all_time",
+            "signup_activation",
+            "chat_fragmentation",
+        ],
     }
 
 
@@ -480,15 +486,32 @@ def test_language_section_joins_labels(con2: duckdb.DuckDBPyConnection) -> None:
     assert doc["label_versions"] == {"language": "lang-heuristic-v1"}
 
 
+def _numbers_only(window: dict) -> dict:
+    """A usage-context window without its window-dependent footnote ids (D-58)."""
+    return {key: value for key, value in window.items() if key != "totals"} | {
+        "totals": {k: v for k, v in window["totals"].items() if k != "footnote_ids"}
+    }
+
+
 def test_semester_window_matches_all_time_here(con2: duckdb.DuckDBPyConnection) -> None:
     # All data lies inside 2025S, so the semester rollup equals the all-time rollup.
     doc = build2(con2, floor_n=1)
     uc = doc["sections"]["usage_context"]["per_window"]
-    assert uc["2025S"] == uc["all_time"]
+    assert _numbers_only(uc["2025S"]) == _numbers_only(uc["all_time"])
     # The axis is two weeks long and both lie in 2025S, so the four-week slice clamps to
     # the whole of it. The one-week slice does not: it is the second week alone.
-    assert uc["2025S.last4"] == uc["all_time"]
-    assert uc["2025S.last1"] != uc["all_time"]
+    assert _numbers_only(uc["2025S.last4"]) == _numbers_only(uc["all_time"])
+    assert _numbers_only(uc["2025S.last1"]) != _numbers_only(uc["all_time"])
+    # The numbers being identical is exactly why the caveats must not be (D-58): only
+    # all_time warns that "returning" there names the 2024/25 pilot cohort. Without this
+    # half, attaching retention_all_time to every window would still pass the test above.
+    assert uc["2025S"]["totals"]["footnote_ids"] == [
+        "retention_definition",
+        "signup_activation",
+        "chat_fragmentation",
+    ]
+    assert "retention_all_time" in uc["all_time"]["totals"]["footnote_ids"]
+    assert "retention_all_time" not in uc["2025S.last4"]["totals"]["footnote_ids"]
 
 
 def test_retention_pair_suppresses_complementarily(con2: duckdb.DuckDBPyConnection) -> None:

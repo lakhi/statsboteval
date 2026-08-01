@@ -26,6 +26,26 @@ export function resolveFootnotes(
   return resolved;
 }
 
+/**
+ * One footnote's published text, or null when this document does not carry that id.
+ *
+ * Null rather than `resolveFootnotes`'s id-as-text fallback, and the difference is not
+ * cosmetic (D-58). A caveat rendered inside its own cell is prose with no symbol beside
+ * it, so a missing id would print the literal string `retention_all_time` where a
+ * sentence belongs — and that is a certainty, not a risk: the bundle deploys before the
+ * blob, so every newly minted id spends the gap absent from the document the new code is
+ * reading. The fallback stays where it belongs, in the paragraph renderers, where an
+ * unresolved id reads as the diagnostic it is.
+ */
+export function footnoteText(doc: Aggregates, id: string): string | null {
+  return doc.footnotes[id]?.text ?? null;
+}
+
+/** The texts for several ids, skipping any this document does not carry. */
+export function footnoteTexts(doc: Aggregates, ids: string[]): string[] {
+  return ids.map((id) => footnoteText(doc, id)).filter((text): text is string => text !== null);
+}
+
 export function symbolsFor(resolved: ResolvedFootnote[], ids?: string[] | null): string {
   return (ids ?? [])
     .map((id) => resolved.find((f) => f.id === id)?.symbol ?? "")

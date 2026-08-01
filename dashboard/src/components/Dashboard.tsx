@@ -18,19 +18,23 @@ import { TimingTab } from "./tabs/TimingTab";
 import { LanguageTab } from "./tabs/LanguageTab";
 import { TrendsTab } from "./tabs/TrendsTab";
 
-// Tab order is an editorial decision (2026-07-07): Topics first — the question
-// the project exists to answer — then Adoption, Engagement, Timing, Language.
-// Trends appended last (2026-07-30, D-49): it draws on the measures behind all five
-// tabs, so it only makes sense once the reader has met them. Its cards link back to
-// whichever tab a finding came from, which is the other reason it sits after them.
+// Tab order is an editorial decision. It was Topics-first from 2026-07-07 — the question
+// the project exists to answer — and D-58 (2026-08-01) reorders it to a *reading* order
+// instead of a research-priority one: who used it (Adoption) → how much (Engagement) →
+// what about (Topics) → when (Timing) → in which language. The first entry is also the
+// tab the dashboard opens on, so this deliberately lands the reader on the cohort totals.
+//
+// Trends stays last (2026-07-30, D-49): it draws on the measures behind all five tabs, so
+// it only makes sense once the reader has met them. Its cards link back to whichever tab
+// a finding came from, which is the other reason it sits after them.
 //
 // `hidden` (2026-07-31, D-55) keeps Trends off the strip while leaving it reachable at
 // ?tab=trends. Deleting the entry would have thrown away the reasoning above and made
 // re-enabling a re-derivation; this way it is deleting one word.
 const TABS: TabDef[] = [
-  { id: "topics", label: "Topics" },
   { id: "adoption", label: "Adoption" },
   { id: "engagement", label: "Engagement" },
+  { id: "topics", label: "Topics" },
   { id: "timing", label: "Timing" },
   { id: "language", label: "Language" },
   { id: "trends", label: "Trends", hidden: true },
@@ -129,7 +133,9 @@ export function Dashboard() {
               looking at a subset and has to be told so in the first sentence they read. */}
           <p className="mt-2 text-sm text-ink-2">
             Based on student–GenAI interactions data from StatsBot
-            {level !== ALL ? <> — {LEVEL_PHRASE[level] ?? LEVEL_LABELS[level]}</> : null} (between{" "}
+            {/* "for", not an em-dash (D-58): the level is the sentence's scope, and a dash
+                renders it as an aside the reader can skip past. */}
+            {level !== ALL ? <> for {LEVEL_PHRASE[level] ?? LEVEL_LABELS[level]}</> : null} (between{" "}
             {formatWindowRange(win)})
           </p>
         </div>

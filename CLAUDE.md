@@ -24,7 +24,12 @@ went live 2026-07-31** — `trailing_4` is gone, replaced by slices of a semeste
 stretch — and **D-57 went live 2026-08-01**, narrowing those slices to the anchor semester
 alone: `2026S.last4` / `2026S.last1` sit in a flat `Recent` group beside `Semesters` and
 `Everything`, and no other semester is sliced. D-57 was a data-and-display change only; the
-schema stays 1.8.0. Corpus scale:
+schema stays 1.8.0. **D-58 (built 2026-08-01, not yet published)** dissolves Adoption's
+`Note.` paragraph into per-cell notes, rewrites four footnote texts, mints
+`retention_all_time`, links the Bergmann citation to OSF, and reorders the tabs to
+Adoption → Engagement → Topics → Timing → Language (Adoption is now the landing tab); also
+data-and-display only, still 1.8.0, but it **needs both go-live halves** because the texts
+travel in the blob. Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 
@@ -141,6 +146,14 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
   aggregates_synthetic.json` is a 1.0.0 document kept as that proof. It is still *required*
   on `semester_slice` and nothing renders it — deleting it is a **major** break under
   contract §10, which is why an unread field is the cheaper of the two options.
+- **`retention_all_time` is attached by the pipeline, to `all_time` only** (D-58). It says
+  "returning here names the 2024/25 pilot cohort" — true of the widest window, false and
+  quietly misleading on a semester, where returning means semester-to-semester loyalty.
+  The placement is a `window.kind` test in `aggregate.py`, not a registry fact, so the
+  dashboard must read `totals.footnote_ids` rather than the registry when deciding to
+  render it. Related: `footnoteText` returns **null** for an id the document lacks, because
+  a caveat rendered as standalone prose has no symbol to fall back to and would print the
+  raw id during the bundle-before-blob deploy gap.
 - **One label version never mixes models or inference settings** (D-41). Changing either
   means a new version and a full re-classify. **`CLASSIFIER_BATCH_SIZE` is an inference
   setting, not a throughput knob** (D-45): it sets how many decisions one call is asked

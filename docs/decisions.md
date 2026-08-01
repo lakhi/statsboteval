@@ -1874,3 +1874,110 @@ no guard, and is even excluded in `eslint.config.mjs` — so it kept the falsifi
 forever" sentence until review caught it by reading. A drift guard on `gen:types` output
 would close the gap; until then, regenerating it belongs in the checklist for any change
 that touches a contract docstring.
+
+## D-58 — 2026-08-01: Adoption's note dissolves into its cells; the tabs lead with Adoption; still schema 1.8.0
+
+**A copy, placement and ordering change, published as data.** Nothing about the document's
+*shape* moves — `SCHEMA_VERSION` stays `1.8.0`, `aggregates.gen.ts` is not regenerated,
+`schema/aggregates.schema.json` is untouched. What changes is four footnote **texts**, one
+newly minted footnote **id**, which ids each window's `usage_context` totals reference,
+and where the dashboard renders them. Same stance as D-57, one day later, for the same
+reason: a footnote id is a key in an open `dict[str, Footnote]`, not a schema field.
+
+### Why
+
+Adoption's KPI row carried a 92-word APA `Note.` paragraph covering four unrelated
+numbers — retention, signups, the roster rule, and the level overlap — under a four-tile
+grid. A reader who wanted one of those four explained had to find their sentence inside
+the other three, which is a reliable way to be read by nobody. The owner's framing on
+2026-08-01: *"nobody is going to read such a lengthy note"*.
+
+### Decisions
+
+1. **The rewritten texts stay in the pipeline's `FOOTNOTES` registry** and travel in the
+   blob, per contract §6.2 (caveats versioned *with the numbers they govern*). Rejected:
+   hard-coding the new copy in `AdoptionTab.tsx`, which would have been one deploy instead
+   of two, but would leave the blob shipping the long texts unread and stop archived
+   documents from carrying the warnings actually shown beside their figures.
+2. **Hybrid rendering.** One always-visible line per tile saying what the number means;
+   provenance and scope caveats behind an `InfoTip` marker. Nothing that changes how a
+   number should be *read* is hidden — the all-time retention caveat and the retention
+   definition are both visible prose.
+3. **A footnote renders whole, in exactly one place.** Visible-or-tip is a per-id decision
+   in the tab. The dashboard never splits a published string into "first sentence visible,
+   rest in the tip": that would make the rendering depend on the punctuation of data it
+   does not own.
+4. **The pilot passage goes; its all-time consequence becomes its own id.**
+   `retention_definition` drops from 72 words to 27. `retention_all_time` is attached to
+   `all_time` and nowhere else, **by the pipeline**, which is the side that knows the
+   window kind. The dashboard renders whichever retention ids arrive and never branches on
+   `win.kind` for text. Cost accepted knowingly: outside all-time the page no longer
+   explains that first use is read from the whole recorded history (the D-50 baseline
+   behind `axis_start`) — the word "first-ever" now carries it. The *behaviour* is
+   unchanged; what left is the explanation of it.
+5. **`status_multi` leaves the totals block** — it is about levels summing past the window
+   total, which only the By-program-level card shows. **`status_rule` moves onto the
+   Active-users tile only when a single level is selected**, which is when the headline
+   count depends on the roster rule; under All users that card carries it, as before.
+6. **Bergmann keeps his citation in the User classes card note**, now ending in
+   `https://osf.io/v8ydk/overview`. The deck above it drops "Bergmann-comparable" for
+   "frequency-based": the deck is read by educators, the citation belongs one level down
+   where the definitions are.
+7. **`chat_fragmentation` joins the usage-context totals** so the Sessions tile can say
+   how its count should be read — it was already attached to the weekly sessions series,
+   so this is placement, not a new claim.
+8. **Tab order becomes a reading order**, reversing the 2026-07-07 "Topics first"
+   editorial choice: Adoption → Engagement → Topics → Timing → Language. `VISIBLE_TABS[0]`
+   is also the landing tab, so the dashboard now opens on cohort totals rather than on the
+   topic distribution.
+9. **The header's em-dash becomes "for"** — `…data from StatsBot for bachelor students` —
+   because the level is the sentence's scope, and a dash renders it as a skippable aside.
+
+### The link is a bare URL in the text, not a schema field
+
+A published footnote is `{ text }` and nothing else, so a link has to be *recognised*
+rather than marked up: `NoteText` splits on `https?://…` and emits an anchor, never
+`dangerouslySetInnerHTML`. Rejected alternatives: (a) a typed `url` field on `Footnote` —
+safe on the wire (the published JSON Schema sets no `additionalProperties: false`, so an
+old API would not reject it) but a schema minor bump, a `gen.ts` regeneration and a
+permanent contract field for one citation, and it would still render as a trailing link;
+D-48 already set the precedent against contract fields for a copy change. (b) Matching the
+phrase "Bergmann et al. (2026)" in the dashboard and linking that token — puts the anchor
+exactly where it was asked for, but moves the URL dashboard-side (undoing decision 1) and
+the link vanishes silently the day the sentence is reworded.
+
+### The deploy gap is what shaped `footnoteText`
+
+The house order is bundle first, blob second, so the new bundle runs for minutes against a
+document with no `retention_all_time` key. `resolveFootnotes` falls back to rendering *the
+id itself*, which is a fine diagnostic inside a Note paragraph and unacceptable as
+standalone prose — it would print the literal string `retention_all_time` on the all-time
+window. So `footnoteText(doc, id)` returns **null** on a miss and a tile with no text
+renders no line; the fallback stays where it belongs. Blob first, bundle second is also
+safe: the old bundle prints the new footnote as one more sentence in the paragraph it
+already renders. Contract §6.2 now states the tolerance rule for readers generally.
+
+### Test surface
+
+`test_semester_window_matches_all_time_here` previously asserted `uc["2025S"] ==
+uc["all_time"]`. Since the numbers really are identical here, that assertion is precisely
+what a window-dependent footnote breaks — so it now compares numbers with the ids stripped
+(`_numbers_only`) **and** pins both halves explicitly: `2025S` carries three ids,
+`all_time` carries `retention_all_time`, the slice does not. Without the second half,
+attaching the caveat to every window would still pass.
+
+### Three review fixes, same day
+
+- **`NoteText` covers both footnote renderers, not one.** `TopicsTab`'s tab-level "Notes
+  (all cards)" paragraph also rendered `f.text` raw, so a footnote reaching Topics that
+  ever gained a URL would have rendered it as dead text. Both renderers now go through
+  `NoteText` and `ChartCard`'s comment names the other one instead of claiming to be alone.
+- **The InfoTip marker is a 24×24 target** (WCAG 2.2 §2.5.8), not an 11 px glyph with
+  preflight's zero padding. Touch is the exact case `focus-within` was chosen for, so
+  shipping a target too small to tap would have undone the reason for the choice. Negative
+  margins keep the optical position and stop the box opening up its line.
+- **§10 and §6.2 no longer disagree** about what minting a footnote is. §10 lists "new
+  footnotes" among the minor-bump-allowed changes; §6.2 says it is a data change that does
+  not move `schema_version`. Both readings are defensible and D-58 takes the second, so
+  §10 now points at §6.2 rather than leaving a reader who arrives there first with the
+  opposite answer.

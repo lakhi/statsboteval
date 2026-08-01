@@ -4,12 +4,14 @@ import type {
   UsageContextByStatus,
   UserClasses,
 } from "@/lib/aggregates.gen";
-import { resolveFootnotes, symbolsFor } from "@/lib/footnotes";
+import { footnoteText, footnoteTexts, resolveFootnotes, symbolsFor } from "@/lib/footnotes";
 import { formatCount } from "@/lib/format";
 import { ALL, enrolledFor, enrollmentFor, reachFootnoteIds, reachPercent, sharePercent } from "@/lib/levels";
 import { ChartCard } from "../cells/ChartCard";
 import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
+import { InfoTip } from "../cells/InfoTip";
 import { KpiPairTile, KpiTile } from "../cells/KpiTile";
+import { NoteText } from "../cells/NoteText";
 import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
 import {
   cellText,
@@ -69,7 +71,7 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
   const intro = (
     <PanelIntro
       question="Who uses StatsBot, and how much?"
-      deck="Adoption for the selected window: cohort totals, how many came back, and the Bergmann-comparable user classes."
+      deck="Adoption for the selected window: cohort totals, how many came back, and frequency-based user classes."
     />
   );
   const section = doc.sections.usage_context;
@@ -126,12 +128,26 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
       }
     : roll.totals;
   const userClasses = slice ? slice.user_classes : roll.user_classes;
-  const totalsFootnotes = resolveFootnotes(doc, [
-    roll.totals.footnote_ids,
-    byStatus?.[levels[0]]?.footnote_ids,
-  ]);
   const classFootnotes = resolveFootnotes(doc, [roll.user_classes.footnote_ids]);
   const statusFootnotes = resolveFootnotes(doc, [["status_rule", "status_multi"]]);
+
+  // D-58: the totals block has no shared Note paragraph any more, so there is nothing for
+  // an APA symbol to point at — each caveat is rendered inside the cell it explains. Two
+  // conditions gate a text: the *document* must carry the id (`footnoteText` → null
+  // otherwise, for the bundle-before-blob deploy gap) and *this window* must reference it.
+  // The second is what keeps `retention_all_time` off the semester windows: the pipeline
+  // decides where the caveat applies, because it is the side that knows the window kind.
+  const totalsIds = new Set(roll.totals.footnote_ids ?? []);
+  const windowNote = (id: string) => (totalsIds.has(id) ? footnoteText(doc, id) : null);
+  const retentionNote = windowNote("retention_definition");
+  const retentionAllTimeNote = windowNote("retention_all_time");
+  const signupNote = windowNote("signup_activation");
+  const sessionsNote = windowNote("chat_fragmentation");
+  // Where the headline count's program level comes from. Only under a single level: with
+  // the filter on All users the count spans every level and the By-program-level card
+  // below carries the rule instead. `status_multi` stays on that card exclusively — it is
+  // about levels summing past the window total, which is a thing only that card shows.
+  const statusRuleNote = level !== ALL && !unscoped ? footnoteText(doc, "status_rule") : null;
 
   // Reach: active students over the enrolled cohort. Not a floored cell on either side —
   // the numerator is published and the denominator is an institutional headcount — so it
@@ -141,7 +157,7 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
   const activeValue = valueOf(totals.active_students);
   const reach =
     enrolled !== null && activeValue !== null ? reachPercent(activeValue, enrolled) : null;
-  const enrollmentFootnotes = resolveFootnotes(doc, [reachFootnoteIds(win)]);
+  const enrollmentNotes = footnoteTexts(doc, reachFootnoteIds(win));
 
   const windowActive = valueOf(roll.totals.active_students);
   const windowMessages = valueOf(roll.totals.messages);
@@ -201,22 +217,54 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
                 label="Active users"
                 cell={totals.active_students}
                 floorN={doc.privacy_floor_n}
+                tip={
+                  statusRuleNote ? (
+                    <InfoTip label="How program level is decided">
+                      <NoteText text={statusRuleNote} />
+                    </InfoTip>
+                  ) : null
+                }
                 note={
-                  reach && enrolled !== null
-                    ? `${reach} of ${formatCount(enrolled)} enrolled ${
-                        (STATUS_LABELS[level] ?? level).toLowerCase()
-                      } students`
-                    : undefined
+                  reach && enrolled !== null ? (
+                    <>
+                      {reach} of {formatCount(enrolled)} enrolled{" "}
+                      {(STATUS_LABELS[level] ?? level).toLowerCase()} students
+                      {/* The denominator's provenance and scope, not its definition:
+                          three sentences that would bury the percentage they qualify. */}
+                      {enrollmentNotes.length > 0 ? (
+                        <InfoTip label="Where the enrolled total comes from">
+                          {enrollmentNotes.map((text, i) => (
+                            <span key={i} className={i > 0 ? "mt-2 block" : "block"}>
+                              <NoteText text={text} />
+                            </span>
+                          ))}
+                        </InfoTip>
+                      ) : null}
+                    </>
+                  ) : undefined
                 }
               />
               <KpiPairTile
                 label="Of those"
-                markers={symbolsFor(totalsFootnotes, ["retention_definition"])}
                 floorN={doc.privacy_floor_n}
                 rows={[
                   { caption: "new", cell: totals.new_users },
                   { caption: "returning", cell: totals.returning_users },
                 ]}
+                note={
+                  retentionNote || retentionAllTimeNote ? (
+                    <>
+                      {retentionNote ? <NoteText text={retentionNote} /> : null}
+                      {/* All-time only, and published that way: on every other window
+                          this line is simply absent from the document (D-58). */}
+                      {retentionAllTimeNote ? (
+                        <span className="mt-1.5 block">
+                          <NoteText text={retentionAllTimeNote} />
+                        </span>
+                      ) : null}
+                    </>
+                  ) : undefined
+                }
               />
             </div>
             <KpiTile
@@ -225,7 +273,21 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
               floorN={doc.privacy_floor_n}
               note="1 msg = 1 user + 1 LLM response"
             />
-            <KpiTile label="Sessions" cell={totals.sessions} floorN={doc.privacy_floor_n} />
+            <KpiTile
+              label="Sessions"
+              cell={totals.sessions}
+              floorN={doc.privacy_floor_n}
+              note={
+                <>
+                  1 session = one chat started
+                  {sessionsNote ? (
+                    <InfoTip label="How session counts should be read">
+                      <NoteText text={sessionsNote} />
+                    </InfoTip>
+                  ) : null}
+                </>
+              }
+            />
             {/* New signups is cohort-wide by construction: a registration has no session,
                 so the usage-time rule cannot resolve its program level (D-55). Rather than
                 show an unscoped number under a level filter, the tile steps aside — the
@@ -233,12 +295,12 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
             {level === ALL ? (
               <KpiPairTile
                 label="New signups"
-                markers={symbolsFor(totalsFootnotes, ["signup_activation"])}
                 floorN={doc.privacy_floor_n}
                 rows={[
                   { caption: "signed up", cell: roll.totals.new_registrations },
                   { caption: "sent at least 1 msg", cell: roll.totals.new_registrations_active },
                 ]}
+                note={signupNote ? <NoteText text={signupNote} /> : undefined}
               />
             ) : (
               <div className="rounded-lg border border-dashed border-edge px-4 py-3 text-xs leading-relaxed text-ink-3">
@@ -248,23 +310,11 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
               </div>
             )}
           </div>
-          {totalsFootnotes.length > 0 ? (
-            <p className="mt-2 text-xs leading-relaxed text-ink-2">
-              <span className="font-display italic">Note.</span>{" "}
-              {totalsFootnotes.map((f) => (
-                <span key={f.id}>
-                  <sup className="text-accent-deep">{f.symbol}</sup> {f.text}{" "}
-                </span>
-              ))}
-              {reach ? (
-                <span>
-                  {enrollmentFootnotes.map((f) => (
-                    <span key={f.id}>{f.text} </span>
-                  ))}
-                </span>
-              ) : null}
-            </p>
-          ) : null}
+          {/* No Note paragraph here since D-58: 92 words under four unrelated numbers is
+              a paragraph nobody reads, and the reader who wants one of the four explained
+              had to find their sentence inside the other three. Each caveat now renders in
+              its own cell. The two cards below keep theirs — one paragraph serving one
+              figure is exactly what an APA table note is for. */}
         </div>
 
         <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -297,7 +347,11 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
                       <span className="font-medium">Reach</span> is its active users over its
                       enrolled cohort ({formatCount(enrollmentEntry.bachelor)} bachelor,{" "}
                       {formatCount(enrollmentEntry.master)} master).{" "}
-                      {enrollmentFootnotes.map((f) => f.text).join(" ")}
+                      {enrollmentNotes.map((text, i) => (
+                        <span key={i}>
+                          <NoteText text={text} />{" "}
+                        </span>
+                      ))}
                     </>
                   ) : (
                     <>

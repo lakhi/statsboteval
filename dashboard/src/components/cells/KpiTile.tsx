@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { OkCell, SuppressedCell } from "@/lib/aggregates.gen";
 import { formatCount } from "@/lib/format";
 
@@ -15,16 +16,26 @@ export function KpiTile({
   cell,
   floorN,
   note,
+  tip,
 }: {
   label: string;
   cell: CountCell | undefined;
   floorN: number;
-  /** Definition the number would otherwise be ambiguous without, e.g. what a message is. */
-  note?: string;
+  /** Definition the number would otherwise be ambiguous without, e.g. what a message is.
+   *  A node rather than a string since D-58: the caveat belongs in the cell, and a caveat
+   *  can carry a link or an InfoTip. */
+  note?: ReactNode;
+  /** Caveat marker beside the label, for what qualifies the number rather than defines it. */
+  tip?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-edge bg-card px-4 py-3">
-      <div className="text-xs text-ink-2">{label}</div>
+    // `relative` is load-bearing, not styling: an InfoTip inside this tile anchors its
+    // popover to the tile so it can never run off the side of a narrow viewport.
+    <div className="relative rounded-lg border border-edge bg-card px-4 py-3">
+      <div className="text-xs text-ink-2">
+        {label}
+        {tip}
+      </div>
       {cell == null ? (
         <>
           <div className="mt-0.5 text-2xl font-semibold text-ink-3">·</div>
@@ -52,19 +63,24 @@ export function KpiPairTile({
   label,
   rows,
   floorN,
-  markers,
+  note,
+  tip,
 }: {
   label: string;
   rows: { caption: string; cell: CountCell | undefined }[];
   floorN: number;
-  /** Footnote symbols for the card-level Note, e.g. "†". */
-  markers?: string;
+  /** What the pair means, rendered inside the tile (D-58). */
+  note?: ReactNode;
+  /** Caveat marker beside the label. */
+  tip?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-edge bg-card px-4 py-3">
+    // `relative` is load-bearing, not styling: an InfoTip inside this tile anchors its
+    // popover to the tile so it can never run off the side of a narrow viewport.
+    <div className="relative rounded-lg border border-edge bg-card px-4 py-3">
       <div className="text-xs text-ink-2">
         {label}
-        {markers ? <sup className="ml-0.5 text-accent-deep">{markers}</sup> : null}
+        {tip}
       </div>
       <div className="mt-1 space-y-0.5">
         {rows.map((row) => (
@@ -87,6 +103,7 @@ export function KpiPairTile({
           </div>
         ))}
       </div>
+      {note ? <div className="mt-1.5 text-[11px] leading-snug text-ink-3">{note}</div> : null}
     </div>
   );
 }

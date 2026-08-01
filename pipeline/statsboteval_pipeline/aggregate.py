@@ -150,24 +150,33 @@ FOOTNOTES = {
         "the selected window: one-time = all messages within 24 hours and spanning under 3 days; "
         "monthly = active over 30 days or more with no gap of 30 days or longer; sporadic = "
         "everything else. Frequent counts the monthly users who additionally never paused for "
-        "14 days, so it is a subset of monthly and is not added to the other three."
+        "14 days, so it is a subset of monthly and is not added to the other three. "
+        "Materials: https://osf.io/v8ydk/overview"
     ),
     "user_class_window": Footnote(
         text="Each student is classified from their activity inside the selected window only, so "
         "a window shorter than 30 days cannot contain a monthly user by definition."
     ),
+    # D-58 cut this to the definition alone. It renders inside the retention tile now, not
+    # in a paragraph under four unrelated numbers, and a note that sits in its cell has to
+    # be readable at a glance. "First-ever" still carries the D-50 baseline (first use is
+    # read from the whole recorded history, behind axis_start) — what left the page is the
+    # explanation of it, not the behaviour.
     "retention_definition": Footnote(
         text="New = the student's first-ever message falls inside the selected window; returning "
-        "= they had already used StatsBot before it. The two add up to the active users. First use "
-        "is counted from the whole recorded history, including the 2024/25 pilot months that the "
-        "charts above do not show, so a student who tried StatsBot during the pilot and came back "
-        "counts as returning. In the all-time window there is no earlier period except that pilot, "
-        "so returning there names the pilot cohort rather than semester-to-semester loyalty."
+        "= they had already used StatsBot before it. The two add up to the active users."
+    ),
+    # 1.8.0 (D-58). Emitted on the all_time window ONLY, because that is the one window
+    # where "returning" means something other than what the reader assumes. The pipeline
+    # decides when the caveat applies because it is the side that knows the window kind;
+    # the dashboard renders whichever retention ids arrive and never branches on it.
+    "retention_all_time": Footnote(
+        text="All time has no earlier period except the 2024/25 pilot, so returning here names "
+        "the pilot cohort rather than semester-to-semester loyalty."
     ),
     "signup_activation": Footnote(
-        text="Counts the students who signed up in this window and sent at least one message "
-        "within the same window; someone who signed up late and first wrote afterwards is "
-        "counted in the window they wrote in."
+        text="Both counts are window-scoped. Someone who signed up late and first wrote "
+        "afterwards counts in the window they wrote in."
     ),
     "status_multi": Footnote(
         text="A student who moved from bachelor to master inside the selected window is counted "
@@ -852,7 +861,17 @@ def build_aggregates(
                 new_registrations_active=floored_count(len(activated), len(activated), floor_n),
                 new_users=new_cell,
                 returning_users=returning_cell,
-                footnote_ids=["retention_definition", "signup_activation"],
+                # D-58: one id per number in the tile row, so the dashboard can put each
+                # caveat inside the cell it explains. `retention_all_time` is the only
+                # window-dependent one — see its registry entry. `chat_fragmentation`
+                # rides along with the sessions count here for the same reason it rides
+                # along with the weekly sessions series.
+                footnote_ids=[
+                    "retention_definition",
+                    *(["retention_all_time"] if window.kind == "all_time" else []),
+                    "signup_activation",
+                    "chat_fragmentation",
+                ],
             ),
             user_classes=_user_classes(user_dates, floor_n),
             by_status={level: usage_by_status(level, group) for level, group in w_levels.items()} or None,

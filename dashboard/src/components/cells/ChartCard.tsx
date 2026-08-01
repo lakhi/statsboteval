@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ResolvedFootnote } from "@/lib/footnotes";
+import { NoteText } from "./NoteText";
 
 /**
  * Card shell shared by every metric. The foot renders APA-style table notes:
@@ -47,7 +48,11 @@ export function ChartCard({
           ) : null}
           {footnotes.map((f) => (
             <span key={f.id}>
-              <sup className="text-accent-deep">{f.symbol}</sup> {f.text}{" "}
+              {/* Through NoteText so a citation URL in a published note is clickable.
+                  This is the only *card* renderer; TopicsTab's tab-level "Notes (all
+                  cards)" paragraph is the other place footnote text reaches the page and
+                  goes through NoteText too. Any third one must. */}
+              <sup className="text-accent-deep">{f.symbol}</sup> <NoteText text={f.text} />{" "}
             </span>
           ))}
           {note ? <span>{note}</span> : null}
