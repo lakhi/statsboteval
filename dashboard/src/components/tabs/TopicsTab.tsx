@@ -104,6 +104,7 @@ function TopicCard({
   tabFootnotes,
   note,
   tip,
+  suppressionKey = true,
 }: {
   card: CardDef;
   distribution: TopicDistribution;
@@ -112,6 +113,10 @@ function TopicCard({
   tabFootnotes: ResolvedFootnote[];
   note?: ReactNode;
   tip: (row: CategoryRow) => ReactNode;
+  /** Off on the two fixed-list cards (D-59), where the note carries provenance instead
+   *  and the tick's meaning is still one hover away on its own row (`rowTip` says
+   *  "withheld — not zero") and spelled out in the data table. */
+  suppressionKey?: boolean;
 }) {
   const anySuppressed = distribution.items.some((item) => item.cell.status === "suppressed");
   const nTotal = distribution.n_total;
@@ -119,7 +124,11 @@ function TopicCard({
     <ChartCard
       title={card.title}
       markers={symbolsFor(tabFootnotes, distribution.footnote_ids)}
-      suppressionKey={anySuppressed ? "A gray tick instead of a bar is a suppressed category" : null}
+      suppressionKey={
+        anySuppressed && suppressionKey
+          ? "A gray tick instead of a bar is a suppressed category"
+          : null
+      }
       note={note}
       floorN={floorN}
       table={
@@ -143,14 +152,65 @@ function TopicCard({
   );
 }
 
+/**
+ * How every number on this tab was produced (D-59), collapsed by default.
+ *
+ * Every card here is a count of classifier decisions, and until now the only card that
+ * said so was the emergent one. Collapsed rather than always-on because it is method,
+ * not caveat: nothing here changes how a number should be read, which is the line D-58
+ * drew between a visible note and a revealed one.
+ *
+ * The classifier version is read from the document, and **nothing else about the
+ * classifier is stated here** — no model, no seed, no batch size. Those are properties of
+ * a *version*, and this block cannot know which one the blob declares: `--classification-
+ * version` also accepts `statsboteval-v1` (batch size 50, the documented rollback path)
+ * and `bergmann-v1` (Bergmann's own imported labels, a different model run by different
+ * people). Interpolating today's settings beside a version string the document owns is
+ * how the page ends up confidently describing a run that never happened. Every sentence
+ * below is true of any version this dashboard can be pointed at; the version-specific
+ * facts live in `docs/decisions.md` (D-41, D-45), which is where a reader who needs the
+ * batch size is going anyway.
+ */
+function ClassifierMethod({ doc }: { doc: Aggregates }) {
+  const classifier = doc.label_versions.classification;
+  if (!classifier) return null;
+  return (
+    <details className="mb-6 max-w-2xl text-xs leading-relaxed text-ink-2">
+      <summary className="cursor-pointer select-none text-ink-3 hover:text-ink-2">
+        How these labels were produced
+      </summary>
+      <p className="mt-2">
+        Every label on this tab is an automated classification (
+        <span className="font-mono text-[11px]">{classifier}</span>), not a hand count. Each
+        message is judged on its own text — the student&rsquo;s message, not StatsBot&rsquo;s
+        reply — and may carry several labels or none. The deductive categories and the
+        method and software lists come from Bergmann et al.&rsquo;s published materials; the
+        emergent themes were generated from these chats and frozen after review.
+      </p>
+    </details>
+  );
+}
+
+/**
+ * Where a fixed list came from, on the two cards that show one (D-59).
+ *
+ * A distinct claim from the `label_provenance` footnote, which names the classifier and
+ * says nothing about the list: these 21 methods and 9 tools are Bergmann et al.'s
+ * published Stage-2 theme tables, and only the *assignment* is ours. Without this the
+ * cards read as our taxonomy, which would misattribute the comparison the whole
+ * cross-study validation rests on.
+ */
+const FIXED_LIST_NOTE =
+  "Frozen list from Bergmann et al.'s published materials; labels assigned by our " +
+  "classifier where the message names the method explicitly.";
+
 /** The generate→review→freeze story behind the emergent set (D-33/D-43). */
 function emergentMethodNote(doc: Aggregates): ReactNode {
   const themeSet = doc.sections.topics?.theme_set_version;
   return (
     <>
       Themes were generated from the chats in a two-stage pass — candidate codes per message,
-      synthesized into a draft theme list — then reviewed by the project team and frozen as the
-      versioned set{" "}
+      synthesized into a draft theme list — then reviewed and frozen as the versioned set{" "}
       {themeSet ? <span className="font-mono text-[11px]">{themeSet}</span> : "behind this card"};
       every message was classified against that frozen set.
     </>
@@ -246,6 +306,7 @@ export function TopicsTab({ doc, win, level }: TabProps) {
   return (
     <div>
       {intro}
+      <ClassifierMethod doc={doc} />
       {unscoped ? (
         <UnscopedNote>
           This data release does not break Topics down by program level, so the
@@ -272,6 +333,8 @@ export function TopicsTab({ doc, win, level }: TabProps) {
             );
           }
           if (!distribution) return null;
+          // The two cards whose list is Bergmann's rather than ours (D-59).
+          const fixedList = card.key === "method_themes" || card.key === "software_themes";
           return (
             <TopicCard
               key={card.key}
@@ -279,7 +342,14 @@ export function TopicsTab({ doc, win, level }: TabProps) {
               distribution={distribution}
               floorN={doc.privacy_floor_n}
               tabFootnotes={tabFootnotes}
-              note={card.key === "emergent_themes" ? emergentMethodNote(doc) : undefined}
+              note={
+                card.key === "emergent_themes"
+                  ? emergentMethodNote(doc)
+                  : fixedList
+                    ? FIXED_LIST_NOTE
+                    : undefined
+              }
+              suppressionKey={!fixedList}
               tip={(row) => rowTip(card, row, tipCtx)}
             />
           );

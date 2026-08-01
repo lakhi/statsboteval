@@ -1981,3 +1981,111 @@ attaching the caveat to every window would still pass.
   not move `schema_version`. Both readings are defensible and D-58 takes the second, so
   §10 now points at §6.2 rather than leaving a reader who arrives there first with the
   opposite answer.
+
+## D-59 — 2026-08-01: Repeated caveats come off five tabs; signups split by level; two donuts; schema 1.9.0
+
+*Fifteen owner requests across every tab, in one change. Three families: caveats that
+repeat themselves come off the page, three cards move to the top of their tab, and two
+part-to-whole tables gain a figure. One of the fifteen turned out to need data the
+pipeline was not publishing, which is what moves the schema.*
+
+### The one that was not a copy change: signups per program level
+
+D-55 wrote that `new_registrations` "is *not* here and will not be: a registration has no
+session, so the usage-time rule does not reach it". The owner asked for it anyway, and on
+inspection the sentence describes the **implementation** rather than the data — levels
+were resolved by feeding a session's start timestamp to `resolve_status`, and a roster row
+plus a registration date is all the rule actually needs.
+
+A coverage probe against the production corpus (read-only, 2026-08-01) settled it:
+
+| level at registration | registrants | of which never wrote |
+|---|---|---|
+| master | 298 | 42 |
+| bachelor | 206 (36 transitioners) | 54 |
+| staff | 46 | 11 |
+| **no roster row** | **0** | — |
+
+550 / 550 covered, and **131 of them never wrote a message** — the population the
+usage-time rule structurally cannot see, and the reason splitting the pair is worth a
+schema bump rather than a caveat.
+
+1. **`status.status_at(row, date)` is the rule; `resolve_status` is one caller.** The
+   Beginnsemester boundary now exists once, and a test asserts both doors answer the same
+   at the same instant. Copying the comparison into `aggregate.py` would have been two
+   answers waiting to diverge.
+2. **The level is read at the registration date, not at usage time.** A student who signed
+   up as a bachelor and later moved to master counts as bachelor here while their messages
+   count as master — the same rule at a different instant, stated on the tile by the new
+   `signup_level_rule` footnote. Emitted on `by_status` entries only: under All users no
+   level is claimed and the sentence would be noise.
+3. **Known edge, pinned rather than fixed:** `by_status` keys come from the window's
+   *messages*, so a level that signed up and never wrote has no slice, and the published
+   levels can sum to less than the window total. Manufacturing an all-zero level to carry
+   a signup count would put a row of zeros on every by-level card on the dashboard.
+   `test_signups_of_a_level_with_no_messages_are_not_published` fails the day that changes.
+
+Schema **1.9.0** — two optional cells on `UsageContextByStatus`, additive under §10.
+
+### Caveats removed, and why each was safe
+
+| what went | where it was | why it can go |
+|---|---|---|
+| `status_rule` tip on Active users | Adoption, single level | Reverses **D-58 decision 6**, one day old. Three statements of one roster rule fit on a level-filtered screen; it survives on the By-program-level card, where levels are the subject rather than the scope. |
+| `status_rule` on the four topic cards | Topics, single level | It rendered as a third symbol on every card, restating what the filter above them says. Removed **pipeline-side** so the document stops claiming a caveat nobody renders. The by-level card resolves it from the registry directly. |
+| `daypart_definition`'s first two sentences | Timing, both daypart cards | Both cards print each block's hour range beside its own label (`Night 00–06`), and "Vienna local" is in the deck one line above. The blocks are still four **equal** six-hour bins — that invariant is about the cutting, not the sentence. |
+| "the same student is counted again in every week…" | Timing, Active students per week | Explained an arithmetic nobody attempts (no reader sums a weekly line) at the cost of sending them to another tab. |
+| the suppression key on two topic cards | Topics, methods + software | Their notes now carry list provenance instead, and the tick's meaning is still on its own row's hover ("withheld — not zero") and in the data table. |
+
+### Added, because the page was missing a claim
+
+**Where the fixed lists come from.** The 21 methods and 9 tools are Bergmann et al.'s
+published Stage-2 theme tables; only the *assignment* is ours. `label_provenance` names the
+classifier and says nothing about the list, so the cards read as our taxonomy — which
+misattributes the comparison the cross-study validation rests on. Owner's wording, verbatim
+on both cards.
+
+**"How these labels were produced"**, collapsed, under the Topics deck: every card there
+counts classifier decisions and only the emergent one said so. Collapsed rather than
+visible because it is method, not caveat — the line D-58 drew.
+
+### Two donuts, and the three rules they follow
+
+Adoption's active users by level, and Language's message mix. Both are a small closed set
+partitioning a published total, which is the only case a pie is the right form.
+
+1. **All-or-nothing.** One suppressed category and there is no ring — a donut over the
+   survivors asserts the withheld one is zero, the exact claim the floor exists not to
+   make. Both callers fall back to their table.
+2. **The legend carries the numbers.** Two of the four hues are below 3:1 on this surface
+   (validated: `#1baf7a` 2.74, `#eda100` 2.11), which obliges visible labels or a table.
+   The figure-carrying legend IS that relief — which is what lets Language collapse its
+   table into the standard disclosure — and it answers the pie's real weakness, that
+   angles cannot compare 50% against 44%.
+3. **Adoption's denominator is the sum of the levels shown, not the window total.** A
+   transitioner is counted under both levels, so the levels can exceed the window by a
+   few and a ring drawn against the window would over-fill.
+
+Palette: the house categorical set, re-validated for this use (lightness band, chroma
+floor, CVD separation, normal-vision floor all pass). `unknown` / `undetermined` keeps the
+muted gray — "no signal" is not an identity worth a hue, and it is deliberately excluded
+from the categorical check it would fail.
+
+### Reorderings
+
+- **Adoption** leads with By program level, above the totals it decomposes (owner's call).
+  The card renders under All users only, so the layout differs by filter.
+- **Engagement** leads with Weeks active per student, revising D-53: it carries the tab's
+  actual finding (`TriedVsAdopted`), and sat third.
+- **Language** leads with By program level, then Totals, then the weekly chart.
+
+Adoption's By-program-level card also drops its collapsible data table — its own figure is
+already an accessible `<table>` with a caption, making it the one card on the dashboard
+where the disclosure is the same numbers a third time. `showTable` defaults to true and no
+other caller passes it.
+
+### Deploy
+
+Both halves. `daypart_definition`, the topics ids and `signup_level_rule` travel in the
+blob, and the schema moves. `--skip-extract --skip-classify` — nothing here needs newer
+StatsBot activity.

@@ -34,6 +34,8 @@ export function ProgramLevelCard({
   note,
   floorN,
   tableCaption,
+  footer,
+  showTable = true,
 }: {
   title: string;
   levels: string[];
@@ -43,6 +45,12 @@ export function ProgramLevelCard({
   note?: ReactNode;
   floorN: number;
   tableCaption: string;
+  /** A second reading of these same numbers, below the Note (D-59). */
+  footer?: ReactNode;
+  /** Opt out of the collapsible data table. Only honest where the card's own figure
+   *  already IS an accessible `<table>` with a caption — which is true here and of no
+   *  other card, so the disclosure stays on by default. */
+  showTable?: boolean;
 }) {
   if (levels.length === 0) return null;
   return (
@@ -52,15 +60,18 @@ export function ProgramLevelCard({
       footnotes={footnotes}
       note={note}
       floorN={floorN}
+      footer={footer}
       table={
-        <DataTable
-          caption={tableCaption}
-          head={columns.map((c, i) => (i === 0 ? "Level" : String(c.header)))}
-          rows={levels.map((level) => [
-            LEVEL_LABELS[level] ?? level,
-            ...columns.slice(1).map((c) => textOf(c.cell(level))),
-          ])}
-        />
+        showTable ? (
+          <DataTable
+            caption={tableCaption}
+            head={columns.map((c, i) => (i === 0 ? "Level" : String(c.header)))}
+            rows={levels.map((level) => [
+              LEVEL_LABELS[level] ?? level,
+              ...columns.slice(1).map((c) => textOf(c.cell(level))),
+            ])}
+          />
+        ) : null
       }
     >
       <table className="w-full border-collapse text-xs">

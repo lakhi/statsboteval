@@ -16,6 +16,7 @@ export function ChartCard({
   note,
   floorN,
   children,
+  footer,
   table,
 }: {
   title: string;
@@ -28,6 +29,11 @@ export function ChartCard({
   note?: ReactNode;
   floorN: number;
   children: ReactNode;
+  /** A second figure, below the Note — a rendering of the same numbers rather than
+   *  new ones (D-59: Adoption's level donut under its level table). Below the note
+   *  and not above it because the note qualifies the figures, and a reader who has
+   *  reached the second one has already read past it. */
+  footer?: ReactNode;
   table?: ReactNode;
 }) {
   const hasNotes = footnotes.length > 0 || suppressionKey || note;
@@ -58,6 +64,7 @@ export function ChartCard({
           {note ? <span>{note}</span> : null}
         </p>
       ) : null}
+      {footer ? <div className="mt-4">{footer}</div> : null}
       {table}
     </section>
   );

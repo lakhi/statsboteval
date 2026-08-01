@@ -29,7 +29,12 @@ schema stays 1.8.0. **D-58 (built 2026-08-01, not yet published)** dissolves Ado
 `retention_all_time`, links the Bergmann citation to OSF, and reorders the tabs to
 Adoption → Engagement → Topics → Timing → Language (Adoption is now the landing tab); also
 data-and-display only, still 1.8.0, but it **needs both go-live halves** because the texts
-travel in the blob. Corpus scale:
+travel in the blob. **D-59 (built 2026-08-01, not yet published) moves the schema to
+1.9.0**: New signups is now split by program level — resolved from the roster at the
+*registration* date, which is how a registrant who never wrote gets a level at all —
+plus a round of caveat removals across all five tabs, donuts on Adoption's and Language's
+part-to-whole cards, and three cards moved to the top of their tab. Both halves again.
+Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.
 
@@ -117,6 +122,13 @@ weekly Python batch pipeline:                      Blob: versioned aggregates fi
   partition and sum to `active_students`; `frequent` never adds to them.
 - **`created_at` is THE temporal axis** (weeks, windows, heatmap). `session_started` is a
   client clock — a session *key*, plus status-at-usage-time resolution, never an axis.
+- **The program-level rule lives once, in `status.status_at(row, date)`** (D-59).
+  `resolve_status` applies it to a session's start, `aggregate` to a signup's registration
+  date — the same Beginnsemester boundary read at two instants, which is why signups can
+  carry a level at all (a registrant who never wrote has no session to key off). Copying
+  the comparison into either caller is two answers waiting to diverge. Corollary: a signup
+  is never reassigned by a later BA→MA move, and a level that signed up but never wrote
+  has no `by_status` slice, so published levels can sum to less than the window total.
 - **Dayparts are four *equal* six-hour blocks, and the equality is load-bearing** (D-54).
   Bar length reads as intensity, so unequal bins invert the finding — the rejected 2–8 h
   draft made the densest period of the day (12–14 at 408 msg/h) the shortest bar on the

@@ -208,9 +208,14 @@ export function EngagementTab({ doc, win, level }: TabProps) {
         ]),
   ];
 
-  // Order is editorial (D-53): the two headline measures first — how often a student
-  // came back, and how long a conversation ran — then breadth over the term, then
-  // volume per student, then the Bergmann-comparable turn count last.
+  // Order is editorial (D-59, revising D-53): breadth over the term leads, because it
+  // carries the tab's actual finding — most students wrote in a single week and did not
+  // come back, which `TriedVsAdopted` states in words above the plot. D-53 opened with
+  // conversations-per-student and put weeks-active third, on the reasoning that the two
+  // "how much" distributions were the headline; a reader scanning the tab meets the
+  // answer to "how deeply do they engage?" three cards later than they should. Then the
+  // two headline distributions, volume per student, and the Bergmann-comparable turn
+  // count last.
   return (
     <div>
       {intro}
@@ -221,26 +226,6 @@ export function EngagementTab({ doc, win, level }: TabProps) {
         </UnscopedNote>
       ) : null}
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        {card(perStudent, studentRoll, studentScoped, "conversations per student", "per-student", (roll) => (
-          <HistogramCard
-            doc={doc}
-            title="Conversations per student"
-            xLabel="Conversations"
-            histogram={roll.sessions_per_student}
-            measure="conversation"
-          />
-        ))}
-
-        {card(sessions, sessionRoll, sessionScoped, "conversation length", "sessions", (roll) => (
-          <HistogramCard
-            doc={doc}
-            title="Conversation length (minutes)"
-            xLabel="Minutes"
-            histogram={roll.session_duration_minutes}
-            measure="minute"
-          />
-        ))}
-
         {/* Withheld in a one-week window (D-56), where every active student is active in
             exactly one week by definition and the histogram is 100% in the first bin
             whatever happened. Withheld here rather than omitted from the document: the
@@ -272,6 +257,26 @@ export function EngagementTab({ doc, win, level }: TabProps) {
                 }
               />
             ))}
+
+        {card(perStudent, studentRoll, studentScoped, "conversations per student", "per-student", (roll) => (
+          <HistogramCard
+            doc={doc}
+            title="Conversations per student"
+            xLabel="Conversations"
+            histogram={roll.sessions_per_student}
+            measure="conversation"
+          />
+        ))}
+
+        {card(sessions, sessionRoll, sessionScoped, "conversation length", "sessions", (roll) => (
+          <HistogramCard
+            doc={doc}
+            title="Conversation length (minutes)"
+            xLabel="Minutes"
+            histogram={roll.session_duration_minutes}
+            measure="minute"
+          />
+        ))}
 
         {card(perStudent, studentRoll, studentScoped, "messages per student", "per-student", (roll) => (
           <HistogramCard

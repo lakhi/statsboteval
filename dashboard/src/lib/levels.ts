@@ -25,6 +25,24 @@ export const LEVEL_LABELS: Record<string, string> = {
   [ALL]: "All users",
 };
 
+/**
+ * Categorical hues for the level donut (D-59), in the same fixed order as everything
+ * else here — a hue belongs to a level, never to its rank, so a window where staff
+ * outnumber nobody still paints staff amber.
+ *
+ * The three enrolled/staff slots are the house categorical set, validated on this
+ * surface (lightness band, chroma floor, CVD separation, normal-vision floor all pass;
+ * green and amber fall below 3:1 contrast, which is why the donut always ships its
+ * figure-carrying legend). `unknown` is deliberately the same muted gray Language gives
+ * *Undetermined*: "no signal" is not an identity worth a hue.
+ */
+export const LEVEL_COLORS: Record<string, string> = {
+  bachelor: "var(--color-accent)",
+  master: "var(--color-series-en)",
+  staff: "var(--color-series-other)",
+  unknown: "#6e6c66",
+};
+
 /** Sentence fragment for the header line, e.g. "bachelor students". */
 export const LEVEL_PHRASE: Record<string, string> = {
   bachelor: "bachelor students",

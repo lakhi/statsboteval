@@ -247,14 +247,10 @@ export function TimingTab({ doc, win, level }: TabProps) {
           title="Active students per week"
           weekly={weekly.active_students}
           valueLabel="Active students"
-          note={
-            <>
-              A student counts in any week they sent at least one message. The same student
-              is counted again in every week they were active, so the line does not add up to
-              a student total — Adoption&rsquo;s <em>Active users</em> is the deduplicated count
-              for the whole window.
-            </>
-          }
+          // D-59 drops the second sentence (the same student recurs weekly, so the line
+          // is not a student total). It explained an arithmetic nobody was attempting —
+          // no reader sums a weekly line — at the cost of sending them to another tab.
+          note="A student counts in any week they sent at least one message."
         />
 
         {profiles.length > 0 ? (

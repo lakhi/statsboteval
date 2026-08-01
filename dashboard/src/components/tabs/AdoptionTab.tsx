@@ -6,12 +6,21 @@ import type {
 } from "@/lib/aggregates.gen";
 import { footnoteText, footnoteTexts, resolveFootnotes, symbolsFor } from "@/lib/footnotes";
 import { formatCount } from "@/lib/format";
-import { ALL, enrolledFor, enrollmentFor, reachFootnoteIds, reachPercent, sharePercent } from "@/lib/levels";
+import {
+  ALL,
+  enrolledFor,
+  enrollmentFor,
+  LEVEL_COLORS,
+  reachFootnoteIds,
+  reachPercent,
+  sharePercent,
+} from "@/lib/levels";
 import { ChartCard } from "../cells/ChartCard";
 import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
 import { InfoTip } from "../cells/InfoTip";
 import { KpiPairTile, KpiTile } from "../cells/KpiTile";
 import { NoteText } from "../cells/NoteText";
+import { PieShare } from "../cells/PieShare";
 import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
 import {
   cellText,
@@ -125,6 +134,8 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
         sessions: slice.sessions,
         new_users: slice.new_users,
         returning_users: slice.returning_users,
+        new_registrations: slice.new_registrations,
+        new_registrations_active: slice.new_registrations_active,
       }
     : roll.totals;
   const userClasses = slice ? slice.user_classes : roll.user_classes;
@@ -143,11 +154,18 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
   const retentionAllTimeNote = windowNote("retention_all_time");
   const signupNote = windowNote("signup_activation");
   const sessionsNote = windowNote("chat_fragmentation");
-  // Where the headline count's program level comes from. Only under a single level: with
-  // the filter on All users the count spans every level and the By-program-level card
-  // below carries the rule instead. `status_multi` stays on that card exclusively — it is
-  // about levels summing past the window total, which is a thing only that card shows.
-  const statusRuleNote = level !== ALL && !unscoped ? footnoteText(doc, "status_rule") : null;
+  // D-59 takes the `status_rule` tip off Active users, one day after D-58 put it there.
+  // Three statements of the same roster rule fit on one screen under a level filter, and
+  // the tile's own second line already carries a tip. The rule stays on the
+  // By-program-level card, where the levels are the subject rather than the scope.
+  //
+  // 1.9.0: the signup pair is published per level (D-59), so the tile follows the filter
+  // like every other number on this tab. `signup_level_rule` says what "per level" means
+  // for a number that has no conversation behind it, and it arrives on the slice.
+  const sliceIds = new Set(slice?.footnote_ids ?? []);
+  const signupLevelNote = sliceIds.has("signup_level_rule")
+    ? footnoteText(doc, "signup_level_rule")
+    : null;
 
   // Reach: active students over the enrolled cohort. Not a floored cell on either side —
   // the numerator is published and the denominator is an institutional headcount — so it
@@ -197,6 +215,26 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
   ];
   const enrollmentEntry = enrollmentFor(doc, win);
 
+  // The donut under the level table (D-59). Denominator is the sum of the published
+  // levels, NOT the window total: a BA→MA transitioner is counted under both levels
+  // (`status_multi`), so the levels can add up past the window by a few, and a pie drawn
+  // against the window total would over-fill. Drawn against their own sum it is exact,
+  // and the card says which sum it is.
+  //
+  // Suppression is all-or-nothing: one withheld level and there is no donut, because a
+  // ring over the survivors would show them as the whole cohort. The table above keeps
+  // every publishable number visible either way, so nothing is lost but the picture.
+  const levelSlices = levels.map((l) => ({
+    key: l,
+    label: STATUS_LABELS[l] ?? l,
+    value: valueOf(byStatus?.[l]?.active_students),
+    color: LEVEL_COLORS[l] ?? LEVEL_COLORS.unknown,
+  }));
+  const levelDonut = levelSlices.every((s) => s.value !== null)
+    ? (levelSlices as { key: string; label: string; value: number; color: string }[])
+    : null;
+  const donutTotal = levelDonut?.reduce((sum, s) => sum + s.value, 0) ?? 0;
+
   return (
     <div>
       {intro}
@@ -207,6 +245,66 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
         </UnscopedNote>
       ) : null}
       <div className="space-y-4">
+        {/* First block on the tab, above the totals it decomposes (D-59, owner's call).
+            It renders under All users only, so under a level filter the KPI row leads the
+            page instead — the layout differs by filter, on purpose. */}
+        {showsLevelCard(level) && levels.length > 0 ? (
+          <ProgramLevelCard
+            title="By program level"
+            tableCaption={`Active users, messages and reach by program level, ${win.label}`}
+            levels={levels}
+            columns={levelColumns}
+            floorN={doc.privacy_floor_n}
+            markers={symbolsFor(statusFootnotes, ["status_rule", "status_multi"])}
+            footnotes={statusFootnotes}
+            // The card's own figure is already an accessible <table> with a caption, so
+            // the collapsible twin was these numbers a third time (D-59). The only card
+            // on the dashboard where that is true.
+            showTable={false}
+            footer={
+              levelDonut ? (
+                <PieShare
+                  slices={levelDonut}
+                  total={donutTotal}
+                  centerLabel="active users across the levels shown"
+                  valueLabel="Active users"
+                  ariaLabel={`Active users by program level, ${win.label}: ${levelDonut
+                    .map((s) => `${s.label} ${formatCount(s.value)}`)
+                    .join(", ")}.`}
+                />
+              ) : null
+            }
+            note={
+              <>
+                <span className="font-medium">% of window</span> is the level&rsquo;s share of
+                this window&rsquo;s total.{" "}
+                {enrollmentEntry ? (
+                  <>
+                    <span className="font-medium">Reach</span> is its active users over its
+                    enrolled cohort ({formatCount(enrollmentEntry.bachelor)} bachelor,{" "}
+                    {formatCount(enrollmentEntry.master)} master).{" "}
+                    {enrollmentNotes.map((text, i) => (
+                      <span key={i}>
+                        <NoteText text={text} />{" "}
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium">Reach</span> needs an enrolled-cohort total.{" "}
+                    {win.kind === "all_time"
+                      ? "All time spans several semesters of cohort turnover, so no single headcount is its denominator."
+                      : "None is published for this semester yet."}
+                  </>
+                )}{" "}
+                {levelDonut
+                  ? "The ring reads the Active users column against the levels shown, which is a hair more than the window total wherever a student changed level inside it."
+                  : "One level's count is withheld here, so the ring is left out rather than drawn over the rest."}
+              </>
+            }
+          />
+        ) : null}
+
         <div>
           <div className="grid grid-cols-2 items-start gap-3 lg:grid-cols-4">
             {/* Retention sits under the total it decomposes, not beside it: the pair is
@@ -217,13 +315,6 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
                 label="Active users"
                 cell={totals.active_students}
                 floorN={doc.privacy_floor_n}
-                tip={
-                  statusRuleNote ? (
-                    <InfoTip label="How program level is decided">
-                      <NoteText text={statusRuleNote} />
-                    </InfoTip>
-                  ) : null
-                }
                 note={
                   reach && enrolled !== null ? (
                     <>
@@ -288,33 +379,38 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
                 </>
               }
             />
-            {/* New signups is cohort-wide by construction: a registration has no session,
-                so the usage-time rule cannot resolve its program level (D-55). Rather than
-                show an unscoped number under a level filter, the tile steps aside — the
-                same treatment the semester overlay gets on Timing. */}
-            {level === ALL ? (
-              <KpiPairTile
-                label="New signups"
-                floorN={doc.privacy_floor_n}
-                rows={[
-                  { caption: "signed up", cell: roll.totals.new_registrations },
-                  { caption: "sent at least 1 msg", cell: roll.totals.new_registrations_active },
-                ]}
-                note={signupNote ? <NoteText text={signupNote} /> : undefined}
-              />
-            ) : (
-              <div className="rounded-lg border border-dashed border-edge px-4 py-3 text-xs leading-relaxed text-ink-3">
-                <span className="font-medium text-ink-2">New signups</span> counts accounts
-                created in this window. A signup has no conversation behind it, so it cannot
-                be attributed to a program level — switch to All users to see it.
-              </div>
-            )}
+            {/* Follows the filter since 1.9.0 (D-59). A pre-1.9.0 document has no signup
+                cells on its slices, so under a level filter the pair is simply absent —
+                `KpiPairTile` renders the dot for a missing cell, and the tile does not
+                claim a zero it was never told. */}
+            <KpiPairTile
+              label="New signups"
+              floorN={doc.privacy_floor_n}
+              rows={[
+                { caption: "signed up", cell: totals.new_registrations },
+                { caption: "sent at least 1 msg", cell: totals.new_registrations_active },
+              ]}
+              note={
+                signupNote || signupLevelNote ? (
+                  <>
+                    {signupNote ? <NoteText text={signupNote} /> : null}
+                    {/* Only under a single level: the rule it states is what "bachelor
+                        signups" means, and under All users no level is claimed. */}
+                    {signupLevelNote ? (
+                      <InfoTip label="How a signup's program level is decided">
+                        <NoteText text={signupLevelNote} />
+                      </InfoTip>
+                    ) : null}
+                  </>
+                ) : undefined
+              }
+            />
           </div>
           {/* No Note paragraph here since D-58: 92 words under four unrelated numbers is
               a paragraph nobody reads, and the reader who wants one of the four explained
               had to find their sentence inside the other three. Each caveat now renders in
-              its own cell. The two cards below keep theirs — one paragraph serving one
-              figure is exactly what an APA table note is for. */}
+              its own cell. The two cards keep theirs — one paragraph serving one figure
+              is exactly what an APA table note is for. */}
         </div>
 
         <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -327,43 +423,6 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
             >
               <UserClassRow classes={userClasses} floorN={doc.privacy_floor_n} />
             </ChartCard>
-          ) : null}
-
-          {showsLevelCard(level) && levels.length > 0 ? (
-            <ProgramLevelCard
-              title="By program level"
-              tableCaption={`Active users, messages and reach by program level, ${win.label}`}
-              levels={levels}
-              columns={levelColumns}
-              floorN={doc.privacy_floor_n}
-              markers={symbolsFor(statusFootnotes, ["status_rule", "status_multi"])}
-              footnotes={statusFootnotes}
-              note={
-                <>
-                  <span className="font-medium">% of window</span> is the level&rsquo;s share of
-                  this window&rsquo;s total.{" "}
-                  {enrollmentEntry ? (
-                    <>
-                      <span className="font-medium">Reach</span> is its active users over its
-                      enrolled cohort ({formatCount(enrollmentEntry.bachelor)} bachelor,{" "}
-                      {formatCount(enrollmentEntry.master)} master).{" "}
-                      {enrollmentNotes.map((text, i) => (
-                        <span key={i}>
-                          <NoteText text={text} />{" "}
-                        </span>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-medium">Reach</span> needs an enrolled-cohort total.{" "}
-                      {win.kind === "all_time"
-                        ? "All time spans several semesters of cohort turnover, so no single headcount is its denominator."
-                        : "None is published for this semester yet."}
-                    </>
-                  )}
-                </>
-              }
-            />
           ) : null}
         </div>
       </div>
