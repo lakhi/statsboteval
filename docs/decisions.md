@@ -2278,3 +2278,41 @@ Worth knowing when reading the live Timing tab: the ring appears only where all 
 dayparts clear the floor **and** the window publishes a messages total. Windows with a
 suppressed block fall back to the bars, so the card's form differs between windows by
 design. On the synthetic document only `all_time` qualifies.
+
+---
+
+## D-61 — 2026-08-01: Language's Totals card loses its data table and stacks its legend
+
+*A same-day follow-up to D-60, from looking at the live page. Display only, code half only.*
+
+Three things were wrong with the card once it was on production data:
+
+1. **The center caption collided with the arc shares.** The hole is 58% of the diameter —
+   97px at the old 168px ring — and the caption was capped at 6.5rem (104px), so "messages
+   in All time" ran out over the ring and into the new 41% / 52% labels. The cap is now
+   derived from the ring's size rather than written as a constant, which is what keeps it
+   fixed at any size.
+2. **The card was mostly void.** D-60's `h-full` made the box match its taller neighbour
+   without giving the contents any reason to fill it. `ChartCard fill` centers the figure
+   in whatever height the row sets; the ring also grew (168 → 232px) now that the legend
+   is under it rather than beside it, which is where the width came from.
+3. **The collapsible data table was the numbers a third time.** Every other card has one
+   because its figure is a picture and the table is the only text. Not this one: the
+   donut's legend already carries label, count and share per language, and the no-ring
+   fallback is a table outright. Same argument that dropped Adoption's level-card table in
+   D-59, and the same test — remove the disclosure only where the card's *visible* figure
+   is already the accessible text.
+
+**The weekly chart on the same tab keeps its data table**, and that is not an oversight.
+A line chart has no textual twin; its disclosure is the only place its values exist as
+text, so removing it there would be a real accessibility regression rather than a
+de-duplication. "Get rid of the data table" was read as scoped to the card in the
+screenshot for exactly this reason.
+
+`layout="stacked"` is a prop, not a new default. Adoption's ring sits in a card footer
+under a wide table, where stacking would only make a tall card taller; the ring-beside-
+legend arrangement is still right wherever the ring is one figure among several.
+
+### Deploy
+
+Bundle half only, again. Nothing here touches a cell, a footnote text or the schema.

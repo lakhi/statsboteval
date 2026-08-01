@@ -15,6 +15,7 @@ export function ChartCard({
   suppressionKey,
   note,
   floorN,
+  fill = false,
   children,
   footer,
   table,
@@ -28,6 +29,11 @@ export function ChartCard({
   /** Card-specific prose appended to the Note (e.g. a method explanation). */
   note?: ReactNode;
   floorN: number;
+  /** Center the figure in whatever height the row gives this card, instead of letting it
+   *  sit at the top under a void. For the short card in a stretch-aligned pair: `h-full`
+   *  makes the box match its neighbour, and this is what makes the *contents* look like
+   *  they meant to be in a box that tall. */
+  fill?: boolean;
   children: ReactNode;
   /** A second figure, below the Note — a rendering of the same numbers rather than
    *  new ones (D-59: Adoption's level donut under its level table). Below the note
@@ -43,12 +49,14 @@ export function ChartCard({
     // stretched, the section did not, and Language's donut card sat visibly short beside
     // its neighbour. A no-op where the grid is items-start (Timing) or where ChartCard is
     // itself the grid child (Topics).
-    <section className="h-full rounded-lg border border-edge bg-card p-5">
+    <section
+      className={`h-full rounded-lg border border-edge bg-card p-5 ${fill ? "flex flex-col" : ""}`}
+    >
       <h3 className="text-sm font-semibold text-ink">
         {title}
         {markers ? <sup className="ml-0.5 font-normal text-accent-deep">{markers}</sup> : null}
       </h3>
-      <div className="mt-3">{children}</div>
+      <div className={`mt-3 ${fill ? "flex flex-1 flex-col justify-center" : ""}`}>{children}</div>
       {hasNotes ? (
         <p className="mt-3 border-t border-hairline pt-2 text-xs leading-relaxed text-ink-2">
           <span className="font-display italic">Note.</span>{" "}

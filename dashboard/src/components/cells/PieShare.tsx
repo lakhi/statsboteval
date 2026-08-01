@@ -86,6 +86,7 @@ export function PieShare({
   centerLabel,
   ariaLabel,
   valueLabel,
+  layout = "row",
 }: {
   slices: PieSlice[];
   /** The denominator the shares are read against — the caller names it, because
@@ -96,6 +97,12 @@ export function PieShare({
   ariaLabel: string;
   /** Column header for the legend's counts, e.g. "Students" or "Messages". */
   valueLabel: string;
+  /** `row` (default) puts the legend beside the ring — right where the ring is one figure
+   *  among several in a card. `stacked` puts it underneath, which is what a card whose
+   *  *only* figure is the ring wants: the ring gets the card's full width instead of
+   *  half of it. Not a global switch, because Adoption's ring sits in a footer under a
+   *  wide table and stacking it there would only make a tall card taller. */
+  layout?: "row" | "stacked";
 }) {
   const drawn = slices.filter((s) => s.value > 0);
   const share = (value: number) => (total > 0 ? `${Math.round((value / total) * 100)}%` : "—");
@@ -132,9 +139,27 @@ export function PieShare({
       </text>
     );
   };
+  const stacked = layout === "stacked";
+  // The hole is 58% of the diameter (innerRadius), and the center caption has to live
+  // inside it. At 168px that hole is 97px across while the caption was capped at 6.5rem
+  // (104px), so "messages in All time" ran out over the ring and collided with the arc
+  // labels. Deriving the cap from the size is what keeps that fixed at any size.
+  const size = stacked ? 232 : 168;
+  const centerWidth = Math.round(size * 0.52);
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-      <div className="relative h-[168px] w-[168px] shrink-0" role="img" aria-label={ariaLabel}>
+    <div
+      className={
+        stacked
+          ? "flex flex-col items-center gap-4"
+          : "flex flex-col items-center gap-4 sm:flex-row sm:items-center"
+      }
+    >
+      <div
+        className="relative shrink-0"
+        style={{ width: size, height: size }}
+        role="img"
+        aria-label={ariaLabel}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -162,10 +187,17 @@ export function PieShare({
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-display text-xl leading-none text-ink tabular-nums">
+          <span
+            className={`font-display leading-none text-ink tabular-nums ${
+              stacked ? "text-2xl" : "text-xl"
+            }`}
+          >
             {formatCount(total)}
           </span>
-          <span className="mt-1 max-w-[6.5rem] text-center text-[10px] leading-tight text-ink-3">
+          <span
+            className="mt-1 text-center text-[10px] leading-tight text-ink-3"
+            style={{ maxWidth: centerWidth }}
+          >
             {centerLabel}
           </span>
         </div>

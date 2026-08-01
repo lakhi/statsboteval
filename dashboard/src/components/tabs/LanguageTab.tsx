@@ -243,31 +243,24 @@ export function LanguageTab({ doc, win, level }: TabProps) {
 
         <div>
           {totals ? (
-            <ChartCard
-              title={`Totals — ${win.label}`}
-              floorN={doc.privacy_floor_n}
-              table={
-                <DataTable
-                  caption={`Messages by language, ${win.label}`}
-                  head={["Language", "Messages", "Share"]}
-                  rows={LANGS.map((lang) => {
-                    const cell = totals[lang.key];
-                    if (cell.status !== "ok") return [lang.label, "suppressed", "—"];
-                    return [
-                      lang.label,
-                      formatCount(cell.value),
-                      denomValue ? `${Math.round((cell.value / denomValue) * 100)}%` : "—",
-                    ];
-                  })}
-                />
-              }
-            >
+            // No collapsible data table on this card (D-61). Every other card has one
+            // because its figure is a picture and the table is the only text; here both
+            // branches already ARE the text — the donut's legend carries label, count and
+            // share per language, and the no-ring fallback is a table outright. The
+            // disclosure was these four numbers a third time, the same reason Adoption's
+            // level card dropped its own in D-59. `fill` then centers the figure in the
+            // height the taller weekly card sets, instead of parking it above a void.
+            <ChartCard title={`Totals — ${win.label}`} floorN={doc.privacy_floor_n} fill>
               {donut ? (
                 <PieShare
                   slices={donut}
                   total={denomValue ?? 0}
                   centerLabel={`messages in ${win.label}`}
                   valueLabel="Messages"
+                  // The card's only figure, so the legend goes under the ring rather than
+                  // beside it: full card width instead of half, which is what lets the
+                  // ring grow enough for its in-arc shares to sit clear of the caption.
+                  layout="stacked"
                   ariaLabel={`Messages by language, ${win.label}: ${donut
                     .map((s) => `${s.label} ${formatCount(s.value)}`)
                     .join(", ")}.`}
