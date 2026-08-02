@@ -49,7 +49,7 @@ const CARDS: CardDef[] = [
     // since D-62 the *purpose* sits only in the deck, for the same reason: D-60 moved the
     // citation up but left "for cross-study validation" in both lines.
     title: "Deductive Categories (from Bergmann et al. 2026)",
-    deck: "The 13 predefined codebook categories, kept for cross-study validation.",
+    deck: "The 13 predefined codebook categories, included for cross-study validation.",
     noun: ["category", "categories"],
   },
   {
