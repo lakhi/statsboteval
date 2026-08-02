@@ -45,8 +45,10 @@ const CARDS: CardDef[] = [
   {
     key: "deductive",
     // "Bergmann-style" was doing the attribution work twice, in the title and again in the
-    // deck (D-60). The citation now sits in the title, where a reader meets it once.
-    title: "Deductive Categories (for cross-study validation, from Bergmann et al. 2026)",
+    // deck (D-60). The citation now sits in the title, where a reader meets it once — and
+    // since D-62 the *purpose* sits only in the deck, for the same reason: D-60 moved the
+    // citation up but left "for cross-study validation" in both lines.
+    title: "Deductive Categories (from Bergmann et al. 2026)",
     deck: "The 13 predefined codebook categories, kept for cross-study validation.",
     noun: ["category", "categories"],
   },

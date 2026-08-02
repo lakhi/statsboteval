@@ -24,22 +24,29 @@ went live 2026-07-31** — `trailing_4` is gone, replaced by slices of a semeste
 stretch — and **D-57 went live 2026-08-01**, narrowing those slices to the anchor semester
 alone: `2026S.last4` / `2026S.last1` sit in a flat `Recent` group beside `Semesters` and
 `Everything`, and no other semester is sliced. D-57 was a data-and-display change only; the
-schema stays 1.8.0. **D-58 (built 2026-08-01, not yet published)** dissolves Adoption's
-`Note.` paragraph into per-cell notes, rewrites four footnote texts, mints
-`retention_all_time`, links the Bergmann citation to OSF, and reorders the tabs to
-Adoption → Engagement → Topics → Timing → Language (Adoption is now the landing tab); also
-data-and-display only, still 1.8.0, but it **needs both go-live halves** because the texts
-travel in the blob. **D-59 (built 2026-08-01, not yet published) moves the schema to
-1.9.0**: New signups is now split by program level — resolved from the roster at the
-*registration* date, which is how a registrant who never wrote gets a level at all —
-plus a round of caveat removals across all five tabs, donuts on Adoption's and Language's
-part-to-whole cards, and three cards moved to the top of their tab. Both halves again.
-**D-60 (built 2026-08-01, not yet published) is display-only** — no schema move, no
-re-aggregation, **bundle half only**: suppressed weeks in every line chart are now bridged
-by a dashed segment instead of cut into a gap, Timing's daypart bars become a ring (with
-the bars kept as the fallback wherever a block is suppressed or no denominator is
-published), both donuts print shares inside their arcs, Language's two cards are an even
-split, and Topics' deductive card moves to position 2 and is retitled.
+schema stays 1.8.0. **D-58 went live 2026-08-01** — Adoption's `Note.` paragraph dissolved
+into per-cell notes, four footnote texts rewritten, `retention_all_time` minted, the
+Bergmann citation linked to OSF, and the tabs reordered to Adoption → Engagement → Topics →
+Timing → Language (Adoption is the landing tab); data-and-display only, still 1.8.0, but it
+took both go-live halves because the texts travel in the blob. **D-59 went live the same
+day on schema 1.9.0**, both halves: New signups split by program level — resolved from the
+roster at the *registration* date, which is how a registrant who never wrote gets a level
+at all — plus a round of caveat removals across all five tabs, donuts on Adoption's and
+Language's part-to-whole cards, and three cards moved to the top of their tab. **D-60 and
+D-61 went live 2026-08-01 as bundle-half-only deploys** — no schema move, no
+re-aggregation: suppressed weeks in every line chart are bridged by a dashed segment
+instead of cut into a gap, Timing's daypart bars became a ring (with the bars kept as the
+fallback wherever a block is suppressed or no denominator is published), both donuts print
+shares inside their arcs, Language's two cards are an even split, Topics' deductive card
+moved to position 2, and Language's Totals card dropped its data table and stacked its
+legend. The live blob is `v1/aggregates_2026-W30_20260801T192936Z.json`, schema 1.9.0,
+`data_through_week` 2026-W30.
+**D-62 (built 2026-08-02, not yet published) is display-only, bundle half only**: both
+"By program level" cards become 100%-stacked columns — Language's four languages per level,
+Adoption's three levels per measure (Active users, Messages), replacing the D-59 donut —
+with their numbers in the collapsible data table, reach kept visible as a strip, Topics'
+deductive title de-duplicated, and the User classes card taken off Adoption (the pipeline
+still publishes `user_classes`; only the card is gone).
 Corpus scale:
 550 students / 4,419 messages / 15 frozen emergent themes. Remaining `docs/open-questions.md`
 items gate thesis interpretation (Wolfgang) and milestone 2, not day-to-day development.

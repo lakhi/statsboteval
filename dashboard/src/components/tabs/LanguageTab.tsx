@@ -6,6 +6,7 @@ import { ChartCard, DataTable } from "../cells/ChartCard";
 import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
 import { PieShare } from "../cells/PieShare";
 import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
+import { StackedShareBars } from "../cells/StackedShareBars";
 import { TrendChart, trendTableRows, type TrendSeries } from "../cells/TrendChart";
 import {
   hasSuppressed,
@@ -179,6 +180,13 @@ export function LanguageTab({ doc, win, level }: TabProps) {
   const langStatusFootnotes = resolveFootnotes(doc, [
     ["status_rule", "status_multi", "language_heuristic"],
   ]);
+  // The level's published message total, never a sum of the four language cells: one
+  // suppressed language would blank the whole level, and normalising to the survivors
+  // would make them total 100% — asserting the suppressed language is zero. Languages
+  // partition messages exactly, so the published total is the honest denominator, and
+  // what the published languages do not fill is exactly the withheld one.
+  const levelMessages = (l: string) =>
+    valueOf(doc.sections.usage_context?.per_window[win.id]?.by_status?.[l]?.messages);
   // Within-level shares, the same denominator rule Timing's card uses: German's share of
   // bachelor messages is comparable across levels in a way German's share of all messages
   // is not, because the levels differ in size.
@@ -187,21 +195,45 @@ export function LanguageTab({ doc, win, level }: TabProps) {
     ...LANGS.map((lang) => ({
       header: lang.label,
       cell: (l: string) => {
-        // The level's published message total, never a sum of the four language cells:
-        // one suppressed language would blank the whole row, and normalising to the
-        // survivors would make them total 100% — asserting the suppressed language is
-        // zero. Languages partition messages exactly, so the published total is the
-        // honest denominator and a short row shows where the suppressed one went.
         const value = valueOf(byStatus?.[l]?.[lang.key]);
-        const total = valueOf(
-          doc.sections.usage_context?.per_window[win.id]?.by_status?.[l]?.messages,
-        );
+        const total = levelMessages(l);
         return value === null || total === null || total === 0
           ? null
           : `${Math.round((value / total) * 100)}%`;
       },
+      // The disclosure is this card's only text channel since D-62, so a withheld cell has
+      // to say so there rather than fall back to `textOf`'s bare em dash.
+      text: (l: string) => {
+        const cell = byStatus?.[l]?.[lang.key];
+        if (cell?.status === "suppressed") return "suppressed";
+        const value = valueOf(cell);
+        const total = levelMessages(l);
+        return value === null || total === null || total === 0
+          ? "·"
+          : `${Math.round((value / total) * 100)}%`;
+      },
     })),
   ];
+
+  // The stacked columns (D-62), one per level, each drawn to that level's own published
+  // message total. `total: null` cannot happen for a level that has language cells at all
+  // — the same window publishes its messages total — but a document missing the Adoption
+  // section would hit it, and an undrawable column is the honest render of that.
+  const langGroups = levels.map((l) => ({
+    key: l,
+    label: STATUS_LABELS[l] ?? l,
+    total: levelMessages(l),
+    unavailable: "no total",
+    cells: Object.fromEntries(
+      LANGS.map((lang) => {
+        const cell = byStatus?.[l]?.[lang.key];
+        return [lang.key, { value: valueOf(cell), suppressed: cell?.status === "suppressed" }];
+      }),
+    ),
+  }));
+  const langLevelSuppressed = langGroups.some((g) =>
+    Object.values(g.cells).some((c) => c.suppressed),
+  );
 
   return (
     <div>
@@ -229,12 +261,29 @@ export function LanguageTab({ doc, win, level }: TabProps) {
               floorN={doc.privacy_floor_n}
               markers={symbolsFor(langStatusFootnotes, ["status_rule", "language_heuristic"])}
               footnotes={langStatusFootnotes}
+              suppressionKey={
+                langLevelSuppressed ? "A striped band is a language withheld from that column" : null
+              }
+              figure={
+                <StackedShareBars
+                  groups={langGroups}
+                  series={LANGS.map((lang) => ({
+                    key: lang.key,
+                    label: lang.label,
+                    color: lang.color,
+                  }))}
+                  valueNoun="messages"
+                  ariaLabel={`Language mix by program level, ${win.label}. Each column is one level's published messages, split by language; every share is in the data table below.`}
+                />
+              }
               note={
                 <>
-                  Each row is a share of that level&rsquo;s own published message total, so
-                  levels of very different size stay comparable. A suppressed language is
-                  left out of its row rather than folded into the others, so a row need not
-                  total 100%.
+                  Each column is a share of that level&rsquo;s own published message total,
+                  so levels of very different size stay comparable. A column is drawn to
+                  that full total rather than rescaled to the languages shown, so a withheld
+                  language leaves the column short instead of being folded into the rest.
+                  Shares under about 6% are named in the data table rather than inside their
+                  band.
                 </>
               }
             />

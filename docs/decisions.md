@@ -2332,3 +2332,152 @@ Still not verified by a human or a browser in-session: how the card actually ren
 two fixes that motivated this — the caption/arc-label collision and the void under the
 figure — are both geometry, and geometry is the one class of change a string diff cannot
 confirm. Look at it.
+
+## D-62 — 2026-08-02: The two level cards become stacked columns; User classes leaves the page
+
+*Owner's call, from looking at the live page. Display only, bundle half only — no schema
+move, no cell changes, no footnote text touched.*
+
+Four changes, three of them to how the same published numbers are drawn.
+
+### 1. Language's "By program level" is a column chart
+
+The table said Bachelor 83% / 10% / 0% / 6% across four columns and asked the reader to
+hold three rows in working memory to compare them. Three 100%-stacked columns say the same
+thing in one glance, and say one thing the table could not: **what is missing**. Staff's
+row totalled 86% and the fourth cell was a dot; the column now stops at 86% with a striped
+band on top.
+
+The scale is the load-bearing decision. Each column is drawn against **that level's own
+published messages total**, never against the sum of its four language cells. Rescaling to
+the languages that survived the floor would make them total 100%, which asserts the
+withheld one is zero — the claim the privacy floor exists not to make, and the one
+`LanguageTab` had already refused in prose since D-55. A stacked column is the first form
+on this dashboard that can *show* the remainder: `PieShare` has to refuse to draw at all in
+the same situation, because a ring has no shape for "and this much is unaccounted for".
+
+**This does not disclose anything new.** The floor tests distinct contributing students,
+not values, and the document already publishes the level's message total alongside three of
+its four languages — the subtraction was available in the JSON, and available on screen in
+the table this replaces. What changes is that a reader now *notices* it, which is the
+honest state of affairs rather than a new leak.
+
+### 2. Adoption's "By program level" is two stacked columns, not a donut
+
+Two, not one, and that is the point. The card holds two compositions — active users by
+level, messages by level — and the sentence worth reading is the difference between them
+(bachelor is 50% of the users and 52% of the messages). D-59's ring could only ever show
+one. A single stacked column would also have been a one-bar bar chart, which is a stat tile
+in a costume.
+
+Denominator is the sum of the published levels, as the ring's was: a BA→MA transitioner is
+counted under both levels (`status_multi`), so the levels can add up past the window total
+and a column drawn against the window would overfill. All-or-nothing **per column** — one
+withheld level and the survivors would fill it, asserting the withheld one is zero.
+`messages` cannot reach that state (`_joint_partition_floor` withholds it on every level
+once it is withheld on one), but `active_students` is exempt from that joint floor because
+a transitioner counts under both levels, so it can, and that branch is what keeps the
+figure honest.
+
+**The numbers move into the disclosure**, which is what the owner asked for, and it costs
+something real: D-59 called the ring's figure-carrying legend the relief channel obliged by
+this palette's contrast (green 2.74, amber 2.11 against the card, both under 3:1). The
+replacement relief is the share printed **inside each band** for every band with room, plus
+a hover title per band, plus the data table. That is weaker than an always-visible legend
+carrying counts, and it is a deliberate trade, not an oversight.
+
+**Reach does not go into the disclosure.** It is a ratio against an outside denominator
+(the enrolled cohort), so it belongs to no column, and under All users this card is the only
+place it appears at all — under a single level the Active-users tile carries it. It rides
+under the legend as a strip, the same idiom Timing's weekday/weekend pair uses for the same
+reason: a second measure of the same subject that is not a share of the figure above it.
+
+### 3. `ProgramLevelCard` gains a `figure`
+
+Both cards keep the shared card rather than growing hand-built twins. Level order, level
+spelling, the note, the footnote symbols and the data table all still come from one place,
+and the data table is still generated from the same `columns` the figure is built from — so
+the picture and its accessible twin cannot drift the way two hand-written renderings would.
+A card with a `figure` always keeps its disclosure: D-59's `showTable={false}` was justified
+by "the card's own figure is already an accessible `<table>`", which stops being true the
+moment the figure is a picture. `LevelColumn.text` exists for the same reason — `textOf`'s
+em dash was fine beside a visible table that had already shown the suppression mark, and is
+wrong as the *only* rendering of a withheld number.
+
+### 4. Topics' deductive title, and User classes
+
+The title said `Deductive Categories (for cross-study validation, from Bergmann et al.
+2026)` while the deck under it said "kept for cross-study validation" — D-60 moved the
+citation up and left the purpose in both lines. The title keeps the citation; the deck keeps
+the purpose.
+
+**User classes is off the page**, not out of the pipeline. `user_classes` is still
+aggregated, still published, still governed by `frequent ⊂ monthly` (D-50); the schema does
+not move and no document changes. Restoring the card is a revert of this commit. What
+happens to the measure itself is a separate decision, deliberately not taken here.
+
+### The palette check
+
+Run rather than reasoned, because a stacked column puts these hues in direct contact for
+the first time (a table separated them with text, a ring with a 2px stroke and 90° of arc):
+
+```
+[PASS] Lightness band       all 4 inside L 0.43–0.77
+[FAIL] Chroma floor         #6e6c66 reads gray
+[PASS] CVD separation       worst adjacent #eda100↔#1baf7a ΔE 9.1 (protan)
+[PASS] Normal-vision floor  worst adjacent ΔE 22.9
+[WARN] Contrast vs surface  #1baf7a 2.74, #eda100 2.11 — relief required
+```
+
+Both marks are pre-existing properties of this palette and both are deliberate. The chroma
+FAIL is the muted gray that Language gives *Undetermined* and Adoption gives *unknown* —
+"no signal" is not an identity worth a hue (D-59), and giving it one to pass a check would
+be the check corrupting the finding. The contrast WARN is the obligation `PieShare` has
+carried since D-59, discharged here by in-band labels and the data table.
+
+One finding is new. Under `--pairs all` the **gray↔accent-blue** pair is ΔE 14.7 in normal
+vision, just under the 15 floor — it passes on the adjacent pairlist (22.9) because those
+two are never neighbours in a stack: German sits at the baseline and Undetermined at the
+top, two bands apart, and the same holds for bachelor and unknown on Adoption. The stack
+order is fixed and identical in every column, so **position is a second identity channel**
+here in a way it never was in the ring. Worth knowing if a future window ever publishes a
+level card with only those two categories in it.
+
+### Sizing
+
+The column is 240px and a band is labelled at 14px or taller, i.e. from about 6% — which is
+where the number came from: Language's Undetermined runs 6% in most windows, and a form
+whose smallest real category falls one pixel under its own label threshold is a form that
+was sized by guessing. Below that the share is in the data table row and in the band's
+hover title, never smeared across a band too short to hold it. **The legend carries no
+numbers** — it is shared by every column and cannot — which is exactly the D-59 trade named
+above, not an oversight.
+
+### Four fixes from the review, before publishing
+
+1. **An undrawable column now names its own reason.** "No denominator", "every category
+   withheld" and "every category a measured zero" are three different claims, and one
+   caption served all three: a Language level with every language withheld rendered fully
+   striped under the word "no total", contradicting the card's own suppression key, and a
+   measured-zero group would have read as withheld — rule 3 inverted. Live windows hit the
+   first case (`2026S.last4`, `2026S.last1`), which are the windows an educator opens first.
+2. **`DataTable` keys its headers by position.** Adoption legitimately repeats "% of window"
+   twice, and `showTable={false}` had meant that table was never built for this card;
+   `showTable || figure` built it and React warned. The two headers are also disambiguated
+   — `% of window (users)` / `% of window (messages)` — because in a disclosure that is now
+   the card's only text channel, two identically-named columns are unreadable on their own.
+3. **Adoption falls back to the shared table when a level is withheld**, exactly as Timing's
+   daypart ring falls back to bars. A withheld level makes the sum of the published levels
+   the wrong denominator for both columns at once, so the figure blanked and the levels that
+   *were* published survived only inside a collapsed disclosure — in precisely the thin
+   window where a reader needs them. No live window hits this today (zero Adoption
+   suppression across all six), but a `last1` week will. `showTable={false}` rides along, so
+   the fallback is D-59's card unchanged. Language needs no such fallback: its suppression is
+   per cell, so the other columns still carry the finding.
+4. **The hover unit is per column.** One `valueNoun` for the whole figure produced
+   "Active users · Bachelor: 66 of the levels shown (50%)" — one noun cannot serve two
+   columns whose units differ.
+
+### Deploy
+
+Bundle half only. Nothing here touches a cell, a footnote text or the schema.

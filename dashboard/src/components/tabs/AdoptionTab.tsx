@@ -1,9 +1,4 @@
-import type {
-  OkCell,
-  SuppressedCell,
-  UsageContextByStatus,
-  UserClasses,
-} from "@/lib/aggregates.gen";
+import type { OkCell, SuppressedCell, UsageContextByStatus } from "@/lib/aggregates.gen";
 import { footnoteText, footnoteTexts, resolveFootnotes, symbolsFor } from "@/lib/footnotes";
 import { formatCount } from "@/lib/format";
 import {
@@ -15,13 +10,12 @@ import {
   reachPercent,
   sharePercent,
 } from "@/lib/levels";
-import { ChartCard } from "../cells/ChartCard";
 import { LevelGap, SectionPending, WindowGap } from "../cells/EmptyState";
 import { InfoTip } from "../cells/InfoTip";
 import { KpiPairTile, KpiTile } from "../cells/KpiTile";
 import { NoteText } from "../cells/NoteText";
-import { PieShare } from "../cells/PieShare";
 import { ProgramLevelCard, type LevelColumn } from "../cells/ProgramLevelCard";
+import { StackedShareBars } from "../cells/StackedShareBars";
 import {
   cellText,
   levelsIn,
@@ -33,54 +27,11 @@ import {
   type TabProps,
 } from "./shared";
 
-function ClassStat({
-  label,
-  cell,
-  floorN,
-  sub,
-}: {
-  label: string;
-  cell: OkCell | SuppressedCell | null | undefined;
-  floorN: number;
-  /** Marks a count that is a subset of another, so nobody adds it to the row. */
-  sub?: boolean;
-}) {
-  return (
-    <div>
-      {cell == null ? (
-        <div className="text-2xl font-semibold text-ink-3">·</div>
-      ) : cell.status === "ok" ? (
-        <div className={`text-2xl font-semibold ${sub ? "text-ink-2" : "text-ink"}`}>
-          {formatCount(cell.value)}
-        </div>
-      ) : (
-        <div className="text-2xl font-semibold text-suppressed" title={`suppressed (< ${floorN} students)`}>
-          —
-        </div>
-      )}
-      <div className="mt-0.5 text-xs text-ink-2">{label}</div>
-    </div>
-  );
-}
-
-function UserClassRow({ classes, floorN }: { classes: UserClasses; floorN: number }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-10 gap-y-5 py-2">
-      <ClassStat label="one-time" cell={classes.one_time} floorN={floorN} />
-      <ClassStat label="monthly" cell={classes.monthly} floorN={floorN} />
-      <ClassStat label="sporadic" cell={classes.sporadic} floorN={floorN} />
-      {/* Dimmed and last: a subset of monthly, so it must not read as a fourth
-          column of the partition. */}
-      <ClassStat label="frequent (of monthly)" cell={classes.frequent} floorN={floorN} sub />
-    </div>
-  );
-}
-
 export function AdoptionTab({ doc, win, level }: TabProps) {
   const intro = (
     <PanelIntro
       question="Who uses StatsBot, and how much?"
-      deck="Adoption for the selected window: cohort totals, how many came back, and frequency-based user classes."
+      deck="Adoption for the selected window: cohort totals, how the levels compare, and how many came back."
     />
   );
   const section = doc.sections.usage_context;
@@ -138,8 +89,6 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
         new_registrations_active: slice.new_registrations_active,
       }
     : roll.totals;
-  const userClasses = slice ? slice.user_classes : roll.user_classes;
-  const classFootnotes = resolveFootnotes(doc, [roll.user_classes.footnote_ids]);
   const statusFootnotes = resolveFootnotes(doc, [["status_rule", "status_multi"]]);
 
   // D-58: the totals block has no shared Note paragraph any more, so there is nothing for
@@ -177,6 +126,10 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
     enrolled !== null && activeValue !== null ? reachPercent(activeValue, enrolled) : null;
   const enrollmentNotes = footnoteTexts(doc, reachFootnoteIds(win));
 
+  // Data-table text for a count cell: the number, "suppressed", or nothing measured.
+  const countText = (cell: OkCell | SuppressedCell | null | undefined) =>
+    cell == null ? "·" : cell.status === "suppressed" ? "suppressed" : formatCount(cell.value);
+
   const windowActive = valueOf(roll.totals.active_students);
   const windowMessages = valueOf(roll.totals.messages);
   const levelColumns: LevelColumn[] = [
@@ -184,9 +137,17 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
     {
       header: "Active users",
       cell: (l) => cellText(byStatus?.[l]?.active_students, doc.privacy_floor_n),
+      // The disclosure is this card's only text channel since D-62; `textOf`'s bare em
+      // dash for a rich cell would be the sole rendering of a withheld number, with no
+      // key anywhere to say it is not a zero.
+      text: (l) => countText(byStatus?.[l]?.active_students),
     },
     {
-      header: "% of window",
+      // Named for its numerator, not just its denominator (D-62). Two bare "% of window"
+      // columns were legible beside the counts they followed in the visible table; in the
+      // data table — which is this card's only text channel now — they are two
+      // identically-labelled columns and the reader has no way to tell which is which.
+      header: "% of window (users)",
       cell: (l) => {
         const v = valueOf(byStatus?.[l]?.active_students);
         return v === null ? null : (sharePercent(v, windowActive) ?? null);
@@ -195,9 +156,10 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
     {
       header: "Messages",
       cell: (l) => cellText(byStatus?.[l]?.messages, doc.privacy_floor_n),
+      text: (l) => countText(byStatus?.[l]?.messages),
     },
     {
-      header: "% of window",
+      header: "% of window (messages)",
       cell: (l) => {
         const v = valueOf(byStatus?.[l]?.messages);
         return v === null ? null : (sharePercent(v, windowMessages) ?? null);
@@ -215,25 +177,64 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
   ];
   const enrollmentEntry = enrollmentFor(doc, win);
 
-  // The donut under the level table (D-59). Denominator is the sum of the published
-  // levels, NOT the window total: a BA→MA transitioner is counted under both levels
-  // (`status_multi`), so the levels can add up past the window by a few, and a pie drawn
-  // against the window total would over-fill. Drawn against their own sum it is exact,
-  // and the card says which sum it is.
+  // The card's figure since D-62: one 100%-stacked column per measure, split by level.
+  // Two columns rather than the D-59 donut's one, because the interesting sentence on this
+  // card is the *difference* between the two compositions — bachelor is 50% of the active
+  // users and 52% of the messages — and a ring can only ever show one of them. (A single
+  // stacked column would also be a one-bar bar chart, which is a stat tile wearing a
+  // costume.)
   //
-  // Suppression is all-or-nothing: one withheld level and there is no donut, because a
-  // ring over the survivors would show them as the whole cohort. The table above keeps
-  // every publishable number visible either way, so nothing is lost but the picture.
-  const levelSlices = levels.map((l) => ({
+  // Denominator is the sum of the published levels, NOT the window total: a BA→MA
+  // transitioner is counted under both levels (`status_multi`), so the levels can add up
+  // past the window by a few and a column drawn against the window total would overfill.
+  //
+  // All-or-nothing per column, for `PieShare`'s rule 1: one withheld level and the
+  // survivors would fill the column, asserting the withheld one is zero. `messages` cannot
+  // reach that state anyway — `_joint_partition_floor` withholds it on every level once it
+  // is withheld on one — but `active_students` is exempt from that joint floor, so it can,
+  // and this is the branch that keeps it honest.
+  const levelSeries = levels.map((l) => ({
     key: l,
     label: STATUS_LABELS[l] ?? l,
-    value: valueOf(byStatus?.[l]?.active_students),
     color: LEVEL_COLORS[l] ?? LEVEL_COLORS.unknown,
   }));
-  const levelDonut = levelSlices.every((s) => s.value !== null)
-    ? (levelSlices as { key: string; label: string; value: number; color: string }[])
-    : null;
-  const donutTotal = levelDonut?.reduce((sum, s) => sum + s.value, 0) ?? 0;
+  const anyLevelSuppressed = (["active_students", "messages"] as const).some((measure) =>
+    levels.some((l) => byStatus?.[l]?.[measure]?.status === "suppressed"),
+  );
+  const measureGroup = (measure: "active_students" | "messages", label: string) => {
+    const cells = Object.fromEntries(
+      levels.map((l) => {
+        const cell = byStatus?.[l]?.[measure];
+        return [l, { value: valueOf(cell), suppressed: cell?.status === "suppressed" }];
+      }),
+    );
+    const values = levels.map((l) => cells[l].value);
+    const total = values.every((v) => v !== null)
+      ? (values as number[]).reduce((sum, v) => sum + v, 0)
+      : null;
+    return {
+      key: measure,
+      label,
+      total,
+      cells,
+      unavailable: "withheld",
+      // Per column, because the two columns count different things. One noun for the whole
+      // figure produced "Active users · Bachelor: 66 of the levels shown (50%)".
+      valueNoun: measure === "messages" ? "messages" : "active users",
+    };
+  };
+
+  // Reach rides under the columns rather than inside one: it is a ratio against an outside
+  // denominator (the enrolled cohort), not a share of anything on this card, so it has no
+  // column to belong to — and under All users this card is the only place it appears at
+  // all. Same strip idiom as Timing's weekday/weekend pair, for the same reason.
+  const reachRows = levels.flatMap((l) => {
+    const active = valueOf(byStatus?.[l]?.active_students);
+    const cohort = enrolledFor(doc, win, l);
+    return active !== null && cohort !== null
+      ? [{ key: l, label: STATUS_LABELS[l] ?? l, pct: reachPercent(active, cohort) }]
+      : [];
+  });
 
   return (
     <div>
@@ -257,27 +258,45 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
             floorN={doc.privacy_floor_n}
             markers={symbolsFor(statusFootnotes, ["status_rule", "status_multi"])}
             footnotes={statusFootnotes}
-            // The card's own figure is already an accessible <table> with a caption, so
-            // the collapsible twin was these numbers a third time (D-59). The only card
-            // on the dashboard where that is true.
+            // Columns where they can be drawn, the shared table where they cannot — the
+            // same fallback Timing's daypart ring keeps, for the same reason. A withheld
+            // level makes the sum of the published levels the wrong denominator for BOTH
+            // columns, so the figure would go blank and the levels that ARE published would
+            // survive only inside a collapsed disclosure. That is the window a reader most
+            // needs the numbers in. `showTable={false}` then applies to the fallback, where
+            // D-59's argument still holds exactly: the card's figure IS an accessible table.
             showTable={false}
-            footer={
-              levelDonut ? (
-                <PieShare
-                  slices={levelDonut}
-                  total={donutTotal}
-                  centerLabel="active users across the levels shown"
-                  valueLabel="Active users"
-                  ariaLabel={`Active users by program level, ${win.label}: ${levelDonut
-                    .map((s) => `${s.label} ${formatCount(s.value)}`)
-                    .join(", ")}.`}
-                />
-              ) : null
+            figure={
+              anyLevelSuppressed ? undefined : (
+              <StackedShareBars
+                groups={[
+                  measureGroup("active_students", "Active users"),
+                  measureGroup("messages", "Messages"),
+                ]}
+                series={levelSeries}
+                valueNoun="students"
+                ariaLabel={`Active users and messages by program level, ${win.label}. Each column is split into the levels shown; every count and share is in the data table below.`}
+                footer={
+                  reachRows.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1 border-t border-hairline pt-2 text-xs text-ink-2">
+                      <span className="text-ink-3">Reach</span>
+                      {reachRows.map((row) => (
+                        <span key={row.key}>
+                          {row.label}{" "}
+                          <span className="font-semibold tabular-nums text-ink">{row.pct}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null
+                }
+              />
+              )
             }
             note={
               <>
-                <span className="font-medium">% of window</span> is the level&rsquo;s share of
-                this window&rsquo;s total.{" "}
+                {anyLevelSuppressed
+                  ? "One level's count is withheld here, so the sum of the published levels is not this window's whole and the figures are shown as a table rather than as columns drawn over the rest. "
+                  : "Each column is drawn against the levels shown, which is a hair more than the window total wherever a student changed level inside it. Counts, and each level's share of the window total, are in the data table below. "}
                 {enrollmentEntry ? (
                   <>
                     <span className="font-medium">Reach</span> is its active users over its
@@ -296,10 +315,7 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
                       ? "All time spans several semesters of cohort turnover, so no single headcount is its denominator."
                       : "None is published for this semester yet."}
                   </>
-                )}{" "}
-                {levelDonut
-                  ? "The ring reads the Active users column against the levels shown, which is a hair more than the window total wherever a student changed level inside it."
-                  : "One level's count is withheld here, so the ring is left out rather than drawn over the rest."}
+                )}
               </>
             }
           />
@@ -413,18 +429,12 @@ export function AdoptionTab({ doc, win, level }: TabProps) {
               is exactly what an APA table note is for. */}
         </div>
 
-        <div className="grid items-start gap-4 lg:grid-cols-2">
-          {userClasses ? (
-            <ChartCard
-              title="User classes"
-              markers={symbolsFor(classFootnotes, roll.user_classes.footnote_ids)}
-              footnotes={classFootnotes}
-              floorN={doc.privacy_floor_n}
-            >
-              <UserClassRow classes={userClasses} floorN={doc.privacy_floor_n} />
-            </ChartCard>
-          ) : null}
-        </div>
+        {/* The User classes card was here until D-62 (one-time / monthly / sporadic /
+            frequent). Taken off the page, not out of the pipeline: `user_classes` is still
+            aggregated, still published, still governed by the `frequent ⊂ monthly`
+            invariant, and the schema does not move — what happens to the measure itself is
+            a separate decision. Restoring the card is a revert of this commit, not a
+            re-aggregation. */}
       </div>
     </div>
   );

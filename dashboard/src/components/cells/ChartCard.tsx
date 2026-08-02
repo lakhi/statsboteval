@@ -103,8 +103,12 @@ export function DataTable({
           <caption className="sr-only">{caption}</caption>
           <thead>
             <tr className="border-b border-hairline bg-paper text-ink-2">
-              {head.map((h) => (
-                <th key={h} className="px-2 py-1 font-medium">
+              {/* Keyed by position, not by text: a caller may legitimately repeat a header
+                  (Adoption's two "% of window" columns), and keying by the string made that
+                  a duplicate-key warning the moment a figure card started building this
+                  table. Column order is the identity here anyway. */}
+              {head.map((h, i) => (
+                <th key={i} className="px-2 py-1 font-medium">
                   {h}
                 </th>
               ))}
