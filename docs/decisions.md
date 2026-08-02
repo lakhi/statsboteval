@@ -2481,3 +2481,28 @@ above, not an oversight.
 ### Deploy
 
 Bundle half only. Nothing here touches a cell, a footnote text or the schema.
+
+### Publish record — 2026-08-02
+
+D-62 went live as the **code half only**, 15:44 UTC. No blob uploaded and none needed: the
+live document is still D-59's `v1/aggregates_2026-W30_20260801T192936Z.json`, schema 1.9.0,
+provenance production, `data_through_week` 2026-W30 (the 2026-07-28 extract). Every string
+this change touches lives in the bundle.
+
+Verified by grepping the served JS chunks (1.1 MB, all `/_next/static/chunks/*.js`):
+
+| string | count |
+|---|---|
+| `% of window (users)` / `% of window (messages)` | 1 / 1 |
+| `for cross-study validation, from` | **0** |
+| `Deductive Categories (from Bergmann` | 1 |
+| `User classes` / `frequent (of monthly)` | **0 / 0** |
+| `active users across the levels shown` (the donut's center caption) | **0** |
+| `A striped band is a language withheld` | 1 |
+
+Both cards were rendered on the real-shaped document during review (headless Chrome, the
+extension is still not connecting), which is what caught the four defects fixed above. What
+that pass did **not** cover is the four fixes themselves — but they are caption strings, a
+React key, a fallback branch and a tooltip, not geometry. The one open question a browser
+would settle is the void: both cards are full-width holding two or three 104px columns, and
+widening them from 84px did not resolve it. Look at Adoption at All time.
