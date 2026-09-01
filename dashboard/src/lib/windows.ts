@@ -5,13 +5,13 @@ export type AnyWindow = Windows[number];
 // "YYYY-Www" sorts lexicographically (zero-padded, year first), so plain
 // string comparison is correct week ordering throughout.
 
-/** Default filter value: the semester with the latest coverage — the running
- *  semester mid-term, the just-ended one during breaks. Falls back to all_time. */
+/** Default filter value: all_time, the widest view. Falls back to the semester
+ *  with the latest coverage if no all_time window is published. */
 export function defaultWindowId(windows: Windows): string {
   const semesters = windows
     .filter((w) => w.kind === "semester")
     .sort((a, b) => (a.coverage.through < b.coverage.through ? 1 : -1));
-  return semesters[0]?.id ?? windows.find((w) => w.kind === "all_time")?.id ?? windows[0]?.id ?? "";
+  return windows.find((w) => w.kind === "all_time")?.id ?? semesters[0]?.id ?? windows[0]?.id ?? "";
 }
 
 export function findWindow(windows: Windows, id: string | null): AnyWindow | undefined {

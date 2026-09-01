@@ -77,9 +77,9 @@ export function availableLevels(doc: Aggregates): string[] {
   return LEVEL_ORDER.filter((key) => found.has(key));
 }
 
-/** Bachelor by default (D-55), falling back to the widest view when no roster exists. */
-export function defaultLevel(available: string[]): Level {
-  return available.includes("bachelor") ? "bachelor" : ALL;
+/** All users by default — the widest view. */
+export function defaultLevel(_available: string[]): Level {
+  return ALL;
 }
 
 export function resolveLevel(available: string[], candidate: string | null): Level {
