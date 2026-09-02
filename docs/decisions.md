@@ -2506,3 +2506,31 @@ that pass did **not** cover is the four fixes themselves — but they are captio
 React key, a fallback branch and a tooltip, not geometry. The one open question a browser
 would settle is the void: both cards are full-width holding two or three 104px columns, and
 widening them from 84px did not resolve it. Look at Adoption at All time.
+
+### Publish record — 2026-09-02
+
+Two gaps closed in one go-live.
+
+**Undocumented, already live.** The Topics wording fix (`11366c2`, "kept" → "included" in
+the Deductive Categories deck) shipped in a deploy at 2026-08-02T16:07:01 UTC — 74 seconds
+after that commit — that was never recorded here. Confirmed retroactively by diffing the
+served JS chunks: `"included for cross-study validation"` is present, `"kept for
+cross-study validation"` is absent, and Azure's deployment log shows an active deploy at
+that timestamp with no corresponding entry above it. Recording it now so this file stays
+authoritative; no further action needed — it has been live for a month.
+
+**D-63, this go-live.** Landing page defaults changed from `window=2026S&status=bachelor`
+to `window=all_time&status=all` (`defaultWindowId` in `dashboard/src/lib/windows.ts`,
+`defaultLevel` in `dashboard/src/lib/levels.ts`) — code half only, went live 2026-09-02
+~15:39 UTC (commit `8210567`). No blob uploaded and none needed: the live document is
+still D-59's `v1/aggregates_2026-W30_20260801T192936Z.json`, schema 1.9.0, provenance
+production, `data_through_week` 2026-W30 — unchanged before and after this deploy
+(`/api/v1/aggregates` read identically both times).
+
+Verified by diffing served chunk hashes before/after deploy: exactly one chunk
+(`1prjossukhy9p.js`, replacing `33zj_nsi7yjd8.js`) changed — the one carrying
+`levels.ts`/`windows.ts` (confirmed present: `"All users"`, `"all_time"`) — consistent
+with an isolated two-function edit and nothing else in the bundle moving. The Chrome
+extension was not connected this session, so the resolved default query params were not
+confirmed by opening the page; worth a manual check that the bare URL lands on
+`?tab=adoption&window=all_time&status=all`.
